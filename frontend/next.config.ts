@@ -1,6 +1,6 @@
 import type { NextConfig } from 'next';
 
-const PROD_API_HOSTS = [
+const PROD_API_HOSTS: string[] = [
   // Add deployed backend hostnames here. Pulled in at build time so the
   // browser bundle only allows CORS / image fetches to known origins.
   // Example: 'api.myc-ops.com'
