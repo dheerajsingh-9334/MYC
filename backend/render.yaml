@@ -6,11 +6,10 @@ services:
   - type: web
     name: myc-ops-backend
     runtime: node
-    rootDir: backend
     plan: starter
     region: oregon
-    buildCommand: npm install && npx prisma generate && npm run build
-    startCommand: npm run start
+    buildCommand: cd backend && npm install && npx prisma generate && npm run build
+    startCommand: cd backend && npx prisma migrate deploy && node dist/index.js
     healthCheckPath: /api/health
     autoDeploy: true
     envVars:
