@@ -1,0 +1,128 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Brand */
+  --olive: #556B2F;
+  --olive-dark: #3A4A20;
+  --olive-light: #6B8A3A;
+  --olive-50: #F4F7EC;
+  --olive-100: #E4ECD0;
+  --olive-200: #C8D9A5;
+
+  /* Neutrals */
+  --bg: #FAFAF7;
+  --surface: #FFFFFF;
+  --surface-2: #F5F4EF;
+  --border: #E5E4DC;
+  --border-strong: #D1CFC2;
+  --ink: #1A1A1A;
+  --ink-2: #3D3D3D;
+  --muted: #6B6B6B;
+  --soft: #9C9C9C;
+
+  /* Status */
+  --green: #2A7F4F;
+  --green-bg: #E8F5EE;
+  --amber: #C58A1A;
+  --amber-bg: #FFF4DA;
+  --red: #B23B2D;
+  --red-bg: #FCEAE7;
+  --blue: #2860A1;
+  --blue-bg: #E6F0FA;
+
+  /* Accent */
+  --gold: #B8893A;
+
+  /* Layout */
+  --sidebar-w: 240px;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-serif { font-family: 'Instrument Serif', serif; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Status badges */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.status-ontrack { background: var(--green-bg); color: var(--green); }
+.status-due { background: var(--amber-bg); color: var(--amber); }
+.status-over { background: var(--red-bg); color: var(--red); }
+.status-blocked { background: #F0E8FA; color: #6B3FA0; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.animate-fade-in { animation: fadeIn 0.25s ease; }
+.animate-slide-up { animation: slideUp 0.3s ease; }
+.animate-modal-in { animation: modalIn 0.2s ease-out; }
+.animate-pulse-dot { animation: pulse 2s infinite; }
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--surface-2); }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 10px; }
+
+/* ── Redesign pass: shared layout + motion-reduce gate ───────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+@media (max-width: 900px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

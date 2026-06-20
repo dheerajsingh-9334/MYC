@@ -1,0 +1,14 @@
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Patch / scratch files saved alongside the repo
+*.patch
+/tmp/
+
+# Allow .env.example in any subdirectory but ignore everything else starting with .env
+.env*
+!**/.env.example

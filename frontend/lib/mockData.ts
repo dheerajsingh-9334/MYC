@@ -1,0 +1,303 @@
+// ─── MOCK DATA — kept as a fallback in case the backend is offline. ──────
+// The app is now fully live-driven: all routes prefer the real API. If a
+// route still imports MOCK_* and USE_MOCK is false, those values are simply
+// ignored (the ternaries fall through to live data).
+//
+// USE_MOCK = true  → use the prototype fixtures below (offline mode)
+// USE_MOCK = false → use live backend data (default)
+
+export const USE_MOCK = false;
+
+const now = Date.now();
+const daysAgo = (d: number) => new Date(now - d * 86400000).toISOString();
+const daysFrom = (d: number) => new Date(now + d * 86400000).toISOString();
+
+export const MOCK_STEPS = [
+  { id: 's1', stepNumber: 1, name: 'Client Onboarding',  owningTeamName: 'Intake Team',      slaDays: 3,  isActive: true, taskCount: 4, taskDesc: 'Sign agreement, collect brand assets, create folder, intro call' },
+  { id: 's2', stepNumber: 2, name: 'Strategy Call',      owningTeamName: 'Sales Team',        slaDays: 5,  isActive: true, taskCount: 3, taskDesc: 'Discovery, offer definition, target setting' },
+  { id: 's3', stepNumber: 3, name: 'Brand Setup',        owningTeamName: 'Design Team',       slaDays: 7,  isActive: true, taskCount: 5, taskDesc: 'Logo, palette, templates, photos, guidelines' },
+  { id: 's4', stepNumber: 4, name: 'Funnel Build',       owningTeamName: 'Tech Team',         slaDays: 10, isActive: true, taskCount: 6, taskDesc: 'Landing, thank you, form, payment, domain, analytics' },
+  { id: 's5', stepNumber: 5, name: 'Ad Creative',        owningTeamName: 'Creative Team',     slaDays: 7,  isActive: true, taskCount: 4, taskDesc: 'Copy, image creatives, video edit, review' },
+  { id: 's6', stepNumber: 6, name: 'Ad Launch',          owningTeamName: 'Media Buyer',       slaDays: 5,  isActive: true, taskCount: 3, taskDesc: 'Campaign setup, targeting, budget approval & go live' },
+  { id: 's7', stepNumber: 7, name: 'Automation Setup',   owningTeamName: 'Automation Team',   slaDays: 5,  isActive: true, taskCount: 4, taskDesc: 'Email sequence, WhatsApp flow, CRM tagging, lead nurture' },
+  { id: 's8', stepNumber: 8, name: 'Event Preparation',  owningTeamName: 'Event Team',        slaDays: 7,  isActive: true, taskCount: 5, taskDesc: 'Webinar setup, materials, coach brief, dry run, tech check' },
+  { id: 's9', stepNumber: 9, name: 'Event Launch',       owningTeamName: 'All Teams',         slaDays: 1,  isActive: true, taskCount: 3, taskDesc: 'Live support, real-time fixes, post-event sequence' },
+];
+
+export const MOCK_CLIENTS = [
+  {
+    id: 'c1',
+    fullName: 'Priya Sharma',
+    brandName: 'Priya Healing Arts',
+    email: 'priya@healingarts.in',
+    whatsappNumber: '+91 98765 43210',
+    status: 'active',
+    dateJoined: '2026-04-14',
+    stepEnteredAt: daysAgo(12),
+    currentStep: MOCK_STEPS[3],
+    computedStatus: 'overdue',
+    daysInStep: 12,
+  },
+  {
+    id: 'c2',
+    fullName: 'Vikram Reddy',
+    brandName: 'TrueNorth Coaching',
+    email: 'vikram@truenorth.in',
+    whatsappNumber: '+91 99887 76655',
+    status: 'active',
+    dateJoined: '2026-05-22',
+    stepEnteredAt: daysAgo(6),
+    currentStep: MOCK_STEPS[1],
+    computedStatus: 'overdue',
+    daysInStep: 6,
+  },
+  {
+    id: 'c3',
+    fullName: 'Anita Desai',
+    brandName: 'SoulPath Wellness',
+    email: 'anita@soulpath.in',
+    whatsappNumber: '+91 97865 43210',
+    status: 'active',
+    dateJoined: '2026-03-03',
+    stepEnteredAt: daysAgo(6),
+    currentStep: MOCK_STEPS[4],
+    computedStatus: 'blocked',
+    daysInStep: 6,
+  },
+  {
+    id: 'c4',
+    fullName: 'Anika Bhatt',
+    brandName: 'Anika Wellness',
+    email: 'anika@wellness.in',
+    whatsappNumber: '+91 98763 21098',
+    status: 'active',
+    dateJoined: '2026-05-12',
+    stepEnteredAt: daysAgo(7),
+    currentStep: MOCK_STEPS[2],
+    computedStatus: 'due_today',
+    daysInStep: 7,
+  },
+  {
+    id: 'c5',
+    fullName: 'Rahul Mehra',
+    brandName: 'Coach Rahul',
+    email: 'rahul@coachr.in',
+    whatsappNumber: '+91 99001 23456',
+    status: 'active',
+    dateJoined: '2026-05-28',
+    stepEnteredAt: daysAgo(3),
+    currentStep: MOCK_STEPS[5],
+    computedStatus: 'on_track',
+    daysInStep: 3,
+  },
+  {
+    id: 'c6',
+    fullName: 'Meera Iyer',
+    brandName: 'Mindful with Meera',
+    email: 'meera@mindful.in',
+    whatsappNumber: '+91 98765 43211',
+    status: 'active',
+    dateJoined: '2026-04-10',
+    stepEnteredAt: daysAgo(2),
+    currentStep: MOCK_STEPS[6],
+    computedStatus: 'on_track',
+    daysInStep: 2,
+  },
+  {
+    id: 'c7',
+    fullName: 'Tanvi Kapoor',
+    brandName: 'Inner Echo Coaching',
+    email: 'tanvi@innerecho.in',
+    whatsappNumber: '+91 98001 23123',
+    status: 'active',
+    dateJoined: '2026-05-18',
+    stepEnteredAt: daysAgo(4),
+    currentStep: MOCK_STEPS[7],
+    computedStatus: 'on_track',
+    daysInStep: 4,
+  },
+  {
+    id: 'c8',
+    fullName: 'Sneha Pillai',
+    brandName: 'Radiant Wellness',
+    email: 'sneha@radiant.in',
+    whatsappNumber: '+91 96543 21987',
+    status: 'active',
+    dateJoined: '2026-06-02',
+    stepEnteredAt: daysAgo(1),
+    currentStep: MOCK_STEPS[0],
+    computedStatus: 'on_track',
+    daysInStep: 1,
+  },
+];
+
+export const MOCK_STATS = {
+  total: 107,
+  active: 107,
+  onTrack: 89,
+  dueToday: 14,
+  overdue: 4,
+  paused: 0,
+};
+
+export const MOCK_STANDUP = {
+  date: new Date().toISOString(),
+  summary: '4 things need your attention',
+  subtext: 'Everything else is on track. These are the only conversations you need to have in standup today.',
+  totalAlerts: 4,
+  overdueCnt: 2,
+  blockedCnt: 1,
+  dueTodayCnt: 1,
+  items: [
+    {
+      alertType: 'overdue',
+      stripe: 'red',
+      clientName: 'Priya Healing Arts',
+      stepLabel: 'Step 04 — Funnel Build',
+      title: 'Funnel build is 2 days behind schedule',
+      detail: 'Assigned to <b>Rajan (Tech Team)</b>. No blocker raised. Last activity 3 days ago. <strong>Suggest discussing reassignment or pairing with second dev.</strong>',
+      durationTag: '+2 days',
+      durationStyle: 'red',
+    },
+    {
+      alertType: 'overdue',
+      stripe: 'red',
+      clientName: 'TrueNorth Coaching',
+      stepLabel: 'Step 02 — Strategy Call',
+      title: 'Strategy call not scheduled — client unresponsive',
+      detail: 'Assigned to <b>Sneha (Sales Team)</b>. Client hasn\'t responded to 3 follow-ups. <strong>Escalate to manager DM or pause client status.</strong>',
+      durationTag: '+1 day',
+      durationStyle: 'red',
+    },
+    {
+      alertType: 'blocked',
+      stripe: 'purple',
+      clientName: 'SoulPath Wellness',
+      stepLabel: 'Step 05 — Ad Creative',
+      title: 'Waiting on client brand photos',
+      detail: 'Raised by <b>Karan (Creative Team)</b> yesterday: <em>"Client hasn\'t shared their professional photos despite 2 requests. Cannot finalize creatives."</em>',
+      durationTag: '1 day blocked',
+      durationStyle: 'amber',
+    },
+    {
+      alertType: 'due_today',
+      stripe: 'amber',
+      clientName: 'Anika Wellness',
+      stepLabel: 'Step 03 — Brand Setup',
+      title: 'Brand setup deliverables due by EOD',
+      detail: 'Assigned to <b>Neha (Design Team)</b>. On track based on yesterday\'s check-in. <strong>Quick verification recommended after 3pm.</strong>',
+      durationTag: 'Today',
+      durationStyle: 'amber',
+    },
+  ],
+};
+
+// Tasks for "My Tasks" screen — from Rajan's POV (Tech Team)
+export const MOCK_TASKS = [
+  {
+    id: 't1',
+    title: 'Build landing page with payment integration',
+    status: 'in_progress',
+    priority: 'high',
+    dueDate: daysAgo(2),
+    client: MOCK_CLIENTS[0],
+    step: MOCK_STEPS[3],
+    assignedTo: { fullName: 'Rajan Mehta', teamName: 'Tech Team' },
+    blockerNote: null,
+  },
+  {
+    id: 't2',
+    title: 'Test webinar registration flow end-to-end',
+    status: 'in_progress',
+    priority: 'high',
+    dueDate: daysAgo(1),
+    client: MOCK_CLIENTS[2],
+    step: MOCK_STEPS[3],
+    assignedTo: { fullName: 'Rajan Mehta', teamName: 'Tech Team' },
+    blockerNote: null,
+  },
+  {
+    id: 't3',
+    title: 'Set up payment gateway integration',
+    status: 'pending',
+    priority: 'normal',
+    dueDate: new Date(now).toISOString(),
+    client: { brandName: 'Coach Ritu', fullName: 'Ritu Sharma' },
+    step: MOCK_STEPS[3],
+    assignedTo: { fullName: 'Rajan Mehta', teamName: 'Tech Team' },
+    blockerNote: null,
+  },
+  {
+    id: 't4',
+    title: 'Connect form submissions to CRM',
+    status: 'pending',
+    priority: 'normal',
+    dueDate: new Date(now).toISOString(),
+    client: MOCK_CLIENTS[4],
+    step: MOCK_STEPS[6],
+    assignedTo: { fullName: 'Rajan Mehta', teamName: 'Tech Team' },
+    blockerNote: null,
+  },
+  {
+    id: 't5',
+    title: 'Configure email automation sequence',
+    status: 'complete',
+    priority: 'normal',
+    dueDate: new Date(now).toISOString(),
+    completedAt: new Date(now - 2 * 3600000).toISOString(),
+    client: MOCK_CLIENTS[5],
+    step: MOCK_STEPS[6],
+    assignedTo: { fullName: 'Rajan Mehta', teamName: 'Tech Team' },
+    blockerNote: null,
+  },
+  {
+    id: 't6',
+    title: 'Build thank-you page with upsell offer',
+    status: 'pending',
+    priority: 'normal',
+    dueDate: daysFrom(1),
+    client: MOCK_CLIENTS[6],
+    step: MOCK_STEPS[3],
+    assignedTo: { fullName: 'Rajan Mehta', teamName: 'Tech Team' },
+    blockerNote: null,
+  },
+  {
+    id: 't7',
+    title: 'Set up tracking pixels and analytics',
+    status: 'pending',
+    priority: 'normal',
+    dueDate: daysFrom(3),
+    client: MOCK_CLIENTS[7],
+    step: MOCK_STEPS[3],
+    assignedTo: { fullName: 'Rajan Mehta', teamName: 'Tech Team' },
+    blockerNote: null,
+  },
+];
+
+// Team members
+export const MOCK_TEAM = [
+  { id: 'u1', fullName: 'Rajan Mehta',   initials: 'RJ', email: 'rajan@myc.in',   teamName: 'Tech Team',       activeTasks: 5, onTimeRate: 72,  statusType: 'warn',    statusLabel: '2 overdue' },
+  { id: 'u2', fullName: 'Neha Singh',    initials: 'NH', email: 'neha@myc.in',    teamName: 'Design Team',     activeTasks: 3, onTimeRate: 96,  statusType: 'ontrack', statusLabel: 'On track' },
+  { id: 'u3', fullName: 'Karan Roy',     initials: 'KR', email: 'karan@myc.in',   teamName: 'Creative Team',   activeTasks: 4, onTimeRate: 89,  statusType: 'blocked', statusLabel: '1 blocked' },
+  { id: 'u4', fullName: 'Sneha Pillai',  initials: 'SN', email: 'sneha@myc.in',   teamName: 'Sales Team',      activeTasks: 6, onTimeRate: 94,  statusType: 'ontrack', statusLabel: 'On track' },
+  { id: 'u5', fullName: 'Karthik Iyer', initials: 'KT', email: 'karthik@myc.in', teamName: 'Tech Team',       activeTasks: 4, onTimeRate: 91,  statusType: 'ontrack', statusLabel: 'On track' },
+  { id: 'u6', fullName: 'Amit Sharma',  initials: 'AS', email: 'amit@myc.in',    teamName: 'Automation Team', activeTasks: 3, onTimeRate: 88,  statusType: 'ontrack', statusLabel: 'On track' },
+  { id: 'u7', fullName: 'Preethi Nair', initials: 'PN', email: 'preethi@myc.in', teamName: 'Event Team',      activeTasks: 5, onTimeRate: 97,  statusType: 'ontrack', statusLabel: 'On track' },
+  { id: 'u8', fullName: 'Divya Menon',  initials: 'DM', email: 'divya@myc.in',   teamName: 'Intake Team',     activeTasks: 4, onTimeRate: 93,  statusType: 'ontrack', statusLabel: 'On track' },
+];
+
+// Client detail for Priya Healing Arts (c1) 
+export const MOCK_CLIENT_DETAIL = {
+  ...MOCK_CLIENTS[0],
+  pipelineHistory: [
+    { date: '26 May', title: 'Entered Step 4 — Funnel Build',   desc: 'Tech Team auto-assigned · SLA 10 days' },
+    { date: '21 May', title: 'Completed Step 3 — Brand Setup',  desc: 'Finished 2 days ahead of SLA · 5 tasks done' },
+    { date: '14 May', title: 'Entered Step 3 — Brand Setup',    desc: 'Design Team auto-assigned' },
+    { date: '14 Apr', title: 'Client created',                  desc: 'Added by Ambesh Kumar · placed at Step 1' },
+  ],
+  currentTasks: [
+    { id: 'ct1', title: 'Build landing page with payment integration', assignedTo: 'Rajan (Tech Team)', status: 'in_progress', priority: 'high', daysOverdue: 2 },
+    { id: 'ct2', title: 'Set up domain and SSL',           assignedTo: 'Karthik (Tech Team)', status: 'complete', completedAgo: '2 days ago' },
+    { id: 'ct3', title: 'Configure form fields and validation', assignedTo: 'Rajan (Tech Team)', status: 'complete', completedAgo: '5 days ago' },
+  ],
+};

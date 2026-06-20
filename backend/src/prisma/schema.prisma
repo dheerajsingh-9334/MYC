@@ -1,0 +1,265 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organisation {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  users               User[]
+  steps               Step[]
+  clients             Client[]
+  tasks               Task[]
+  notifications       Notification[]
+  onboardingInvites   OnboardingInvite[]
+  pendingApplications PendingApplication[]
+}
+
+model OnboardingInvite {
+  id             String    @id @default(uuid())
+  organisationId String
+  token          String    @unique @default(uuid())
+  sentToName     String
+  sentToEmail    String?
+  sentToWhatsapp String?
+  createdById    String
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  application  PendingApplication?
+}
+
+model PendingApplication {
+  id             String            @id @default(uuid())
+  organisationId String
+  inviteId       String?           @unique
+  fullName       String
+  brandName      String?
+  email          String?
+  whatsappNumber String?
+  location       String?
+  niche          String?
+  experience     String?
+  audienceSize   String?
+  revenueGoal    String?
+  eventTopic     String?
+  eventFormat    String?
+  brandColors    String?
+  brandTone      String?
+  notes          String?
+  status         ApplicationStatus @default(pending)
+  reviewedById   String?
+  reviewNote     String?
+  createdAt      DateTime          @default(now())
+  reviewedAt     DateTime?
+
+  organisation Organisation      @relation(fields: [organisationId], references: [id])
+  invite       OnboardingInvite? @relation(fields: [inviteId], references: [id])
+}
+
+enum ApplicationStatus {
+  pending
+  approved
+  rejected
+  more_info
+}
+
+model User {
+  id             String    @id @default(uuid())
+  organisationId String
+  email          String    @unique
+  passwordHash   String
+  fullName       String
+  role           Role
+  teamName       String?
+  whatsappNumber String?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  lastLoginAt    DateTime?
+
+  organisation   Organisation   @relation(fields: [organisationId], references: [id])
+  assignedTasks  Task[]         @relation("AssignedTo")
+  completedTasks Task[]         @relation("CompletedBy")
+  notifications  Notification[]
+  stepHistories  StepHistory[]
+}
+
+enum Role {
+  admin
+  team_member
+  client
+}
+
+model Step {
+  id             String  @id @default(uuid())
+  organisationId String
+  stepNumber     Int
+  name           String
+  owningTeamName String
+  slaDays        Int
+  description    String?
+  isActive       Boolean @default(true)
+
+  organisation  Organisation       @relation(fields: [organisationId], references: [id])
+  taskTemplates StepTaskTemplate[]
+  clients       Client[]
+  tasks         Task[]
+  historyFrom   StepHistory[]      @relation("FromStep")
+  historyTo     StepHistory[]      @relation("ToStep")
+}
+
+model StepTaskTemplate {
+  id             String   @id @default(uuid())
+  stepId         String
+  organisationId String
+  title          String
+  description    String?
+  relativeDueDay Int
+  priority       Priority @default(normal)
+  sortOrder      Int
+
+  step Step @relation(fields: [stepId], references: [id])
+}
+
+enum Priority {
+  high
+  normal
+}
+
+model Client {
+  id             String       @id @default(uuid())
+  organisationId String
+  fullName       String
+  brandName      String?
+  email          String?
+  whatsappNumber String?
+  currentStepId  String
+  stepEnteredAt  DateTime
+  dateJoined     DateTime
+  status         ClientStatus @default(active)
+  notes          String?
+  createdAt      DateTime     @default(now())
+  createdById    String
+
+  organisation Organisation  @relation(fields: [organisationId], references: [id])
+  currentStep  Step          @relation(fields: [currentStepId], references: [id])
+  tasks        Task[]
+  stepHistory  StepHistory[]
+  documents    Document[]
+}
+
+enum ClientStatus {
+  active
+  paused
+  completed
+  churned
+}
+
+model Task {
+  id                     String     @id @default(uuid())
+  organisationId         String
+  clientId               String
+  stepId                 String
+  templateTaskId         String?
+  assignedToId           String
+  title                  String
+  description            String?
+  priority               Priority   @default(normal)
+  dueDate                DateTime
+  status                 TaskStatus @default(pending)
+  completedAt            DateTime?
+  completedById          String?
+  blockerNote            String?
+  extensionRequestedDate DateTime?
+  extensionReason        String?
+  createdAt              DateTime   @default(now())
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  client       Client       @relation(fields: [clientId], references: [id])
+  step         Step         @relation(fields: [stepId], references: [id])
+  assignedTo   User         @relation("AssignedTo", fields: [assignedToId], references: [id])
+  completedBy  User?        @relation("CompletedBy", fields: [completedById], references: [id])
+}
+
+enum TaskStatus {
+  pending
+  in_progress
+  complete
+  blocked
+  extension_requested
+  cancelled
+}
+
+model StepHistory {
+  id                String         @id @default(uuid())
+  organisationId    String
+  clientId          String
+  fromStepId        String?
+  toStepId          String
+  triggeredBy       HistoryTrigger
+  triggeredByUserId String?
+  reasonNote        String?
+  createdAt         DateTime       @default(now())
+
+  client          Client @relation(fields: [clientId], references: [id])
+  fromStep        Step?  @relation("FromStep", fields: [fromStepId], references: [id])
+  toStep          Step   @relation("ToStep", fields: [toStepId], references: [id])
+  triggeredByUser User?  @relation(fields: [triggeredByUserId], references: [id])
+}
+
+enum HistoryTrigger {
+  system
+  admin
+}
+
+model Notification {
+  id             String           @id @default(uuid())
+  organisationId String
+  userId         String
+  type           NotificationType
+  message        String
+  referenceId    String?
+  referenceType  String?
+  isRead         Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  sentWhatsapp   Boolean          @default(false)
+  sentEmail      Boolean          @default(false)
+
+  organisation Organisation @relation(fields: [organisationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+}
+
+enum NotificationType {
+  task_assigned
+  task_overdue
+  task_completed
+  blocker_raised
+  step_advanced
+  extension_request
+  client_status_changed
+}
+
+model Document {
+  id             String   @id @default(uuid())
+  organisationId String
+  clientId       String
+  stepId         String
+  title          String
+  fileUrl        String?
+  fileSize       Int?
+  mimeType       String?
+  uploadedById   String
+  createdAt      DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id])
+}
