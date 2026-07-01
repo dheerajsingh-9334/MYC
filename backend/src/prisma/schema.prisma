@@ -90,6 +90,7 @@ model User {
   organisation   Organisation   @relation(fields: [organisationId], references: [id])
   assignedTasks  Task[]         @relation("AssignedTo")
   completedTasks Task[]         @relation("CompletedBy")
+  rejectedTasks  Task[]         @relation("RejectedBy")
   notifications  Notification[]
   stepHistories  StepHistory[]
 }
@@ -182,6 +183,9 @@ model Task {
   blockerNote            String?
   extensionRequestedDate DateTime?
   extensionReason        String?
+  rejectionNote          String?
+  rejectedAt             DateTime?
+  rejectedById           String?
   createdAt              DateTime   @default(now())
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
@@ -189,6 +193,8 @@ model Task {
   step         Step         @relation(fields: [stepId], references: [id])
   assignedTo   User         @relation("AssignedTo", fields: [assignedToId], references: [id])
   completedBy  User?        @relation("CompletedBy", fields: [completedById], references: [id])
+  rejectedBy   User?        @relation("RejectedBy", fields: [rejectedById], references: [id])
+  documents    Document[]
 }
 
 enum TaskStatus {
@@ -197,6 +203,7 @@ enum TaskStatus {
   complete
   blocked
   extension_requested
+  rejected
   cancelled
 }
 
@@ -246,6 +253,7 @@ enum NotificationType {
   blocker_raised
   step_advanced
   extension_request
+  extension_decision
   client_status_changed
 }
 
@@ -254,12 +262,17 @@ model Document {
   organisationId String
   clientId       String
   stepId         String
+  taskId         String?
   title          String
   fileUrl        String?
   fileSize       Int?
   mimeType       String?
+  driveUrl       String?
+  docType        String?
+  notes          String?
   uploadedById   String
   createdAt      DateTime @default(now())
 
   client Client @relation(fields: [clientId], references: [id])
+  task   Task?  @relation(fields: [taskId], references: [id])
 }

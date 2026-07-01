@@ -8,20 +8,34 @@ const router = Router();
 // GET /api/dashboard/stats
 router.get('/stats', requireAuth, async (req: Request, res: Response) => {
   try {
-    const clients = await prisma.client.findMany({
-      where: { organisationId: req.user.orgId, status: 'active' },
+    const allClients = await prisma.client.findMany({
+      where: { organisationId: req.user.orgId },
       include: { tasks: true },
     });
+    const activeClients = allClients.filter((c) => c.status === 'active');
+    const pipelineClients = allClients.filter((c) => c.status !== 'active');
 
     let onTrack = 0, dueToday = 0, overdue = 0;
-    for (const client of clients) {
+    for (const client of activeClients) {
       const s = computeClientStatus(client.tasks);
       if (s === 'on_track') onTrack++;
       else if (s === 'due_today') dueToday++;
       else if (s === 'overdue' || s === 'blocked') overdue++;
     }
 
-    res.json({ total: clients.length, onTrack, dueToday, overdue });
+    const total = activeClients.length;
+    const onTrackPct = total > 0 ? Math.round((onTrack / total) * 100) : 0;
+
+    res.json({
+      total,
+      totalAll: allClients.length,
+      active: activeClients.length,
+      pipeline: pipelineClients.length,
+      onTrack,
+      onTrackPct,
+      dueToday,
+      overdue,
+    });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -49,6 +63,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       users,
       steps,
       recentCompletions,
+      completedClientsList,
     ] = await Promise.all([
       prisma.client.count({ where: { organisationId: orgId } }),
       prisma.client.count({ where: { organisationId: orgId, status: 'active' } }),
@@ -56,8 +71,9 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       prisma.task.findMany({
         where: { organisationId: orgId },
         select: {
-          id: true, status: true, priority: true, dueDate: true, completedAt: true,
+          id: true, title: true, status: true, priority: true, dueDate: true, completedAt: true,
           assignedToId: true, stepId: true,
+          extensionRequestedDate: true, extensionReason: true,
           assignedTo: { select: { id: true, fullName: true, teamName: true, role: true } },
           step: { select: { id: true, name: true, owningTeamName: true, stepNumber: true } },
           client: { select: { id: true, brandName: true, fullName: true } },
@@ -81,6 +97,10 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
           step: { select: { name: true, owningTeamName: true } },
         },
       }),
+      prisma.client.findMany({
+        where: { organisationId: orgId, status: 'completed' },
+        include: { stepHistory: { orderBy: { createdAt: 'desc' }, take: 1 } },
+      }),
     ]);
 
     const today = new Date();
@@ -92,6 +112,19 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
     const overdueTasks = activeTasks.filter((t) => new Date(t.dueDate) < today);
     const blockedTasks = activeTasks.filter((t) => t.status === 'blocked');
     const extensionTasks = activeTasks.filter((t) => t.status === 'extension_requested');
+
+    // Calculate average completion time
+    let totalDurationDays = 0;
+    let completedCount = 0;
+    for (const c of completedClientsList) {
+      const completionDate = c.stepHistory[0]?.createdAt || c.createdAt;
+      const joinedDate = c.dateJoined || c.createdAt;
+      const durationMs = completionDate.getTime() - joinedDate.getTime();
+      const durationDays = Math.max(0, Math.round(durationMs / (1000 * 60 * 60 * 24)));
+      totalDurationDays += durationDays;
+      completedCount++;
+    }
+    const avgCompletionTimeDays = completedCount > 0 ? Math.round(totalDurationDays / completedCount) : 0;
 
     const completedLast7d = tasks.filter((t) => t.status === 'complete' && t.completedAt && new Date(t.completedAt) >= sevenDaysAgo);
     const completedOnTime = completedLast7d.filter((t) => t.completedAt && new Date(t.completedAt) <= new Date(t.dueDate));
@@ -171,6 +204,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         totalClients,
         activeClients,
         completedClients,
+        avgCompletionTimeDays,
         totalTasks: tasks.length,
         activeTasks: activeTasks.length,
         overdueTasks: overdueTasks.length,
@@ -191,9 +225,179 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         client: t.client?.brandName || t.client?.fullName,
         step: t.step.name,
       })),
+      pendingExtensions: extensionTasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        dueDate: t.dueDate,
+        extensionRequestedDate: t.extensionRequestedDate,
+        extensionReason: t.extensionReason,
+        assignee: t.assignedTo?.fullName,
+        team: t.step?.owningTeamName,
+        client: t.client?.brandName || t.client?.fullName,
+        step: t.step?.name,
+      })),
     });
   } catch (err) {
     console.error('[dashboard.admin] error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/dashboard/staff — staff-scoped KPIs for the 2x2 grid on /dashboard.
+// Returns counts of activity that is meaningful to a single team member:
+//   - joinedThisWeek:   clients onboarded (created) in the last 7 days, scoped to clients whose
+//                      current step is owned by this user's team (best-effort). For team_leader /
+//                      team_member we attribute by team; for admin we attribute by createdById.
+//   - tasksCompleted:  tasks the user marked complete in the last 7 days.
+//   - dueIn7d:         tasks assigned to the user, not yet complete, due within the next 7 days.
+//   - stepAdvances:    clients whose current step advanced in the last 7 days where the *to* step
+//                      is owned by this user's team (or any step if no team match).
+router.get('/staff', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user.userId;
+    const orgId = req.user.orgId;
+    const userTeam = req.user.teamName || null;
+
+    // Window can be "week" (7 days) or "month" (30 days). Default to week.
+    const windowDays = req.query.window === 'month' ? 30 : 7;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const windowStart = new Date(today);
+    windowStart.setDate(windowStart.getDate() - windowDays);
+    const windowEnd = new Date(today);
+    windowEnd.setDate(windowEnd.getDate() + windowDays);
+
+    // Tasks assigned to me (the source for tasksCompleted + dueIn7d)
+    const myTasks = await prisma.task.findMany({
+      where: { organisationId: orgId, assignedToId: userId },
+      select: {
+        id: true, status: true, dueDate: true, completedAt: true, clientId: true,
+      },
+    });
+
+    const tasksCompleted = myTasks.filter(
+      (t) => t.status === 'complete' && t.completedAt && new Date(t.completedAt) >= windowStart
+    ).length;
+
+    const dueIn7d = myTasks.filter((t) => {
+      if (t.status === 'complete' || t.status === 'cancelled') return false;
+      const due = new Date(t.dueDate);
+      return due >= today && due <= windowEnd;
+    }).length;
+
+    // Joined this week — clients created in the last 7 days, scoped to this user's "scope":
+    //   - team_member/team_leader: clients whose current step is owned by their team
+    //   - admin: all clients (org-wide view)
+    // We pull steps owned by the user's team and then count clients created in the window
+    // currently sitting on one of those steps.
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, teamName: true } });
+    const isAdmin = user?.role === 'admin';
+
+    let joinedScope: { id: string }[] | null = null;
+    if (!isAdmin && userTeam) {
+      const teamSteps = await prisma.step.findMany({
+        where: { organisationId: orgId, owningTeamName: userTeam, isActive: true },
+        select: { id: true },
+      });
+      const stepIds = teamSteps.map((s) => s.id);
+      if (stepIds.length === 0) {
+        // No team steps — leave at 0
+        joinedScope = [];
+      } else {
+        joinedScope = await prisma.client.findMany({
+          where: {
+            organisationId: orgId,
+            status: 'active',
+            currentStepId: { in: stepIds },
+            createdAt: { gte: windowStart },
+          },
+          select: { id: true },
+        });
+      }
+    } else {
+      joinedScope = await prisma.client.findMany({
+        where: { organisationId: orgId, createdAt: { gte: windowStart } },
+        select: { id: true },
+      });
+    }
+    const joinedThisWeek = joinedScope?.length ?? 0;
+
+    // Step advances in the last 7 days — clients whose step moved. For team scope: only
+    // advances into a step owned by this user's team. For admin: all advances.
+    // Average time to complete a task — measured from task creation to completedAt.
+    // We average over the user's last 30 completions (recent window) so the number
+    // reflects current pace rather than lifetime history. If they haven't completed
+    // anything yet, avgCompleteMinutes is null.
+    const recentCompleted = await prisma.task.findMany({
+      where: {
+        organisationId: orgId,
+        assignedToId: userId,
+        status: 'complete',
+        completedAt: { not: null },
+      },
+      orderBy: { completedAt: 'desc' },
+      take: 30,
+      select: { createdAt: true, completedAt: true },
+    });
+
+    let avgCompleteMinutes: number | null = null;
+    if (recentCompleted.length > 0) {
+      const totalMs = recentCompleted.reduce((sum, t) => {
+        const c = t.completedAt ? new Date(t.completedAt).getTime() : 0;
+        const cr = new Date(t.createdAt).getTime();
+        return sum + Math.max(0, c - cr);
+      }, 0);
+      avgCompleteMinutes = Math.round(totalMs / recentCompleted.length / 60000);
+    }
+
+    // Step advances in the last 7 days
+    let stepAdvancesWhere: any = {
+      organisationId: orgId,
+      createdAt: { gte: windowStart }
+    };
+    if (!isAdmin && userTeam) {
+      const teamSteps = await prisma.step.findMany({
+        where: { organisationId: orgId, owningTeamName: userTeam, isActive: true },
+        select: { id: true },
+      });
+      const teamStepIds = teamSteps.map(s => s.id);
+      stepAdvancesWhere.toStepId = { in: teamStepIds };
+    }
+    const stepAdvances = await prisma.stepHistory.count({
+      where: stepAdvancesWhere
+    });
+
+    // Pipeline Distribution (active client counts per step)
+    const stepsList = await prisma.step.findMany({
+      where: { organisationId: orgId, isActive: true },
+      orderBy: { stepNumber: 'asc' }
+    });
+    const activeClients = await prisma.client.findMany({
+      where: { organisationId: orgId, status: 'active' },
+      select: { currentStepId: true }
+    });
+    const pipelineDistribution = stepsList.map(step => {
+      const count = activeClients.filter(c => c.currentStepId === step.id).length;
+      return {
+        id: step.id,
+        stepNumber: step.stepNumber,
+        name: step.name,
+        clientCount: count
+      };
+    });
+
+    res.json({
+      joinedThisWeek,
+      tasksCompleted,
+      dueIn7d,
+      stepAdvances,
+      avgCompleteMinutes,
+      pipelineDistribution,
+      windowDays,
+    });
+  } catch (err) {
+    console.error('[dashboard.staff] error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

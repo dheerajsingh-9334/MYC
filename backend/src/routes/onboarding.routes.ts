@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { advanceClientToStep } from '../services/pipeline.service';
+import { notifyClientAdded } from '../services/notify.service';
 
 const router = Router();
 
@@ -178,6 +179,19 @@ router.patch('/applications/:id/approve', requireAuth, requireRole('admin'), asy
 
     // Advance to step 1 (creates tasks + notifies team)
     await advanceClientToStep(client.id, step1.id, 'admin', req.user.userId, 'Application approved');
+
+    // Notify organization that client was added
+    try {
+      const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { fullName: true } });
+      await notifyClientAdded({
+        organisationId: req.user.orgId,
+        clientName: app.brandName || app.fullName,
+        clientId: client.id,
+        createdByName: actor?.fullName,
+      });
+    } catch (err) {
+      console.error('[notifyClientAdded from onboarding] failed:', err);
+    }
 
     // Update application status
     await prisma.pendingApplication.update({

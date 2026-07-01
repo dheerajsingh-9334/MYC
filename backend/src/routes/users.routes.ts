@@ -28,11 +28,76 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       select: {
         id: true, email: true, fullName: true, role: true,
         teamName: true, isActive: true, createdAt: true, lastLoginAt: true,
-        _count: { select: { assignedTasks: { where: { status: { in: ['pending', 'in_progress'] } } } } },
       },
       orderBy: { createdAt: 'asc' },
     });
-    res.json(users);
+
+    const userIds = users.map((u) => u.id);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const tasks = await prisma.task.findMany({
+      where: {
+        organisationId: orgId,
+        assignedToId: { in: userIds },
+      },
+      select: {
+        id: true,
+        status: true,
+        dueDate: true,
+        completedAt: true,
+        assignedToId: true,
+        createdAt: true,
+      },
+    });
+
+    const usersWithStats = users.map((u) => {
+      const userTasks = tasks.filter((t) => t.assignedToId === u.id);
+      const active = userTasks.filter((t) => t.status !== 'complete' && t.status !== 'cancelled').length;
+      const overdue = userTasks.filter(
+        (t) => (t.status !== 'complete' && t.status !== 'cancelled') && new Date(t.dueDate) < today
+      ).length;
+      const completedLast7d = userTasks.filter(
+        (t) => t.status === 'complete' && t.completedAt && new Date(t.completedAt) >= sevenDaysAgo
+      ).length;
+
+      const completedTasks = userTasks.filter((t) => t.status === 'complete' && t.createdAt && t.completedAt);
+      let avgCompletionTimeStr = '—';
+      if (completedTasks.length > 0) {
+        let totalMs = 0;
+        for (const t of completedTasks) {
+          totalMs += new Date(t.completedAt!).getTime() - new Date(t.createdAt!).getTime();
+        }
+        const avgMs = totalMs / completedTasks.length;
+        const avgDays = avgMs / (1000 * 60 * 60 * 24);
+        if (avgDays >= 1) {
+          avgCompletionTimeStr = `${avgDays.toFixed(1)}d`;
+        } else {
+          const avgHours = avgMs / (1000 * 60 * 60);
+          if (avgHours >= 1) {
+            avgCompletionTimeStr = `${avgHours.toFixed(1)}h`;
+          } else {
+            const avgMins = avgMs / (1000 * 60);
+            avgCompletionTimeStr = `${Math.round(avgMins)}m`;
+          }
+        }
+      }
+
+      return {
+        ...u,
+        active,
+        overdue,
+        completedLast7d,
+        avgCompletionTime: avgCompletionTimeStr,
+        _count: {
+          assignedTasks: active,
+        },
+      };
+    });
+
+    res.json(usersWithStats);
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

@@ -276,14 +276,14 @@ export const MOCK_TASKS = [
 
 // Team members
 export const MOCK_TEAM = [
-  { id: 'u1', fullName: 'Rajan Mehta',   initials: 'RJ', email: 'rajan@myc.in',   teamName: 'Tech Team',       activeTasks: 5, onTimeRate: 72,  statusType: 'warn',    statusLabel: '2 overdue' },
-  { id: 'u2', fullName: 'Neha Singh',    initials: 'NH', email: 'neha@myc.in',    teamName: 'Design Team',     activeTasks: 3, onTimeRate: 96,  statusType: 'ontrack', statusLabel: 'On track' },
-  { id: 'u3', fullName: 'Karan Roy',     initials: 'KR', email: 'karan@myc.in',   teamName: 'Creative Team',   activeTasks: 4, onTimeRate: 89,  statusType: 'blocked', statusLabel: '1 blocked' },
-  { id: 'u4', fullName: 'Sneha Pillai',  initials: 'SN', email: 'sneha@myc.in',   teamName: 'Sales Team',      activeTasks: 6, onTimeRate: 94,  statusType: 'ontrack', statusLabel: 'On track' },
-  { id: 'u5', fullName: 'Karthik Iyer', initials: 'KT', email: 'karthik@myc.in', teamName: 'Tech Team',       activeTasks: 4, onTimeRate: 91,  statusType: 'ontrack', statusLabel: 'On track' },
-  { id: 'u6', fullName: 'Amit Sharma',  initials: 'AS', email: 'amit@myc.in',    teamName: 'Automation Team', activeTasks: 3, onTimeRate: 88,  statusType: 'ontrack', statusLabel: 'On track' },
-  { id: 'u7', fullName: 'Preethi Nair', initials: 'PN', email: 'preethi@myc.in', teamName: 'Event Team',      activeTasks: 5, onTimeRate: 97,  statusType: 'ontrack', statusLabel: 'On track' },
-  { id: 'u8', fullName: 'Divya Menon',  initials: 'DM', email: 'divya@myc.in',   teamName: 'Intake Team',     activeTasks: 4, onTimeRate: 93,  statusType: 'ontrack', statusLabel: 'On track' },
+  { id: 'u1', fullName: 'Rajan Mehta',   initials: 'RJ', email: 'rajan@myc.in',   teamName: 'Tech Team',       role: 'team_member', isActive: true, active: 5, overdue: 2, completedLast7d: 8, avgCompletionTime: '1.2d' },
+  { id: 'u2', fullName: 'Neha Singh',    initials: 'NH', email: 'neha@myc.in',    teamName: 'Design Team',     role: 'team_member', isActive: true, active: 3, overdue: 0, completedLast7d: 9, avgCompletionTime: '3.5h' },
+  { id: 'u3', fullName: 'Karan Roy',     initials: 'KR', email: 'karan@myc.in',   teamName: 'Creative Team',   role: 'team_member', isActive: true, active: 4, overdue: 0, completedLast7d: 5, avgCompletionTime: '45m' },
+  { id: 'u4', fullName: 'Sneha Pillai',  initials: 'SN', email: 'sneha@myc.in',   teamName: 'Sales Team',      role: 'team_member', isActive: true, active: 6, overdue: 0, completedLast7d: 4, avgCompletionTime: '1.8d' },
+  { id: 'u5', fullName: 'Karthik Iyer', initials: 'KT', email: 'karthik@myc.in', teamName: 'Tech Team',       role: 'team_member', isActive: true, active: 4, overdue: 0, completedLast7d: 6, avgCompletionTime: '1.1d' },
+  { id: 'u6', fullName: 'Amit Sharma',  initials: 'AS', email: 'amit@myc.in',    teamName: 'Automation Team', role: 'team_member', isActive: true, active: 3, overdue: 0, completedLast7d: 7, avgCompletionTime: '2.4d' },
+  { id: 'u7', fullName: 'Preethi Nair', initials: 'PN', email: 'preethi@myc.in', teamName: 'Event Team',      role: 'team_member', isActive: true, active: 5, overdue: 0, completedLast7d: 4, avgCompletionTime: '3.1d' },
+  { id: 'u8', fullName: 'Divya Menon',  initials: 'DM', email: 'divya@myc.in',   teamName: 'Intake Team',     role: 'team_leader', isActive: true, active: 4, overdue: 0, completedLast7d: 3, avgCompletionTime: '2.0d' },
 ];
 
 // Client detail for Priya Healing Arts (c1) 

@@ -8,16 +8,17 @@ interface TopbarProps {
   subtitle?: string;
   onAddClient?: () => void;
   showAddClient?: boolean;
+  renderActions?: () => React.ReactNode;
 }
 
-export default function Topbar({ title, subtitle, onAddClient, showAddClient }: TopbarProps) {
+export default function Topbar({ title, subtitle, onAddClient, showAddClient, renderActions }: TopbarProps) {
   const [search, setSearch] = useState('');
 
   return (
     <header style={{
       background: 'var(--surface)',
       borderBottom: '1px solid var(--border)',
-      padding: '14px 32px',
+      padding: '10px 20px',
       display: 'flex',
       alignItems: 'center',
       gap: 16,
@@ -53,6 +54,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient }: 
           />
         </div>
         <NotificationBell />
+        {renderActions && renderActions()}
         {showAddClient && (
           <button
             onClick={onAddClient}

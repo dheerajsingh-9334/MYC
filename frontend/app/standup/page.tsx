@@ -6,9 +6,12 @@ import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import DashboardHeader from '@/components/ui/DashboardHeader';
 import {
-  Sparkles, TriangleAlert, Ban, Clock, ArrowRight,
+  Sparkles, TriangleAlert, Ban, Clock, ArrowRight, ChevronLeft, ChevronRight, Search
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useState, useMemo, useEffect } from 'react';
+
+const TEAMS = ['Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 'Account Manager', 'Content Team'];
 
 const AUTO_REFRESH_MS = 30_000;
 
@@ -29,6 +32,11 @@ const TYPE_STYLES: Record<string, { color: string; bg: string; Icon: any; label:
 
 export default function StandupPage() {
   const router = useRouter();
+  const [search, setSearch] = useState('');
+  const [alertTypeFilter, setAlertTypeFilter] = useState('');
+  const [teamFilter, setTeamFilter] = useState('');
+  const [limit, setLimit] = useState(10);
+
   const { data: liveData, isLoading: liveLoading } = useQuery({
     queryKey: ['standup'],
     queryFn: () => apiFetch('/api/standup'),
@@ -59,8 +67,40 @@ export default function StandupPage() {
       clientId: it.client?.id,
       alertType: it.alertType,
       clientName, stepLabel, title, detail, daysLate,
+      assigneeTeam,
     };
   });
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item: any) => {
+      const searchMatch =
+        !search ||
+        item.title.toLowerCase().includes(search.toLowerCase()) ||
+        item.clientName.toLowerCase().includes(search.toLowerCase()) ||
+        (item.stepLabel && item.stepLabel.toLowerCase().includes(search.toLowerCase())) ||
+        item.detail.toLowerCase().includes(search.toLowerCase());
+
+      const alertTypeMatch = !alertTypeFilter || item.alertType === alertTypeFilter;
+      const teamMatch = !teamFilter || item.assigneeTeam === teamFilter;
+
+      return searchMatch && alertTypeMatch && teamMatch;
+    });
+  }, [items, search, alertTypeFilter, teamFilter]);
+
+  const scrollableItems = useMemo(() => {
+    return filteredItems.slice(0, limit);
+  }, [filteredItems, limit]);
+
+  useEffect(() => {
+    setLimit(10);
+  }, [search, alertTypeFilter, teamFilter]);
+
+  const handleStandupScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollTop + clientHeight >= scrollHeight - 20) {
+      setLimit(prev => Math.min(prev + 10, filteredItems.length));
+    }
+  };
 
   const isLoading = liveLoading && items.length === 0;
   const totalAlerts = liveData?.total ?? items.length;
@@ -71,62 +111,86 @@ export default function StandupPage() {
   return (
     <AppLayout>
       <Topbar title="Standup Brief" subtitle="Today's attention items" />
-      <div style={{ padding: '28px 32px', flex: 1 }}>
+      <div style={{ padding: '16px 20px', flex: 1 }}>
 
-        <DashboardHeader
-          title="Standup Brief"
-          subtitle={`${totalAlerts} item${totalAlerts === 1 ? '' : 's'} need your attention today`}
-        />
-
-        {/* Hero */}
+        {/* Filters */}
         <div style={{
-          background: 'linear-gradient(135deg, var(--olive-dark) 0%, var(--olive) 100%)',
-          borderRadius: 'var(--radius-lg)', padding: 32, color: '#fff',
-          marginBottom: 24, position: 'relative', overflow: 'hidden',
+          display: 'flex', gap: 12, marginTop: 24, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap',
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+          padding: '12px 16px'
         }}>
-          <div style={{ position: 'absolute', top: '-50%', right: '-10%', width: 400, height: 400, background: 'radial-gradient(circle, rgba(255,255,255,0.08), transparent 60%)', borderRadius: '50%', pointerEvents: 'none' }} />
-          <div style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', marginBottom: 12, position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Sparkles size={12} style={{ color: '#FFD27A' }} />
-            Today's Briefing · {format(new Date(), 'EEEE d MMMM')}
+          {/* Search */}
+          <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+            <input
+              type="text"
+              placeholder="Search standup items..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: '100%', padding: '8px 12px 8px 34px', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--bg)', color: 'var(--ink)',
+                outline: 'none', transition: 'all 0.15s'
+              }}
+            />
           </div>
-          <h1 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 36, lineHeight: 1.1, marginBottom: 8, letterSpacing: '-0.3px', position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 12 }}>
-            {isLoading ? 'Loading…' : items.length === 0 ? (
-              <>
-                <Sparkles size={28} style={{ color: '#FFD27A' }} />
-                All clear today
-              </>
-            ) : `${totalAlerts} thing${totalAlerts !== 1 ? 's' : ''} need${totalAlerts === 1 ? 's' : ''} your attention`}
-          </h1>
-          <p style={{ fontSize: 14.5, color: 'rgba(255,255,255,0.8)', maxWidth: 540, position: 'relative', zIndex: 1 }}>
-            {items.length === 0 ? 'Every client is on track. Great work team!' : 'Everything else is on track. These are the only conversations you need to have in standup today.'}
-          </p>
-          {totalAlerts > 0 && (
-            <div style={{
-              display: 'inline-flex', alignItems: 'baseline', gap: 8, marginTop: 20,
-              background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)',
-              padding: '10px 16px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)',
-              position: 'relative', zIndex: 1,
-            }}>
-              <span style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, fontStyle: 'italic', color: '#FFD27A' }}>{totalAlerts}</span>
-              <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>
-                action items · {overdueCnt} overdue · {blockedCnt} blocked · {dueTodayCnt} due today
-              </span>
-            </div>
-          )}
+
+          {/* Alert Type */}
+          <select
+            value={alertTypeFilter}
+            onChange={(e) => setAlertTypeFilter(e.target.value)}
+            style={{
+              padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+              fontSize: 13, background: 'var(--bg)', color: 'var(--ink)', outline: 'none'
+            }}
+          >
+            <option value="">All Alerts</option>
+            <option value="overdue">Overdue</option>
+            <option value="blocked">Blocked</option>
+            <option value="due_today">Due Today</option>
+          </select>
+
+          {/* Team Filter */}
+          <select
+            value={teamFilter}
+            onChange={(e) => setTeamFilter(e.target.value)}
+            style={{
+              padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+              fontSize: 13, background: 'var(--bg)', color: 'var(--ink)', outline: 'none'
+            }}
+          >
+            <option value="">All Teams</option>
+            {TEAMS.map(team => (
+              <option key={team} value={team}>{team}</option>
+            ))}
+          </select>
         </div>
 
         {/* Alert cards */}
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Loading…</div>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 48, textAlign: 'center' }}>
             <Sparkles size={36} style={{ color: 'var(--olive)', margin: '0 auto 16px', display: 'block' }} />
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)', marginBottom: 8 }}>All clear today!</div>
-            <div style={{ fontSize: 14, color: 'var(--muted)' }}>No overdue tasks, no blockers, no deadlines today.</div>
+            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)', marginBottom: 8 }}>No items match your criteria!</div>
+            <div style={{ fontSize: 14, color: 'var(--muted)' }}>Try adjusting your filters or search terms.</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {items.map((item: any) => {
+          <div
+            onScroll={handleStandupScroll}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+              maxHeight: 650,
+              overflowY: 'auto',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '16px 20px',
+              background: 'var(--surface-2)'
+            }}
+          >
+            {scrollableItems.map((item: any) => {
               const s = TYPE_STYLES[item.alertType] || TYPE_STYLES.due_today;
               const { Icon } = s;
               return (

@@ -252,7 +252,7 @@ export default function OnboardingQueuePage() {
   return (
     <AppLayout>
       <Topbar title="Onboarding Queue" subtitle={pendingCount > 0 ? `${pendingCount} pending review` : 'All reviewed'} />
-      <div style={{ padding: '28px 32px', flex: 1 }}>
+      <div style={{ padding: '16px 20px', flex: 1 }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24 }}>

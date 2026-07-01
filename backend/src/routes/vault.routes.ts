@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import prisma from '../prisma/client';
-import { requireAuth } from '../middleware/auth.middleware';
+import { requireAuth, requireRole } from '../middleware/auth.middleware';
 
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
@@ -13,7 +13,8 @@ const upload = multer({ dest: 'uploads/' });
 //     folders: [
 //       { id: 'client_<id>', name: 'Client Name', type: 'client',
 //         children: [ { id: 'step_<id>', name: 'Step 01 — Onboarding Intake', type: 'step',
-//                       children: [ { id: 'doc_<id>', name: 'welcome.pdf', type: 'doc', ... } ] } ] }
+//           children: [ { id: 'task_<id>', name: 'Task Title', type: 'task',
+//             children: [ { id: 'doc_<id>', name: 'file.pdf', type: 'doc', ... } ] } ] } ] }
 //     ]
 //   }
 // Admin sees all clients; team_leader sees clients in their team's steps;
@@ -36,13 +37,45 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       clientWhere.id = { in: myClientIds };
     }
 
+    // Role-based visibility for documents
+    let docWhere: any = undefined;
+    if (role !== 'admin') {
+      const myTasks = await prisma.task.findMany({
+        where: { assignedToId: userId, organisationId: orgId },
+        select: { id: true, clientId: true, stepId: true },
+      });
+      const myTaskIds = myTasks.map((t) => t.id);
+      const myClientStepPairs = myTasks.map((t) => ({ clientId: t.clientId, stepId: t.stepId }));
+
+      const admins = await prisma.user.findMany({
+        where: { organisationId: orgId, role: 'admin' },
+        select: { id: true },
+      });
+      const adminIds = admins.map((a) => a.id);
+
+      docWhere = {
+        OR: [
+          { uploadedById: userId },
+          { taskId: { in: myTaskIds } },
+        ],
+      };
+      if (myClientStepPairs.length > 0) {
+        docWhere.OR.push({
+          uploadedById: { in: adminIds },
+          OR: myClientStepPairs,
+        });
+      }
+    }
+
     const clients = await prisma.client.findMany({
       where: clientWhere,
       orderBy: { brandName: 'asc' },
       select: {
         id: true, fullName: true, brandName: true, currentStepId: true,
         documents: {
+          where: docWhere,
           orderBy: { createdAt: 'desc' },
+          include: { task: { select: { id: true, title: true } } },
         },
       },
     });
@@ -53,39 +86,60 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     });
     const stepMap = new Map(steps.map((s) => [s.id, s]));
 
-    // Aggregate docs by client for the tree
+    // Aggregate docs by client > step > task for the tree
     const folders = clients.map((c) => {
-      // Group documents by stepId
-      const byStep = new Map<string, any[]>();
+      // Group documents by stepId, then by taskId
+      const byStep = new Map<string, { docs: any[]; taskDocs: Map<string, any[]> }>();
       for (const d of c.documents) {
-        const arr = byStep.get(d.stepId) || [];
-        arr.push({
-          id: `doc_${d.id}`,
-          rawId: d.id,
-          name: d.title || 'Untitled',
-          type: 'doc',
-          fileUrl: d.fileUrl,
-          mimeType: d.mimeType,
-          fileSize: d.fileSize,
-          createdAt: d.createdAt,
-        });
-        byStep.set(d.stepId, arr);
+        const stepKey = d.stepId;
+        if (!byStep.has(stepKey)) {
+          byStep.set(stepKey, { docs: [], taskDocs: new Map() });
+        }
+        const bucket = byStep.get(stepKey)!;
+
+        if (d.taskId && d.task) {
+          // Document belongs to a task
+          if (!bucket.taskDocs.has(d.taskId)) {
+            bucket.taskDocs.set(d.taskId, []);
+          }
+          bucket.taskDocs.get(d.taskId)!.push(formatDocNode(d));
+        } else {
+          // Document is at step level (no task)
+          bucket.docs.push(formatDocNode(d));
+        }
       }
 
-      const children = Array.from(byStep.entries()).map(([stepId, docs]) => {
+      const children = Array.from(byStep.entries()).map(([stepId, bucket]) => {
         const step = stepMap.get(stepId);
         const stepName = step ? `Step ${String(step.stepNumber).padStart(2, '0')} — ${step.name}` : 'Step';
+
+        const taskChildren = Array.from(bucket.taskDocs.entries()).map(([taskId, docs]) => ({
+          id: `task_${taskId}_${stepId}`,
+          name: docs[0]?.taskTitle || 'Task',
+          type: 'task' as const,
+          taskId,
+          childCount: docs.length,
+          children: docs,
+        }));
+
+        // Step-level docs (no task) appear as direct children
+        const allChildren = [...taskChildren, ...bucket.docs.map(d => ({
+          id: `doc_${d.rawId}`,
+          name: d.name,
+          type: 'doc' as const,
+          childCount: 1,
+          children: [d],
+        }))];
+
         return {
           id: `step_${stepId}_${c.id}`,
           name: stepName,
           type: 'step',
-          childCount: docs.length,
-          children: docs,
+          childCount: allChildren.length,
+          children: allChildren,
         };
       });
 
-      // Clients without docs still appear as empty folders so the tree
-      // is complete (an admin wants to see "this client has nothing yet").
       return {
         id: `client_${c.id}`,
         name: c.brandName || c.fullName,
@@ -104,11 +158,39 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/vault/task/:taskId — documents for a specific task
+router.get('/task/:taskId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { role, userId, orgId } = req.user;
+    let where: any = { taskId: req.params.taskId };
+
+    if (role !== 'admin') {
+      const task = await prisma.task.findFirst({
+        where: { id: req.params.taskId, organisationId: orgId },
+        select: { assignedToId: true },
+      });
+      if (!task || task.assignedToId !== userId) {
+        where.uploadedById = userId;
+      }
+    }
+
+    const docs = await prisma.document.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: { task: { select: { id: true, title: true } } },
+    });
+    res.json(docs.map(formatDocNode));
+  } catch (err) {
+    console.error('[vault] GET task docs error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // POST /api/vault/upload — multipart upload of a document.
-// Body (form): clientId, stepId, title, file
+// Body (form): clientId, stepId, taskId?, title, file, description?
 router.post('/upload', requireAuth, upload.single('file'), async (req: Request, res: Response) => {
   try {
-    const { clientId, stepId, title } = req.body;
+    const { clientId, stepId, taskId, title, description } = req.body;
     const file = req.file;
     if (!clientId || !stepId) {
       res.status(400).json({ error: 'clientId and stepId required' });
@@ -120,21 +202,92 @@ router.post('/upload', requireAuth, upload.single('file'), async (req: Request, 
     });
     if (!client) { res.status(404).json({ error: 'Client not found' }); return; }
 
+    // Validate task if provided
+    if (taskId) {
+      const task = await prisma.task.findFirst({
+        where: { id: taskId, clientId, organisationId: req.user.orgId },
+      });
+      if (!task) { res.status(404).json({ error: 'Task not found' }); return; }
+    }
+
     const doc = await prisma.document.create({
       data: {
         organisationId: req.user.orgId,
         clientId,
         stepId,
+        taskId: taskId || null,
         title: title || file?.originalname || 'Untitled',
         fileUrl: file ? `/uploads/${file.filename}` : undefined,
         fileSize: file?.size,
         mimeType: file?.mimetype,
+        docType: 'file',
+        description: description?.trim() || null,
         uploadedById: req.user.userId,
       },
     });
     res.status(201).json(doc);
   } catch (err) {
-    console.error('[vault] POST error:', err);
+    console.error('[vault] POST upload error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/vault/link — save a Google Drive URL as a proof-of-work document.
+// Body (JSON): { clientId, stepId, taskId?, title, driveUrl, notes?, description? }
+router.post('/link', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { clientId, stepId, taskId, title, driveUrl, notes, description } = req.body;
+    if (!clientId || !stepId || !driveUrl) {
+      res.status(400).json({ error: 'clientId, stepId, and driveUrl are required' });
+      return;
+    }
+
+    // Basic URL validation — must look like a Drive/Docs/Sheets link
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(driveUrl);
+    } catch {
+      res.status(400).json({ error: 'Invalid URL format' });
+      return;
+    }
+    const allowedHosts = ['drive.google.com', 'docs.google.com', 'sheets.google.com', 'slides.google.com'];
+    const isDrive = allowedHosts.some((h) => parsedUrl.hostname.includes(h));
+
+    const client = await prisma.client.findFirst({
+      where: { id: clientId, organisationId: req.user.orgId },
+    });
+    if (!client) { res.status(404).json({ error: 'Client not found' }); return; }
+
+    const step = await prisma.step.findFirst({
+      where: { id: stepId, organisationId: req.user.orgId },
+    });
+    if (!step) { res.status(404).json({ error: 'Step not found' }); return; }
+
+    // Validate task if provided
+    if (taskId) {
+      const task = await prisma.task.findFirst({
+        where: { id: taskId, clientId, organisationId: req.user.orgId },
+      });
+      if (!task) { res.status(404).json({ error: 'Task not found' }); return; }
+    }
+
+    const doc = await prisma.document.create({
+      data: {
+        organisationId: req.user.orgId,
+        clientId,
+        stepId,
+        taskId: taskId || null,
+        title: title?.trim() || 'Drive Link',
+        driveUrl: driveUrl.trim(),
+        docType: 'drive_link',
+        notes: notes?.trim() || null,
+        description: description?.trim() || null,
+        uploadedById: req.user.userId,
+      },
+    });
+    res.status(201).json(doc);
+  } catch (err) {
+    console.error('[vault] POST link error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -157,5 +310,25 @@ router.delete('/:docId', requireAuth, async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+// Helper to format document for response
+function formatDocNode(d: any) {
+  return {
+    id: `doc_${d.id}`,
+    rawId: d.id,
+    name: d.title || 'Untitled',
+    type: 'doc',
+    fileUrl: d.fileUrl,
+    mimeType: d.mimeType,
+    fileSize: d.fileSize,
+    driveUrl: d.driveUrl,
+    docType: d.docType,
+    notes: d.notes,
+    description: d.description,
+    taskId: d.taskId,
+    taskTitle: d.task?.title,
+    createdAt: d.createdAt,
+  };
+}
 
 export default router;

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { setTokens } from '@/lib/api';
+import { getUser, setTokens } from '@/lib/api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -14,7 +14,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && localStorage.getItem('access_token')) {
-      router.push('/dashboard');
+      const storedUser = getUser();
+      router.push(storedUser?.role === 'admin' ? '/admin' : '/dashboard');
     }
   }, [router]);
 
@@ -35,7 +36,7 @@ export default function LoginPage() {
       const data = await res.json();
       setTokens(data.accessToken, data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
-      router.push('/dashboard');
+      router.push(data.user?.role === 'admin' ? '/admin' : '/dashboard');
     } catch (err: any) {
       setError(err.message || 'Login failed');
     } finally {

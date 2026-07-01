@@ -140,7 +140,7 @@ router.post('/login', async (req: Request, res: Response) => {
     });
 
     if (!user || !user.isActive) {
-      res.status(401).json({ error: 'Invalid credentials' });
+      res.status(404).json({ error: 'User not found' });
       return;
     }
 
@@ -214,7 +214,7 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
       where: { id: req.user.userId },
       include: { organisation: true },
     });
-    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+    if (!user || !user.isActive) { res.status(404).json({ error: 'User not found' }); return; }
 
     res.json({
       id: user.id,

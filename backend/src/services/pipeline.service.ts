@@ -96,11 +96,7 @@ export async function advanceClientToStep(
   });
 
   // ── NOTIFY: step advanced → whole owning team + all admins ──────────
-  // On auto-advance (triggered by task completion) we fire-and-forget so the
-  // PATCH /api/tasks/:id/complete response returns in <100ms. On manual move
-  // (admin moves a client) we await so the admin sees notification creation
-  // complete before the response — that path is rare and not on a hot loop.
-  const stepNotifPromise = notifyStepAdvanced({
+  void notifyStepAdvanced({
     organisationId: client.organisationId,
     clientName,
     stepNumber: toStep.stepNumber,
@@ -109,12 +105,7 @@ export async function advanceClientToStep(
     triggeredBy,
     triggeredByName,
     clientId,
-  });
-  if (triggeredBy === 'system') {
-    void stepNotifPromise.catch((err) => console.error('[auto-advance] notification broadcast failed:', err));
-  } else {
-    await stepNotifPromise;
-  }
+  }).catch((err) => console.error('[advance] step advanced notification broadcast failed:', err));
 
   // Get active task counts for round-robin load balancing
   const taskCounts = await Promise.all(
@@ -159,18 +150,13 @@ export async function advanceClientToStep(
     tasks.push(task);
 
     // ── NOTIFY: task assigned → individual assignee ──────────────────
-    const taskNotif = notifyTaskAssigned({
+    void notifyTaskAssigned({
       organisationId: client.organisationId,
       assigneeId: assignee.id,
       taskTitle: template.title,
       clientName,
       taskId: task.id,
-    });
-    if (triggeredBy === 'system') {
-      void taskNotif.catch((err) => console.error('[auto-advance] task-assigned notification failed:', err));
-    } else {
-      await taskNotif;
-    }
+    }).catch((err) => console.error('[advance] task-assigned notification failed:', err));
   }
 
   const updatedClient = await prisma.client.findUnique({ where: { id: clientId } });

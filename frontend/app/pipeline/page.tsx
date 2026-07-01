@@ -54,7 +54,7 @@ export default function PipelinePage() {
   return (
     <AppLayout>
       <Topbar title="Pipeline" subtitle="Full system view by role" />
-      <div style={{ padding: '28px 32px', flex: 1 }}>
+      <div style={{ padding: '16px 20px', flex: 1 }}>
 
         {/* Demo banner */}
         {USE_MOCK && (
@@ -68,10 +68,7 @@ export default function PipelinePage() {
           </div>
         )}
 
-        <DashboardHeader
-          title="MyC Ops Pipeline"
-          subtitle="9 steps · 3 roles · 5 auto-triggers · 1 manual gate — all wired and live"
-        />
+
 
         {/* Tab bar */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexWrap: 'wrap' }}>

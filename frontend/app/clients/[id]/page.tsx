@@ -5,10 +5,10 @@ import { apiFetch, getUser } from '@/lib/api';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, X, Check, TriangleAlert, CircleCheck, Clock, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { USE_MOCK, MOCK_CLIENTS, MOCK_STEPS, MOCK_CLIENT_DETAIL } from '@/lib/mockData';
 import { useFormDraft } from '@/lib/useFormDraft';
-import { format, addDays } from 'date-fns';
+import { format, addDays, differenceInCalendarDays, startOfDay, isPast, isToday } from 'date-fns';
 
 // Short step labels for the pipeline track
 const STEP_LABELS = [
@@ -22,9 +22,62 @@ export default function ClientDetailPage() {
   const qc = useQueryClient();
   const [showMoveStep, setShowMoveStep] = useState(false);
   const [showChangeStatus, setShowChangeStatus] = useState(false);
+  const [showAddStep, setShowAddStep] = useState(false);
+  const [addStepForm, setAddStepForm] = useState({ name: '', owningTeamName: '', slaDays: '3', description: '', stepNumber: '' });
+  const [addStepError, setAddStepError] = useState('');
   const [checkedTasks, setCheckedTasks] = useState<Set<string>>(new Set());
   const [blockerTaskId, setBlockerTaskId] = useState<string | null>(null);
   const [blockerNote, setBlockerNote] = useState('');
+  const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
+  const [proofLink, setProofLink] = useState('');
+  const [proofDescription, setProofDescription] = useState('');
+
+  // Export states
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportType, setExportType] = useState('tasks');
+  const [exportFormat, setExportFormat] = useState('csv');
+  const [expStartDate, setExpStartDate] = useState('');
+  const [expEndDate, setExpEndDate] = useState('');
+  const [expStepId, setExpStepId] = useState('');
+  const [expStatus, setExpStatus] = useState('');
+  const [expTeam, setExpTeam] = useState('');
+  const [expAssignedToId, setExpAssignedToId] = useState('');
+  const [expPriority, setExpPriority] = useState('');
+  const [expCompleted, setExpCompleted] = useState('all');
+
+  // Queries for export dropdown filters
+  const { data: stepsList = [] } = useQuery({
+    queryKey: ['steps'],
+    queryFn: () => apiFetch('/api/steps'),
+    retry: false,
+  });
+
+  const { data: usersList = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => apiFetch('/api/users'),
+    retry: false,
+  });
+
+  const { data: teamsList = [] } = useQuery({
+    queryKey: ['teams'],
+    queryFn: () => apiFetch('/api/teams'),
+    retry: false,
+  });
+
+  const handleCreateNewTeam = async () => {
+    const name = prompt('Enter new team name:');
+    if (!name?.trim()) return;
+    try {
+      await apiFetch('/api/teams', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.trim() })
+      });
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      setAddStepForm(f => ({ ...f, owningTeamName: name.trim() }));
+    } catch (e: any) {
+      alert(e.message || 'Failed to create team');
+    }
+  };
   const [showAddTask, setShowAddTask] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [addTaskForm, setAddTaskForm] = useState({
@@ -37,9 +90,19 @@ export default function ClientDetailPage() {
   });
   const [addTaskError, setAddTaskError] = useState('');
 
+  const [taskSearch, setTaskSearch] = useState('');
+  const [taskStatusFilter, setTaskStatusFilter] = useState('all');
+  const [taskTeamFilter, setTaskTeamFilter] = useState('all');
+  const [taskClientFilter, setTaskClientFilter] = useState('all');
+  const [taskLimit, setTaskLimit] = useState(10);
+
   // Read the logged-in user after hydration so we can admin-gate the button.
   useEffect(() => {
-    if (!USE_MOCK) setCurrentUser(getUser());
+    if (!USE_MOCK) {
+      setCurrentUser(getUser());
+    } else {
+      setCurrentUser({ id: 'u1', fullName: 'Mock Staff', role: 'staff', teamName: 'Content Production' });
+    }
   }, []);
 
   const isAdmin = currentUser?.role === 'admin';
@@ -86,13 +149,14 @@ export default function ClientDetailPage() {
   });
 
   const completeMut = useMutation({
-    mutationFn: (taskId: string) => apiFetch(`/api/tasks/${taskId}/complete`, { method: 'PATCH' }),
+    mutationFn: ({ id: taskId, proofLink, proofDescription }: { id: string; proofLink?: string; proofDescription?: string }) =>
+      apiFetch(`/api/tasks/${taskId}/complete`, {
+        method: 'PATCH',
+        body: JSON.stringify({ proofLink, proofDescription }),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['client', id] });
       qc.invalidateQueries({ queryKey: ['clients'] });
-      // Refresh the bell immediately — task completion may have triggered
-      // an auto-advance (step_advanced notification) or auto-completion
-      // (client_status_changed broadcast). Don't wait for the 30s poll.
       qc.invalidateQueries({ queryKey: ['notifications'] });
       qc.invalidateQueries({ queryKey: ['notif-count'] });
     },
@@ -113,7 +177,7 @@ export default function ClientDetailPage() {
     if (USE_MOCK) {
       setCheckedTasks(prev => { const s = new Set(prev); if (s.has(taskId)) s.delete(taskId); else s.add(taskId); return s; });
     } else if (currentStatus !== 'complete') {
-      completeMut.mutate(taskId);
+      setCompleteTaskId(taskId);
     }
   };
 
@@ -174,6 +238,20 @@ export default function ClientDetailPage() {
     },
   });
 
+  const addStepMutation = useMutation({
+    mutationFn: (data: typeof addStepForm) =>
+      apiFetch('/api/steps', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['steps'] });
+      setShowAddStep(false);
+      setAddStepForm({ name: '', owningTeamName: '', slaDays: '3', description: '', stepNumber: '' });
+      setAddStepError('');
+    },
+    onError: (err: any) => {
+      setAddStepError(err.message || 'Failed to add step');
+    }
+  });
+
   // Resolve mock vs live
   const mockClient = USE_MOCK
     ? (id === 'c1' ? MOCK_CLIENT_DETAIL : MOCK_CLIENTS.find((c) => c.id === id) ?? MOCK_CLIENT_DETAIL)
@@ -182,6 +260,123 @@ export default function ClientDetailPage() {
   const steps: any[] = USE_MOCK ? MOCK_STEPS : liveSteps;
   const isLoading = USE_MOCK ? false : liveLoading;
 
+  const currentTasks: any[] = client?.currentTasks || client?.tasks || [];
+  const filteredTasks = useMemo(() => {
+    if (!client) return [];
+    return currentTasks;
+  }, [client, currentTasks]);
+
+  // Process tasks to compute their display condition and statuses
+  const processedTasks = useMemo(() => {
+    const today = startOfDay(new Date());
+    return filteredTasks.map((t: any) => {
+      const done = t.status === 'complete' || checkedTasks.has(t.id);
+      const isBlocked = t.status === 'blocked';
+      const due = startOfDay(new Date(t.dueDate || new Date()));
+      const diff = differenceInCalendarDays(due, today);
+      const isOverdue = !done && !isBlocked && diff < 0;
+      const isDueToday = !done && !isBlocked && diff === 0;
+
+      let condition = 'pending';
+      if (done) condition = 'complete';
+      else if (isBlocked) condition = 'blocked';
+      else if (isOverdue) condition = 'overdue';
+      else if (isDueToday) condition = 'due_today';
+
+      const assigneeName = t.assignedTo?.fullName
+        ? `${t.assignedTo.fullName}${t.assignedTo.teamName ? ` (${t.assignedTo.teamName})` : ''}`
+        : typeof t.assignedTo === 'string'
+        ? t.assignedTo
+        : '—';
+
+      const teamName = t.assignedTo?.teamName || (typeof t.assignedTo === 'string' && t.assignedTo.includes('(') ? t.assignedTo.split('(')[1].replace(')', '').trim() : '');
+      
+      const clientName = client?.brandName || client?.fullName || '';
+
+      return {
+        ...t,
+        _condition: condition,
+        _isDone: done,
+        _isBlocked: isBlocked,
+        _isOverdue: isOverdue,
+        _isDueToday: isDueToday,
+        _daysLate: diff < 0 ? Math.abs(diff) : 0,
+        _daysAhead: diff >= 0 ? diff : 0,
+        _assigneeName: assigneeName,
+        _teamName: teamName,
+        _clientName: clientName,
+      };
+    });
+  }, [filteredTasks, checkedTasks, client]);
+
+  // Apply filters on computed tasks
+  const filteredAndSearchedTasks = useMemo(() => {
+    return processedTasks.filter((t: any) => {
+      if (!isAdmin && currentUser) {
+        const uTeam = currentUser.teamName || '';
+        const tTeam = t._teamName || '';
+        const isSameTeam = uTeam && tTeam && uTeam.toLowerCase() === tTeam.toLowerCase();
+        const isAssignedToMe = t.assignedToId === currentUser.id || t.assignedTo?.id === currentUser.id;
+        if (!isSameTeam || !isAssignedToMe) return false;
+      }
+      const matchesSearch = t.title.toLowerCase().includes(taskSearch.toLowerCase());
+      const matchesStatus = taskStatusFilter === 'all' || t._condition === taskStatusFilter;
+      const matchesTeam = taskTeamFilter === 'all' || t._teamName.toLowerCase().includes(taskTeamFilter.toLowerCase());
+      const matchesClient = taskClientFilter === 'all' || t._clientName === taskClientFilter;
+
+      return matchesSearch && matchesStatus && matchesTeam && matchesClient;
+    });
+  }, [processedTasks, taskSearch, taskStatusFilter, taskTeamFilter, taskClientFilter, isAdmin, currentUser]);
+
+  // Reset limit when filters change
+  useEffect(() => {
+    setTaskLimit(10);
+  }, [taskSearch, taskStatusFilter, taskTeamFilter, taskClientFilter]);
+
+  // Scroll slice for tasks
+  const scrollableTasks = useMemo(() => {
+    return filteredAndSearchedTasks.slice(0, taskLimit);
+  }, [filteredAndSearchedTasks, taskLimit]);
+
+  const handleTaskScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollTop + clientHeight >= scrollHeight - 20) {
+      setTaskLimit(prev => Math.min(prev + 10, filteredAndSearchedTasks.length));
+    }
+  };
+
+  // Extract unique teams for filter dropdown
+  const uniqueTeams = useMemo(() => {
+    const teams = new Set<string>();
+    processedTasks.forEach((t: any) => {
+      if (t._teamName) teams.add(t._teamName);
+    });
+    return Array.from(teams);
+  }, [processedTasks]);
+
+  // Extract unique clients for filter dropdown
+  const uniqueClients = useMemo(() => {
+    if (!client) return [];
+    return [client.brandName || client.fullName];
+  }, [client]);
+
+  const history: any[] = useMemo(() => {
+    if (!client) return [];
+    const rawHistory = client.pipelineHistory ||
+      (client.stepHistory || []).map((h: any) => ({
+        date: new Date(h.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+        title: h.fromStep
+          ? `Moved: ${h.fromStep.name} → ${h.toStep?.name}`
+          : `Entered Step ${h.toStep?.stepNumber} — ${h.toStep?.name}`,
+        desc: `${h.triggeredBy === 'system' ? 'Auto-advanced' : `Manual by ${h.triggeredByUser?.fullName || 'Admin'}`}${h.reasonNote ? ` · ${h.reasonNote}` : ''}`,
+        toTeam: h.toStep?.owningTeamName,
+        fromTeam: h.fromStep?.owningTeamName,
+      }));
+    if (isAdmin) return rawHistory;
+    return rawHistory.filter((item: any) => {
+      return item.toTeam === currentUser?.teamName || item.fromTeam === currentUser?.teamName;
+    });
+  }, [client, currentUser, isAdmin]);
 
   if (isLoading) return (
     <AppLayout>
@@ -202,16 +397,6 @@ export default function ClientDetailPage() {
   const sla = client.currentStep?.slaDays || 0;
   const isOverSLA = daysInStep > sla;
   const initials = (client.brandName || client.fullName).split(' ').map((n: string) => n[0]).join('').slice(0, 2);
-  // API returns `tasks` (not currentTasks) and `stepHistory` (not pipelineHistory)
-  const currentTasks: any[] = client.currentTasks || client.tasks || [];
-  const history: any[] = client.pipelineHistory ||
-    (client.stepHistory || []).map((h: any) => ({
-      date: new Date(h.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-      title: h.fromStep
-        ? `Moved: ${h.fromStep.name} → ${h.toStep?.name}`
-        : `Entered Step ${h.toStep?.stepNumber} — ${h.toStep?.name}`,
-      desc: `${h.triggeredBy === 'system' ? 'Auto-advanced' : `Manual by ${h.triggeredByUser?.fullName || 'Admin'}`}${h.reasonNote ? ` · ${h.reasonNote}` : ''}`,
-    }));
 
   // Status badge helper
   const statusConfig: Record<string, { bg: string; color: string; dot: string; label: string }> = {
@@ -227,8 +412,27 @@ export default function ClientDetailPage() {
       <Topbar
         title="Client Detail"
         subtitle={`${client.brandName || client.fullName} · Step ${currentStepNum}`}
+        renderActions={() => isAdmin && (
+          <button
+            onClick={() => {
+              setExportType('tasks');
+              setShowExportModal(true);
+            }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+          >
+            <Download size={14} /> Export Client Data
+          </button>
+        )}
       />
-      <div style={{ padding: '28px 32px', flex: 1 }}>
+      <div style={{ padding: '16px 20px', flex: 1 }}>
 
         {/* Back */}
         <button onClick={() => router.push('/dashboard')} style={{
@@ -274,22 +478,33 @@ export default function ClientDetailPage() {
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
               View vault
             </button>
-            <button onClick={() => setShowMoveStep(true)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
-              Move step
-            </button>
-            <button onClick={() => setShowChangeStatus(true)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
-              Change status
-            </button>
-            <button onClick={() => setShowAddTask(true)} disabled={!isAdmin} title={isAdmin ? 'Add a task for this client' : 'Admin only'}
-              style={{ padding: '7px 14px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--olive)', cursor: isAdmin ? 'pointer' : 'not-allowed', color: '#fff', transition: 'background 0.15s', opacity: isAdmin ? 1 : 0.5 }}
-              onMouseEnter={e => { if (isAdmin) (e.currentTarget as HTMLElement).style.background = 'var(--olive-dark)'; }}
-              onMouseLeave={e => { if (isAdmin) (e.currentTarget as HTMLElement).style.background = 'var(--olive)'; }}>
-              Add task
-            </button>
+            {isAdmin && (
+              <>
+                <button onClick={() => setShowAddStep(true)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
+                  Add step
+                </button>
+                <button onClick={() => setShowMoveStep(true)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
+                  Move step
+                </button>
+                <button onClick={() => setShowChangeStatus(true)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
+                  Change status
+                </button>
+              </>
+            )}
+            {isAdmin && (
+              <button onClick={() => setShowAddTask(true)}
+                style={{ padding: '7px 14px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--olive)', cursor: 'pointer', color: '#fff', transition: 'background 0.15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-dark)'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--olive)'; }}>
+                Add task
+              </button>
+            )}
           </div>
         </div>
 
@@ -318,7 +533,7 @@ export default function ClientDetailPage() {
             <div>
               <div style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: '0.4px', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 4 }}>Current Progress</div>
               <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>
-                Step {currentStepNum} of 9 — <span style={{ color: 'var(--olive)', fontStyle: 'italic' }}>{client.currentStep?.name}</span>
+                Step {currentStepNum} of {steps.length} — <span style={{ color: 'var(--olive)', fontStyle: 'italic' }}>{client.currentStep?.name}</span>
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
@@ -329,20 +544,20 @@ export default function ClientDetailPage() {
             </div>
           </div>
 
-          {/* 9-step pipeline track */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 0, position: 'relative' }}>
+          {/* Dynamic pipeline track */}
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${steps.length || 1}, 1fr)`, gap: 0, position: 'relative' }}>
             {/* Connecting line */}
             <div style={{ position: 'absolute', top: 18, left: '5%', right: '5%', height: 2, background: 'var(--border)', zIndex: 0 }} />
 
-            {STEP_LABELS.map((label, i) => {
-              const stepNum = i + 1;
+            {steps.map((step, i) => {
+              const stepNum = step.stepNumber;
               const completed = stepNum < currentStepNum;
               const current = stepNum === currentStepNum;
               const future = stepNum > currentStepNum;
 
               return (
-                <div key={stepNum}
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, position: 'relative', zIndex: 1, cursor: 'pointer', padding: '4px 2px' }}>
+                <div key={step.id}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, position: 'relative', zIndex: 1, cursor: isAdmin ? 'pointer' : 'default', padding: '4px 2px' }}>
                   {/* Circle */}
                   <div style={{
                     width: 36, height: 36, borderRadius: '50%',
@@ -371,7 +586,7 @@ export default function ClientDetailPage() {
                     fontWeight: current ? 600 : 500,
                     color: current ? 'var(--olive)' : completed ? 'var(--ink-2)' : 'var(--muted)',
                   }}>
-                    {label}
+                    {step.name}
                   </div>
                 </div>
               );
@@ -380,7 +595,7 @@ export default function ClientDetailPage() {
         </div>
 
         {/* ── DETAIL GRID ─────────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 20 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1.6fr 1fr' : '1fr', gap: 20 }}>
 
           {/* Current step tasks */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
@@ -395,123 +610,281 @@ export default function ClientDetailPage() {
               </span>
             </div>
 
-            <div style={{ padding: '8px 12px' }}>
-              {currentTasks.length === 0 ? (
-                <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks in this step yet.</div>
-              ) : currentTasks.map((task: any) => {
-                const done = task.status === 'complete' || checkedTasks.has(task.id);
-                const isBlocked = task.status === 'blocked';
-                const high = task.priority === 'high';
-                const today = new Date(); today.setHours(0,0,0,0);
-                const daysOverdue = done ? 0 : Math.max(0, Math.floor((today.getTime() - new Date(task.dueDate).getTime()) / 86400000));
-                const assigneeName = task.assignedTo?.fullName
-                  ? `${task.assignedTo.fullName}${task.assignedTo.teamName ? ` (${task.assignedTo.teamName})` : ''}`
-                  : task.assignedTo || '—';
-
-                return (
-                  <div key={task.id} style={{
-                    margin: 8, border: '1px solid var(--border)',
-                    borderLeft: `${isBlocked ? '3px solid #6B3FA0' : high && !done ? '3px solid var(--red)' : '1px solid var(--border)'}`,
-                    borderRadius: 'var(--radius)', padding: '14px 16px',
-                    display: 'flex', gap: 12, alignItems: 'flex-start', transition: 'all 0.15s',
+            {/* Filter controls row */}
+            <div style={{
+              display: 'flex',
+              gap: 12,
+              padding: '12px 20px',
+              borderBottom: '1px solid var(--border)',
+              background: 'var(--surface-2)',
+              alignItems: 'center',
+              flexWrap: 'wrap'
+            }}>
+              {/* Search Bar */}
+              <div style={{ position: 'relative', flex: '1 1 200px' }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+                <input
+                  type="text"
+                  placeholder="Search tasks..."
+                  value={taskSearch}
+                  onChange={(e) => setTaskSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px 8px 32px',
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    color: 'var(--ink)',
+                    fontSize: 12.5,
+                    outline: 'none',
+                    transition: 'border-color 0.15s',
                   }}
-                    onMouseEnter={e => { e.currentTarget.style.boxShadow = 'var(--shadow)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}>
+                  onFocus={(e) => e.target.style.borderColor = 'var(--olive)'}
+                  onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
+                />
+              </div>
+              {isAdmin ? (
+                <>
+                  {/* Status Filter */}
+                  <select
+                    value={taskStatusFilter}
+                    onChange={(e) => setTaskStatusFilter(e.target.value)}
+                    style={selectStyle}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="complete">Completed</option>
+                    <option value="blocked">Blocked</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="due_today">Due Today</option>
+                    <option value="pending">Pending</option>
+                  </select>
 
-                    {/* Checkbox */}
-                    <div onClick={() => handleCheck(task.id, task.status)}
-                      style={{
-                        width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1,
-                        border: done ? 'none' : '1.5px solid var(--border-strong)',
-                        background: done ? 'var(--olive)' : 'var(--surface)',
-                        color: '#fff', fontSize: 12, cursor: done ? 'default' : 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
-                      }}>
-                      {done && '✓'}
-                    </div>
+                  {/* Team Filter */}
+                  <select
+                    value={taskTeamFilter}
+                    onChange={(e) => setTaskTeamFilter(e.target.value)}
+                    style={selectStyle}
+                  >
+                    <option value="all">All Teams</option>
+                    {uniqueTeams.map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
+                  </select>
 
-                    {/* Content */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14.5, fontWeight: 600, marginBottom: 4, color: done ? 'var(--muted)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none' }}>
-                        {task.title}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--muted)', flexWrap: 'wrap' }}>
-                        <span>{assigneeName}</span>
-                        <span>·</span>
-                        <span style={{ color: done ? 'var(--green)' : daysOverdue > 0 ? 'var(--red)' : isBlocked ? '#6B3FA0' : 'var(--muted)', fontWeight: done || daysOverdue > 0 ? 600 : 400 }}>
-                          {done ? `✓ Done` : daysOverdue > 0 ? `Overdue ${daysOverdue}d` : isBlocked ? '⏸ Blocked' : 'In progress'}
-                        </span>
-                        {task.blockerNote && <span style={{ color: '#6B3FA0', fontSize: 11, background: '#F0E8FA', padding: '1px 8px', borderRadius: 4 }}>🚫 {task.blockerNote}</span>}
-                      </div>
-                      {blockerTaskId === task.id && (
-                        <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                          <input autoFocus value={blockerNote} onChange={e => setBlockerNote(e.target.value)} placeholder="Describe the blocker..."
-                            style={{ flex: 1, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, outline: 'none' }} />
-                          <button onClick={() => blockerMut.mutate({ taskId: task.id, note: blockerNote })} disabled={!blockerNote || blockerMut.isPending}
-                            style={{ padding: '7px 12px', background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-                            {blockerMut.isPending ? '...' : 'Raise'}
-                          </button>
-                          <button onClick={() => { setBlockerTaskId(null); setBlockerNote(''); }}
-                            style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, cursor: 'pointer', background: 'var(--surface)', color: 'var(--ink-2)' }}>Cancel</button>
-                        </div>
-                      )}
-                    </div>
+                  {/* Client Filter */}
+                  <select
+                    value={taskClientFilter}
+                    onChange={(e) => setTaskClientFilter(e.target.value)}
+                    style={selectStyle}
+                  >
+                    <option value="all">All Clients</option>
+                    {uniqueClients.map(cName => (
+                      <option key={cName} value={cName}>{cName}</option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ink-2)', padding: '6px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
+                  Client: {client?.brandName || client?.fullName}
+                </div>
+              )}
+            </div>
 
-                    {/* Actions */}
-                    {!done && blockerTaskId !== task.id && (
-                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button onClick={() => handleCheck(task.id, task.status)}
-                          style={{ padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 5, fontSize: 11.5, fontWeight: 500, color: 'var(--ink-2)', background: 'var(--surface)', cursor: 'pointer', transition: 'all 0.15s' }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--olive)'; (e.currentTarget as HTMLElement).style.color = 'var(--olive)'; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--ink-2)'; }}>
-                          Mark done
-                        </button>
-                        <button onClick={() => setBlockerTaskId(task.id)}
-                          style={{ padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 5, fontSize: 11.5, fontWeight: 500, color: 'var(--ink-2)', background: 'var(--surface)', cursor: 'pointer', transition: 'all 0.15s' }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--red)'; (e.currentTarget as HTMLElement).style.color = 'var(--red)'; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--ink-2)'; }}>
-                          🚫 Blocker
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            {/* Table layout */}
+            <div
+              onScroll={handleTaskScroll}
+              style={{
+                maxHeight: 400,
+                overflowY: 'auto',
+                overflowX: 'auto',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                margin: '16px 20px 20px',
+                background: 'var(--surface-2)',
+              }}
+            >
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 500 }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 10 }}>
+                    <th style={thStyle}>Task Title</th>
+                    <th style={thStyle}>Assignee</th>
+                    <th style={thStyle}>Due / Completed</th>
+                    <th style={thStyle}>Status</th>
+                    <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scrollableTasks.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '32px 20px', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                        No tasks match the active filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    scrollableTasks.map((task: any) => {
+                      const done = task._isDone;
+                      const isBlocked = task._isBlocked;
+                      const stripe = done ? 'var(--green)' : isBlocked ? '#6B3FA0' : task._isOverdue ? 'var(--red)' : 'var(--olive)';
+                      
+                      const dueFormatted = format(new Date(task.dueDate), 'EEE d MMM');
+                      const completedAt = task.completedAt ? format(new Date(task.completedAt), "d MMM, h:mma") : null;
+                      const whenLabel = done && completedAt ? completedAt : dueFormatted;
+
+                      return (
+                        <tr
+                          key={task.id}
+                          style={{
+                            borderBottom: '1px solid var(--surface-2)',
+                            transition: 'background 0.1s',
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                        >
+                          <td style={tdStyle}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{ width: 3, height: 16, background: stripe, borderRadius: 2, flexShrink: 0 }} />
+                              <div style={{
+                                fontSize: 13.5,
+                                fontWeight: 600,
+                                color: 'var(--ink)',
+                                textDecoration: done ? 'line-through' : 'none'
+                              }}>
+                                {task.title}
+                              </div>
+                            </div>
+                            {task.blockerNote && (
+                              <div style={{ fontSize: 11.5, color: '#6B3FA0', marginTop: 4, fontStyle: 'italic', paddingLeft: 13 }}>
+                                "Client Blocked: {task.blockerNote}"
+                              </div>
+                            )}
+
+                            {blockerTaskId === task.id && (
+                              <div style={{ marginTop: 10, display: 'flex', gap: 8, paddingLeft: 13 }}>
+                                <input
+                                  autoFocus
+                                  value={blockerNote}
+                                  onChange={e => setBlockerNote(e.target.value)}
+                                  placeholder="Describe the blocker..."
+                                  style={{ flex: 1, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, outline: 'none' }}
+                                />
+                                <button
+                                  onClick={() => blockerMut.mutate({ taskId: task.id, note: blockerNote })}
+                                  disabled={!blockerNote || blockerMut.isPending}
+                                  style={{ padding: '7px 12px', background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                  {blockerMut.isPending ? '...' : 'Raise'}
+                                </button>
+                                <button
+                                  onClick={() => { setBlockerTaskId(null); setBlockerNote(''); }}
+                                  style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, cursor: 'pointer', background: 'var(--surface)', color: 'var(--ink-2)' }}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                          <td style={tdStyle}>
+                            <span style={{ fontSize: 12.5, color: 'var(--ink-2)', fontWeight: 500 }}>
+                              {task._assigneeName}
+                            </span>
+                          </td>
+                          <td style={tdStyle}>
+                            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                              {done ? 'Completed' : 'Due'}: {whenLabel}
+                            </span>
+                            {done && task.completedAt && task.createdAt && (
+                              <span style={{ color: 'var(--olive-dark)', display: 'block', fontSize: 11, fontWeight: 600, marginTop: 2 }}>
+                                {(() => {
+                                  const ms = new Date(task.completedAt).getTime() - new Date(task.createdAt).getTime();
+                                  const days = ms / (1000 * 60 * 60 * 24);
+                                  if (days >= 1) return `Took ${days.toFixed(1)}d`;
+                                  const hours = ms / (1000 * 60 * 60);
+                                  if (hours >= 1) return `Took ${hours.toFixed(1)}h`;
+                                  const mins = ms / (1000 * 60);
+                                  return `Took ${Math.round(mins)}m`;
+                                })()}
+                              </span>
+                            )}
+                            {task.priority === 'high' && !done && (
+                              <span style={{ color: 'var(--red)', display: 'block', fontSize: 11, fontWeight: 600, marginTop: 2 }}>
+                                High priority
+                              </span>
+                            )}
+                          </td>
+                          <td style={tdStyle}>
+                            {done ? (
+                              <span style={chipStyle('var(--green-bg)', 'var(--green)')}>DONE</span>
+                            ) : isBlocked ? (
+                              <span style={chipStyle('#F0E8FA', '#6B3FA0')}>BLOCKED</span>
+                            ) : task._daysLate > 0 ? (
+                              <span style={chipStyle('var(--red-bg)', 'var(--red)')}>+{task._daysLate}d</span>
+                            ) : task._isDueToday ? (
+                              <span style={chipStyle('var(--amber-bg)', 'var(--amber)')}>TODAY</span>
+                            ) : (
+                              <span style={chipStyle('var(--olive-50)', 'var(--olive-dark)')}>in {task._daysAhead}d</span>
+                            )}
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'right' }}>
+                            {!done && blockerTaskId !== task.id && (
+                              <div style={{ display: 'inline-flex', gap: 6 }}>
+                                <SmallTaskButton
+                                  label="Complete"
+                                  icon={<Check size={11} />}
+                                  color="var(--green)"
+                                  onClick={(e) => { e.stopPropagation(); handleCheck(task.id, task.status); }}
+                                />
+                                <SmallTaskButton
+                                  label="Blocker"
+                                  icon={<TriangleAlert size={11} />}
+                                  color="#6B3FA0"
+                                  onClick={(e) => { e.stopPropagation(); setBlockerTaskId(task.id); }}
+                                />
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 
           {/* Step History timeline */}
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Step History</div>
-            </div>
-            <div style={{ padding: 20 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {history.map((item: any, i: number) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px auto 1fr', gap: 14, alignItems: 'flex-start' }}>
-                    {/* Date */}
-                    <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5, color: 'var(--muted)', paddingTop: 4 }}>
-                      {item.date}
-                    </div>
+          {isAdmin && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Step History</div>
+              </div>
+              <div style={{ padding: 20 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  {history.map((item: any, i: number) => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px auto 1fr', gap: 14, alignItems: 'flex-start' }}>
+                      {/* Date */}
+                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5, color: 'var(--muted)', paddingTop: 4 }}>
+                        {item.date}
+                      </div>
 
-                    {/* Dot + line */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--olive)', marginTop: 5, zIndex: 1 }} />
-                      {i < history.length - 1 && (
-                        <div style={{ position: 'absolute', top: 15, bottom: -20, width: 2, background: 'var(--border)' }} />
-                      )}
-                    </div>
+                      {/* Dot + line */}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--olive)', marginTop: 5, zIndex: 1 }} />
+                        {i < history.length - 1 && (
+                          <div style={{ position: 'absolute', top: 15, bottom: -20, width: 2, background: 'var(--border)' }} />
+                        )}
+                      </div>
 
-                    {/* Content */}
-                    <div style={{ paddingBottom: 4 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{item.title}</div>
-                      <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{item.desc}</div>
+                      {/* Content */}
+                      <div style={{ paddingBottom: 4 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{item.title}</div>
+                        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{item.desc}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* ── MOVE STEP MODAL ─────────────────────────────────────────── */}
@@ -712,7 +1085,369 @@ export default function ClientDetailPage() {
             </div>
           </div>
         )}
+        {showAddStep && isAdmin && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowAddStep(false); }}>
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 460, boxShadow: 'var(--shadow-lg)' }}>
+              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Add Step to Pipeline</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>This will append a new step to the end of the pipeline.</div>
+                </div>
+                <button onClick={() => setShowAddStep(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
+              </div>
+
+              <div style={{ padding: '20px 24px' }}>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Step Name *</label>
+                  <input value={addStepForm.name} onChange={(e) => setAddStepForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Graphic Assets Setup" style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Owning Team *</label>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <select value={addStepForm.owningTeamName} onChange={(e) => setAddStepForm(f => ({ ...f, owningTeamName: e.target.value }))} style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                        <option value="">Select team...</option>
+                        {teamsList.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                      <button type="button" onClick={handleCreateNewTeam}
+                        style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>
+                        + Team
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>SLA Days *</label>
+                    <input type="number" value={addStepForm.slaDays} onChange={(e) => setAddStepForm(f => ({ ...f, slaDays: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Position / Step Number (optional)</label>
+                  <input type="number" placeholder={`e.g. 1 to ${steps.length + 1}`} value={addStepForm.stepNumber} onChange={(e) => setAddStepForm(f => ({ ...f, stepNumber: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Description</label>
+                  <textarea value={addStepForm.description} onChange={(e) => setAddStepForm(f => ({ ...f, description: e.target.value }))} placeholder="Briefly describe the objective of this step..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical', minHeight: 60, fontFamily: 'inherit' }} />
+                </div>
+                {addStepError && <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>{addStepError}</div>}
+              </div>
+
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+                <button onClick={() => setShowAddStep(false)} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
+                <button onClick={() => { setAddStepError(''); addStepMutation.mutate(addStepForm); }} disabled={addStepMutation.isPending || !addStepForm.name.trim() || !addStepForm.owningTeamName}
+                  style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (addStepMutation.isPending || !addStepForm.name.trim() || !addStepForm.owningTeamName) ? 0.6 : 1 }}>
+                  {addStepMutation.isPending ? 'Adding…' : 'Add Step'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {completeTaskId && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
+            onClick={(e) => { if (e.target === e.currentTarget) setCompleteTaskId(null); }}>
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)' }}>
+              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Complete Task</div>
+                <button onClick={() => setCompleteTaskId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
+              </div>
+              <div style={{ padding: '20px 24px' }}>
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>Please provide proof of work details (optional but recommended) to upload to the Vault.</p>
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Proof Link (e.g. Drive, Loom, Figma)</label>
+                  <input type="url" value={proofLink} onChange={e => setProofLink(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
+                </div>
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Comment / Description</label>
+                  <textarea value={proofDescription} onChange={e => setProofDescription(e.target.value)} placeholder="Any additional details or comments..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical' }} />
+                </div>
+              </div>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+                <button onClick={() => { setCompleteTaskId(null); setProofLink(''); setProofDescription(''); }} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
+                <button
+                  onClick={() => {
+                    completeMut.mutate({ id: completeTaskId, proofLink, proofDescription });
+                    setCompleteTaskId(null);
+                    setProofLink('');
+                    setProofDescription('');
+                  }}
+                  style={{ padding: '8px 18px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--green)', color: '#fff', cursor: 'pointer' }}
+                >
+                  Submit & Complete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ── EXPORT MODAL ── */}
+        {showExportModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
+            onClick={e => { if (e.target === e.currentTarget) setShowExportModal(false); }}>
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 700, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' }}>
+              
+              {/* Modal header */}
+              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+                <div>
+                  <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Export Client Data: {client.brandName || client.fullName}</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>Filter and download reports for this specific client in CSV or PDF.</div>
+                </div>
+                <button onClick={() => setShowExportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Modal body */}
+              <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }}>
+                
+                {/* Select export type */}
+                <div style={{ marginBottom: 20 }}>
+                  <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 8 }}>Select Export Type</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+                    {[
+                      { type: 'client_full', label: 'Client Full Report', desc: 'Active & completed task progress summary' },
+                      { type: 'tasks', label: 'Tasks List', desc: 'Raw tasks, assignees & status information' }
+                    ].map((item) => (
+                      <button
+                        key={item.type}
+                        onClick={() => setExportType(item.type)}
+                        style={{
+                          textAlign: 'left',
+                          padding: '12px 14px',
+                          borderRadius: 'var(--radius)',
+                          border: `1.5px solid ${exportType === item.type ? 'var(--olive)' : 'var(--border)'}`,
+                          background: exportType === item.type ? 'var(--olive-50)' : 'var(--surface)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.label}</div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{item.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Filters Section */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 18, marginTop: 18 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Filter Options</div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Start Date (Due Date)</label>
+                      <input type="date" value={expStartDate} onChange={e => setExpStartDate(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>End Date (Due Date)</label>
+                      <input type="date" value={expEndDate} onChange={e => setExpEndDate(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }} />
+                    </div>
+
+                    {/* Step Filter */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Step</label>
+                      <select value={expStepId} onChange={e => setExpStepId(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        <option value="">All Steps</option>
+                        {stepsList.map((s: any) => (
+                          <option key={s.id} value={s.id}>Step {s.stepNumber}: {s.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Task Status</label>
+                      <select value={expStatus} onChange={e => setExpStatus(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        <option value="">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="complete">Complete</option>
+                        <option value="blocked">Blocked</option>
+                        <option value="extension_requested">Extension Requested</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </div>
+
+                    {/* Team Filter */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Team</label>
+                      <select value={expTeam} onChange={e => setExpTeam(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        <option value="">All Teams</option>
+                        {teamsList.map((t: string) => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Assigned Member Filter */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Assigned Member</label>
+                      <select value={expAssignedToId} onChange={e => setExpAssignedToId(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        <option value="">All Members</option>
+                        {usersList.map((u: any) => (
+                          <option key={u.id} value={u.id}>{u.fullName} ({u.teamName || 'No Team'})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Priority Filter */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Priority</label>
+                      <select value={expPriority} onChange={e => setExpPriority(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        <option value="">All Priorities</option>
+                        <option value="high">High</option>
+                        <option value="normal">Normal</option>
+                        <option value="low">Low</option>
+                      </select>
+                    </div>
+
+                    {/* Completed / Pending filter */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Completion State</label>
+                      <select value={expCompleted} onChange={e => setExpCompleted(e.target.value)}
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        <option value="all">All States</option>
+                        <option value="true">Completed Only</option>
+                        <option value="false">Pending Only</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal footer */}
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 12, flexShrink: 0, background: 'var(--surface-2)' }}>
+                <button onClick={() => setShowExportModal(false)}
+                  style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
+                  Cancel
+                </button>
+                <button onClick={() => { setExportFormat('csv'); setTimeout(() => {
+                  const params = new URLSearchParams();
+                  params.set('format', 'csv');
+                  params.set('type', exportType);
+                  params.set('clientId', client.id);
+                  if (expStartDate) params.set('startDate', expStartDate);
+                  if (expEndDate) params.set('endDate', expEndDate);
+                  if (expStepId) params.set('stepId', expStepId);
+                  if (expStatus) params.set('status', expStatus);
+                  if (expTeam) params.set('team', expTeam);
+                  if (expAssignedToId) params.set('assignedToId', expAssignedToId);
+                  if (expPriority) params.set('priority', expPriority);
+                  if (expCompleted !== 'all') params.set('completed', expCompleted);
+                  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+                  if (token) params.set('token', token);
+                  const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `${exportType}_client_${client.id}_export_${Date.now()}.csv`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }, 50); }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
+                  <Download size={14} /> Download CSV
+                </button>
+                <button onClick={() => { setExportFormat('pdf'); setTimeout(() => {
+                  const params = new URLSearchParams();
+                  params.set('format', 'pdf');
+                  params.set('type', exportType);
+                  params.set('clientId', client.id);
+                  if (expStartDate) params.set('startDate', expStartDate);
+                  if (expEndDate) params.set('endDate', expEndDate);
+                  if (expStepId) params.set('stepId', expStepId);
+                  if (expStatus) params.set('status', expStatus);
+                  if (expTeam) params.set('team', expTeam);
+                  if (expAssignedToId) params.set('assignedToId', expAssignedToId);
+                  if (expPriority) params.set('priority', expPriority);
+                  if (expCompleted !== 'all') params.set('completed', expCompleted);
+                  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+                  if (token) params.set('token', token);
+                  const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
+                  window.open(url, '_blank');
+                }, 50); }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                  <Download size={14} /> Print PDF Report
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   );
 }
+
+function chipStyle(bg: string, color: string): React.CSSProperties {
+  return {
+    fontFamily: 'JetBrains Mono, monospace',
+    fontSize: 11, fontWeight: 700,
+    padding: '3px 8px', borderRadius: 5,
+    background: bg, color,
+  };
+}
+
+function SmallTaskButton({
+  label, icon, color, onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '5px 8px',
+        border: `1px solid ${color}`,
+        borderRadius: 6,
+        background: 'var(--surface)',
+        color,
+        fontSize: 11.5,
+        fontWeight: 700,
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+const selectStyle: React.CSSProperties = {
+  padding: '8px 12px',
+  borderRadius: 8,
+  border: '1px solid var(--border)',
+  background: 'var(--surface)',
+  color: 'var(--ink-2)',
+  fontSize: 12.5,
+  fontWeight: 500,
+  outline: 'none',
+  cursor: 'pointer',
+  minWidth: 120,
+};
+
+const thStyle: React.CSSProperties = {
+  padding: '12px 20px',
+  fontSize: 11.5,
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+  color: 'var(--muted)',
+  borderBottom: '1px solid var(--border)',
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: '14px 20px',
+  verticalAlign: 'middle',
+};

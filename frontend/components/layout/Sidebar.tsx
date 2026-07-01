@@ -20,13 +20,13 @@ const MOCK_USER = { fullName: 'Ambesh Kumar', role: 'admin', teamName: null };
  */
 const navItems = [
   // Workspace section
-  { label: 'Pipeline',      icon: LayoutDashboard, href: '/dashboard',       section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
+  { label: 'Dashboard',     icon: LayoutDashboard, href: '/admin',           section: 'workspace', roles: ['admin'] },
+  { label: 'Dashboard',     icon: LayoutDashboard, href: '/dashboard',       section: 'workspace', roles: ['team_leader', 'team_member'] },
   { label: 'Standup Brief', icon: Sun,              href: '/standup',         section: 'workspace', roles: ['admin', 'team_leader'] },
-  { label: 'My Tasks',      icon: CheckSquare,      href: '/tasks',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
+  { label: 'Tasks',         icon: CheckSquare,      href: '/tasks',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   { label: 'Clients',       icon: GitBranch,        href: '/clients',         section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   { label: 'Vault',         icon: FolderLock,       href: '/vault',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   // Manage section
-  { label: 'Admin',         icon: Activity,         href: '/admin',           section: 'manage',    roles: ['admin'] },
   { label: 'Step Config',   icon: Settings,         href: '/settings/steps',  section: 'manage',    roles: ['admin'] },
   { label: 'Team',          icon: Users,            href: '/team',            section: 'manage',    roles: ['admin', 'team_leader'] },
   { label: 'Performance',   icon: TrendingUp,       href: '/performance',     section: 'manage',    roles: ['admin'] },

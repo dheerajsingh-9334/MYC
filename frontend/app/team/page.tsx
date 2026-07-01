@@ -17,6 +17,10 @@ interface Member {
   role: 'admin' | 'team_leader' | 'team_member';
   teamName?: string | null;
   isActive: boolean;
+  active?: number;
+  overdue?: number;
+  completedLast7d?: number;
+  avgCompletionTime?: string | null;
   _count?: { assignedTasks?: number };
 }
 
@@ -131,6 +135,22 @@ export default function TeamPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
 
+  const handleCreateNewTeam = async () => {
+    const name = prompt('Enter new team name:');
+    if (!name?.trim()) return;
+    try {
+      await apiFetch('/api/teams', {
+        method: 'POST',
+        body: JSON.stringify({ name: name.trim() })
+      });
+      qc.invalidateQueries({ queryKey: ['teams'] });
+      qc.invalidateQueries({ queryKey: ['users'] });
+      alert('Team created successfully!');
+    } catch (e: any) {
+      alert(e.message || 'Failed to create team');
+    }
+  };
+
   const getInitials = (name: string) => name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
 
   const roleIcon = (role: string) => {
@@ -143,24 +163,19 @@ export default function TeamPage() {
   return (
     <AppLayout>
       <Topbar title="Team" subtitle={`${active.length} active member${active.length !== 1 ? 's' : ''}`} />
-      <div style={{ padding: '28px 32px', flex: 1 }}>
-
-        <DashboardHeader
-          title={mounted && isAdmin ? 'All Teams' : (mounted && !isAdmin ? (user?.teamName || 'My Team') : 'All Teams')}
-          subtitle={isAdmin
-            ? `${tree.length} team${tree.length !== 1 ? 's' : ''} · ${active.length} active · ${inactive.length} deactivated`
-            : `${active.filter((m) => m.teamName === user?.teamName).length} active members in your team`}
-        >
-          {isAdmin && (
-            <>
-              <button onClick={expandAll} style={btnSecondary}>Expand all</button>
-              <button onClick={collapseAll} style={btnSecondary}>Collapse all</button>
-              <button onClick={() => setShowModal(true)} style={btnPrimary}>
-                <Plus size={14} /> Add Member
-              </button>
-            </>
-          )}
-        </DashboardHeader>
+      <div style={{ padding: '16px 20px', flex: 1 }}>
+        {isAdmin && (
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 14 }}>
+            <button onClick={expandAll} style={btnSecondary}>Expand all</button>
+            <button onClick={collapseAll} style={btnSecondary}>Collapse all</button>
+            <button onClick={handleCreateNewTeam} style={{ ...btnSecondary, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <Plus size={13} /> New Team
+            </button>
+            <button onClick={() => setShowModal(true)} style={btnPrimary}>
+              <Plus size={14} /> Add Member
+            </button>
+          </div>
+        )}
 
         {/* Search */}
         <div style={{ position: 'relative', marginBottom: 14 }}>
@@ -178,7 +193,7 @@ export default function TeamPage() {
               {filteredTree.map(([teamName, members]) => {
                 const isOpen = expandedTeams.has(teamName) || !!search.trim();
                 const leaderCount = members.filter((m) => m.role === 'team_leader').length;
-                const totalActiveTasks = members.reduce((s, m) => s + (m._count?.assignedTasks || 0), 0);
+                const totalActiveTasks = members.reduce((s, m) => s + ((m.active ?? m._count?.assignedTasks) || 0), 0);
                 return (
                   <div key={teamName}>
                     {/* Team folder row */}
@@ -203,37 +218,69 @@ export default function TeamPage() {
                     {isOpen && (
                       <div style={{ paddingBottom: 8 }}>
                         {members.map((m) => {
-                          const activeTasks = m._count?.assignedTasks || 0;
+                          const activeTasks = (m.active ?? m._count?.assignedTasks) || 0;
                           return (
-                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px 8px 60px', borderTop: '1px solid var(--surface-2)' }}
+                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 16px 10px 60px', borderTop: '1px solid var(--surface-2)' }}
                               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
                               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                              <div style={{ width: 28, height: 28, borderRadius: 6, background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 11, flexShrink: 0 }}>
+                              
+                              {/* Avatar */}
+                              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 12, flexShrink: 0, boxShadow: 'var(--shadow-sm)' }}>
                                 {getInitials(m.fullName)}
                               </div>
+                              
+                              {/* Info */}
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                                  {m.fullName}
-                                  {roleIcon(m.role)}
-                                  <span style={{ fontSize: 10.5, fontWeight: 500, color: m.role === 'team_leader' ? '#2860A1' : m.role === 'admin' ? 'var(--olive)' : 'var(--muted)' }}>
+                                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                  <span>{m.fullName}</span>
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    padding: '2px 8px',
+                                    borderRadius: 999,
+                                    fontSize: 10.5,
+                                    fontWeight: 600,
+                                    background: m.role === 'admin' ? 'var(--olive-50)' : m.role === 'team_leader' ? '#EBF3FB' : 'var(--surface-2)',
+                                    color: m.role === 'admin' ? 'var(--olive)' : m.role === 'team_leader' ? '#2860A1' : 'var(--muted)',
+                                  }}>
+                                    {roleIcon(m.role)}
                                     {roleLabel(m.role)}
                                   </span>
                                 </div>
-                                <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{m.email}</div>
+                                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{m.email}</div>
                               </div>
-                              <div style={{ fontSize: 12, color: 'var(--ink-2)', minWidth: 80, textAlign: 'right' }}>
-                                <span style={{ fontFamily: 'Instrument Serif, serif', fontSize: 17, fontStyle: 'italic', color: activeTasks > 0 ? 'var(--olive)' : 'var(--muted)' }}>{activeTasks}</span>
-                                <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 4 }}>active</span>
+                              
+                              {/* Tasks Badge or Performance Stats */}
+                              <div style={{ display: 'flex', gap: 12, marginRight: 12, flexShrink: 0 }}>
+                                <span style={{ textAlign: 'center', minWidth: 40 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{m.active ?? 0}</div>
+                                  <div style={{ fontSize: 9.5, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>Active</div>
+                                </span>
+                                <span style={{ textAlign: 'center', minWidth: 40 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: (m.overdue ?? 0) > 0 ? 'var(--red)' : 'var(--muted)' }}>{m.overdue ?? 0}</div>
+                                  <div style={{ fontSize: 9.5, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>Late</div>
+                                </span>
+                                <span style={{ textAlign: 'center', minWidth: 40 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>{m.completedLast7d ?? 0}</div>
+                                  <div style={{ fontSize: 9.5, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>Done</div>
+                                </span>
+                                <span style={{ textAlign: 'center', minWidth: 50 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--olive-dark)' }}>{m.avgCompletionTime ?? '—'}</div>
+                                  <div style={{ fontSize: 9.5, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>Avg. Time</div>
+                                </span>
                               </div>
+
+                              {/* Actions */}
                               {isAdmin && m.role !== 'admin' && (
-                                <div style={{ display: 'flex', gap: 6 }}>
+                                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                                   <button onClick={() => {
                                     const nextRole = m.role === 'team_leader' ? 'team_member' : 'team_leader';
                                     if (confirm(`${nextRole === 'team_leader' ? 'Promote' : 'Demote'} ${m.fullName} to ${nextRole === 'team_leader' ? 'Team Lead' : 'Team Member'}?`)) {
                                       roleMut.mutate({ id: m.id, role: nextRole });
                                     }
                                   }} style={btnMini}>{m.role === 'team_leader' ? 'Make Member' : 'Make Lead'}</button>
-                                  <button onClick={() => { if (confirm(`Deactivate ${m.fullName}?`)) deactivateMut.mutate(m.id); }} style={{ ...btnMini, color: 'var(--red)' }}>
+                                  <button onClick={() => { if (confirm(`Deactivate ${m.fullName}?`)) deactivateMut.mutate(m.id); }} style={{ ...btnMini, color: 'var(--red)', borderColor: 'rgba(220,38,38,0.2)' }}>
                                     Deactivate
                                   </button>
                                 </div>
@@ -348,8 +395,9 @@ const btnSecondary: React.CSSProperties = {
   fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)',
 };
 const btnMini: React.CSSProperties = {
-  padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 5,
-  fontSize: 11, fontWeight: 500, color: '#2860A1', background: 'var(--surface)', cursor: 'pointer',
+  padding: '4px 10px', border: '1px solid var(--border)', borderRadius: 6,
+  fontSize: 11.5, fontWeight: 500, color: 'var(--ink-2)', background: 'var(--surface)', cursor: 'pointer',
+  transition: 'all 0.15s ease',
 };
 const lbl: React.CSSProperties = {
   display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5,

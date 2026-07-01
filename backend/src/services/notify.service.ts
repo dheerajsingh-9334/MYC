@@ -18,6 +18,7 @@ type NotifType =
   | 'blocker_raised'
   | 'step_advanced'
   | 'extension_request'
+  | 'extension_decision'
   | 'client_status_changed';
 
 interface NotifPayload {
@@ -32,7 +33,11 @@ interface NotifPayload {
 /** Low-level: create multiple notification records at once. */
 async function createMany(payloads: NotifPayload[]) {
   if (payloads.length === 0) return;
-  await prisma.notification.createMany({ data: payloads });
+  // Cast: NotifType is a superset of the Prisma-generated NotificationType —
+  // `extension_decision` is added in the schema but may not have been migrated
+  // in the live DB yet. The cast keeps TS happy and is safe: if the enum value
+  // doesn't exist in the DB, Prisma throws a clear error.
+  await prisma.notification.createMany({ data: payloads as any });
 }
 
 /** Fetch ALL active members of a named team within an org. */
@@ -260,6 +265,8 @@ export async function notifyExtensionRequested(opts: {
  * EVENT: Extension approved or rejected.
  * Notifies:
  *   • The task's assignee  → task_assigned (re-use for "extension approved/rejected")
+ *   • The assignee's team (excluding the assignee, who already got their own row)
+ *     → "extension_decision" so the team has context on the new deadline
  */
 export async function notifyExtensionDecision(opts: {
   organisationId: string;
@@ -267,20 +274,46 @@ export async function notifyExtensionDecision(opts: {
   clientName: string;
   approved: boolean;
   assigneeId: string;
+  assigneeName?: string;
+  teamName?: string | null;
   newDueDate?: string;
   taskId: string;
 }) {
-  const { organisationId, taskTitle, clientName, approved, assigneeId, newDueDate, taskId } = opts;
-  await createMany([{
+  const { organisationId, taskTitle, clientName, approved, assigneeId, assigneeName, teamName, newDueDate, taskId } = opts;
+  const headline = approved
+    ? `✅ Extension approved for "${taskTitle}" (${clientName}). New due: ${newDueDate || 'updated'}.`
+    : `❌ Extension rejected for "${taskTitle}" (${clientName}). Original deadline stands.`;
+
+  const rows: any[] = [{
     organisationId,
     userId: assigneeId,
     type: 'task_assigned',
-    message: approved
-      ? `✅ Extension approved for "${taskTitle}" (${clientName}). New due: ${newDueDate || 'updated'}.`
-      : `❌ Extension rejected for "${taskTitle}" (${clientName}). Original deadline stands.`,
+    message: headline,
     referenceId: taskId,
     referenceType: 'task',
-  }]);
+  }];
+
+  // Broadcast to the assignee's team (if they belong to one). Skip the assignee
+  // themselves — they already received a tailored row above.
+  if (teamName) {
+    const team = await getTeamMembers(organisationId, teamName);
+    const teamMessage = approved
+      ? `📢 [${teamName}] ${assigneeName || 'A teammate'}'s extension on "${taskTitle}" (${clientName}) was approved. New due: ${newDueDate || 'updated'}.`
+      : `📢 [${teamName}] ${assigneeName || 'A teammate'}'s extension on "${taskTitle}" (${clientName}) was rejected. Original deadline stands.`;
+    for (const m of team) {
+      if (m.id === assigneeId) continue;
+      rows.push({
+        organisationId,
+        userId: m.id,
+        type: 'extension_decision',
+        message: teamMessage,
+        referenceId: taskId,
+        referenceType: 'task',
+      });
+    }
+  }
+
+  await createMany(rows);
 }
 
 /**
@@ -445,3 +478,39 @@ export async function notifyClientStatusChanged(opts: {
 
   await createMany(payloads);
 }
+
+/**
+ * EVENT: New client added.
+ * Notifies:
+ *   • ALL active team members across the org
+ *   • ALL admins
+ */
+export async function notifyClientAdded(opts: {
+  organisationId: string;
+  clientName: string;
+  clientId: string;
+  createdByName?: string;
+}) {
+  const { organisationId, clientName, clientId, createdByName } = opts;
+  const msg = `🆕 New client added: "${clientName}"${createdByName ? ` (by ${createdByName})` : ''}`;
+
+  const allUsers = await getAllOrgTeamAndAdminUsers(organisationId);
+
+  const seen = new Set<string>();
+  const payloads: NotifPayload[] = [];
+  for (const u of allUsers) {
+    if (seen.has(u.id)) continue;
+    seen.add(u.id);
+    payloads.push({
+      organisationId,
+      userId: u.id,
+      type: 'client_status_changed',
+      message: msg,
+      referenceId: clientId,
+      referenceType: 'client',
+    });
+  }
+
+  await createMany(payloads);
+}
+

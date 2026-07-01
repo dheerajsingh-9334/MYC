@@ -65,7 +65,7 @@ export default function SectionCard({
           {action && <div style={{ flexShrink: 0 }}>{action}</div>}
         </div>
       )}
-      <div style={{ padding }}>
+      <div style={{ padding, ...(style?.display === 'flex' ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : {}) }}>
         {children}
       </div>
     </div>

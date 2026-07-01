@@ -3,7 +3,7 @@ import multer from 'multer';
 import path from 'path';
 import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
-import { notifyClientStatusChanged } from '../services/notify.service';
+import { notifyClientStatusChanged, notifyClientAdded } from '../services/notify.service';
 import { computeClientStatus, advanceClientToStep, handleManualStepMove } from '../services/pipeline.service';
 
 const router = Router();
@@ -35,7 +35,14 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     const clients = await prisma.client.findMany({
       where,
-      include: { currentStep: true, tasks: true },
+      include: {
+        currentStep: true,
+        tasks: true,
+        stepHistory: {
+          orderBy: { createdAt: 'desc' },
+          take: 1
+        }
+      },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -44,6 +51,18 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       const daysInStep = Math.floor(
         (Date.now() - new Date(c.stepEnteredAt).getTime()) / (1000 * 60 * 60 * 24)
       );
+
+      let completionDurationDays = 0;
+      const joinedDate = c.dateJoined || c.createdAt;
+      if (c.status === 'completed') {
+        const lastHistoryDate = c.stepHistory[0]?.createdAt || c.createdAt;
+        const durationMs = lastHistoryDate.getTime() - joinedDate.getTime();
+        completionDurationDays = Math.max(0, Math.round(durationMs / (1000 * 60 * 60 * 24)));
+      } else {
+        const durationMs = Date.now() - joinedDate.getTime();
+        completionDurationDays = Math.max(0, Math.round(durationMs / (1000 * 60 * 60 * 24)));
+      }
+
       return {
         id: c.id,
         fullName: c.fullName,
@@ -56,6 +75,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
         daysInStep,
         dateJoined: c.dateJoined,
         taskCount: c.tasks.length,
+        completionDurationDays,
       };
     });
 
@@ -69,8 +89,39 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 // GET /api/clients/:id
 router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
+    const { role, userId, orgId } = req.user;
+    let docWhere: any = undefined;
+
+    if (role !== 'admin') {
+      const myTasks = await prisma.task.findMany({
+        where: { assignedToId: userId, organisationId: orgId, clientId: req.params.id },
+        select: { id: true, stepId: true },
+      });
+      const myTaskIds = myTasks.map(t => t.id);
+      const myStepIds = myTasks.map(t => t.stepId);
+
+      const admins = await prisma.user.findMany({
+        where: { organisationId: orgId, role: 'admin' },
+        select: { id: true },
+      });
+      const adminIds = admins.map(a => a.id);
+
+      docWhere = {
+        OR: [
+          { uploadedById: userId },
+          { taskId: { in: myTaskIds } },
+        ]
+      };
+      if (myStepIds.length > 0) {
+        docWhere.OR.push({
+          uploadedById: { in: adminIds },
+          stepId: { in: myStepIds },
+        });
+      }
+    }
+
     const client = await prisma.client.findFirst({
-      where: { id: req.params.id, organisationId: req.user.orgId },
+      where: { id: req.params.id, organisationId: orgId },
       include: {
         currentStep: true,
         tasks: {
@@ -81,7 +132,10 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
           include: { fromStep: true, toStep: true, triggeredByUser: true },
           orderBy: { createdAt: 'desc' },
         },
-        documents: { orderBy: { createdAt: 'desc' } },
+        documents: {
+          where: docWhere,
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
 
@@ -128,6 +182,19 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
 
     // Auto-advance to step 1 (creates tasks + notifications)
     await advanceClientToStep(client.id, step1.id, 'admin', req.user.userId, 'Client created');
+
+    // Notify organization that client was added
+    try {
+      const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { fullName: true } });
+      await notifyClientAdded({
+        organisationId: req.user.orgId,
+        clientName: brandName || fullName,
+        clientId: client.id,
+        createdByName: actor?.fullName,
+      });
+    } catch (err) {
+      console.error('[notifyClientAdded] failed:', err);
+    }
 
     // Reload fresh
     const fresh = await prisma.client.findUnique({
@@ -228,8 +295,43 @@ router.get('/:id/history', requireAuth, async (req: Request, res: Response) => {
 // GET /api/clients/:id/documents
 router.get('/:id/documents', requireAuth, async (req: Request, res: Response) => {
   try {
+    const { role, userId, orgId } = req.user;
+    let docWhere: any = { clientId: req.params.id, organisationId: orgId };
+
+    if (role !== 'admin') {
+      const myTasks = await prisma.task.findMany({
+        where: { assignedToId: userId, organisationId: orgId, clientId: req.params.id },
+        select: { id: true, stepId: true },
+      });
+      const myTaskIds = myTasks.map(t => t.id);
+      const myStepIds = myTasks.map(t => t.stepId);
+
+      const admins = await prisma.user.findMany({
+        where: { organisationId: orgId, role: 'admin' },
+        select: { id: true },
+      });
+      const adminIds = admins.map(a => a.id);
+
+      const filterOR: any[] = [
+        { uploadedById: userId },
+        { taskId: { in: myTaskIds } },
+      ];
+      if (myStepIds.length > 0) {
+        filterOR.push({
+          uploadedById: { in: adminIds },
+          stepId: { in: myStepIds },
+        });
+      }
+
+      docWhere = {
+        clientId: req.params.id,
+        organisationId: orgId,
+        OR: filterOR,
+      };
+    }
+
     const docs = await prisma.document.findMany({
-      where: { clientId: req.params.id, organisationId: req.user.orgId },
+      where: docWhere,
       orderBy: { createdAt: 'desc' },
     });
     res.json(docs);
@@ -309,6 +411,36 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
 
     if (errors.length === 0 || toCreate.length > 0) {
       await prisma.client.createMany({ data: toCreate });
+
+      // Notify organization that clients were imported
+      try {
+        const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { fullName: true } });
+        const actorName = actor?.fullName || 'Admin';
+        const msg = `🆕 ${toCreate.length} new client${toCreate.length !== 1 ? 's' : ''} imported via CSV by ${actorName}`;
+        
+        const allUsers = await prisma.user.findMany({
+          where: { organisationId: req.user.orgId, isActive: true },
+          select: { id: true },
+        });
+        
+        const seen = new Set<string>();
+        const payloads = [];
+        for (const u of allUsers) {
+          if (seen.has(u.id)) continue;
+          seen.add(u.id);
+          payloads.push({
+            organisationId: req.user.orgId,
+            userId: u.id,
+            type: 'client_status_changed',
+            message: msg,
+            referenceId: '',
+            referenceType: 'client',
+          });
+        }
+        await prisma.notification.createMany({ data: payloads as any });
+      } catch (err) {
+        console.error('[csv client import notify] failed:', err);
+      }
     }
 
     res.json({ imported: toCreate.length, errors });
