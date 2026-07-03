@@ -5,7 +5,7 @@ import { clearTokens, getUser } from '@/lib/api';
 import {
   LayoutDashboard, Sun, CheckSquare, Users, Settings,
   TrendingUp, LogOut, GitBranch, Shield, UserCheck,
-  FolderLock, Activity,
+  FolderLock, Activity, BarChart3,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { USE_MOCK } from '@/lib/mockData';
@@ -28,6 +28,7 @@ const navItems = [
   { label: 'Clients',       icon: GitBranch,        href: '/clients',         section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   { label: 'Vault',         icon: FolderLock,       href: '/vault',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   // Manage section
+  { label: 'Reports',       icon: BarChart3,        href: '/reports',         section: 'manage',    roles: ['admin', 'team_leader'] },
   { label: 'Team',          icon: Users,            href: '/team',            section: 'manage',    roles: ['admin', 'team_leader'] },
   { label: 'Performance',   icon: TrendingUp,       href: '/performance',     section: 'manage',    roles: ['admin'] },
   { label: 'Step Config',   icon: Settings,         href: '/settings/steps',  section: 'manage',    roles: ['admin'] },

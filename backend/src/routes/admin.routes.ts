@@ -1382,8 +1382,7 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
         res.setHeader('Content-Disposition', `attachment; filename="${type}_report_${Date.now()}.csv"`);
         res.send(csv);
         return;
-      } else {
-        if (clientId && filteredClients.length > 0) {
+         if (clientId && filteredClients.length > 0) {
           const client = filteredClients[0];
           const total = client.tasks.length;
           const done = client.tasks.filter((t: any) => t.status === 'complete').length;
@@ -1436,208 +1435,291 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
             return {
               step,
               durationText,
-              durationDays,
+              durationDays: parseFloat(durationDays.toFixed(1)),
               statusClass,
               statusLabel
             };
           });
 
-          let html = `<html>
+          const daysInStep = Math.floor(
+            (Date.now() - new Date(client.stepEnteredAt || client.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+          );
+          const sla = client.currentStep?.slaDays || 0;
+
+          // Compute status counts
+          const taskCounts = {
+            complete: client.tasks.filter((t: any) => t.status === 'complete').length,
+            in_progress: client.tasks.filter((t: any) => t.status === 'in_progress').length,
+            pending: client.tasks.filter((t: any) => t.status === 'pending').length,
+            blocked: client.tasks.filter((t: any) => t.status === 'blocked').length,
+            overdue: client.tasks.filter((t: any) => t.status !== 'complete' && t.status !== 'cancelled' && t.status !== 'rejected' && new Date(t.dueDate) < new Date()).length,
+            others: 0
+          };
+          taskCounts.others = client.tasks.length - (taskCounts.complete + taskCounts.in_progress + taskCounts.pending + taskCounts.blocked);
+          
+          const completedRate = total > 0 ? Math.round((taskCounts.complete / total) * 100) : 0;
+
+          // Compute hours logged per team
+          const teamTimeMap: Record<string, number> = {};
+          client.tasks.forEach((t: any) => {
+            const team = t.assignedTo?.teamName || t.step?.owningTeamName || 'Unassigned';
+            const hours = (t.timeSpentSeconds || 0) / 3600;
+            teamTimeMap[team] = (teamTimeMap[team] || 0) + hours;
+          });
+          const teamLabels = Object.keys(teamTimeMap);
+          const teamHours = Object.values(teamTimeMap).map(h => parseFloat(h.toFixed(1)));
+          const totalTrackedHours = parseFloat((client.tasks.reduce((acc: number, t: any) => acc + (t.timeSpentSeconds || 0), 0) / 3600).toFixed(1));
+
+          let html = `<!DOCTYPE html>
+<html>
 <head>
+  <meta charset="utf-8">
   <title>Client Full Report: ${client.brandName || client.fullName}</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    
+    :root {
+      --primary: #5F6F52;
+      --primary-dark: #3E4E32;
+      --primary-light: #A9B2A1;
+      --secondary: #2E5077;
+      --secondary-light: #E8EEF5;
+      --ink: #1E2519;
+      --muted: #667060;
+      --border: #E4E9DF;
+      --bg-card: #FDFEFD;
+      --bg-panel: #F9FAF7;
+      
+      --color-complete: #5F6F52;
+      --color-progress: #2E5077;
+      --color-pending: #A9B2A1;
+      --color-blocked: #8A4F7D;
+      --color-overdue: #C84B31;
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
     body {
       font-family: 'Outfit', sans-serif;
-      padding: 40px;
-      color: #1a2310;
-      background-color: #fff;
+      color: var(--ink);
+      background-color: #ffffff;
       margin: 0;
+      padding: 0;
+      line-height: 1.5;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
-    .header {
+    
+    .page {
+      padding: 30px;
+      position: relative;
+      background-color: #ffffff;
+    }
+    
+    .header-box {
+      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+      color: #ffffff;
+      padding: 35px 40px;
+      border-radius: 16px;
+      margin-bottom: 25px;
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      border-bottom: 2px solid #5F6F52;
-      padding-bottom: 20px;
-      margin-bottom: 30px;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
     }
-    .header h1 {
+    
+    .header-box::after {
+      content: '';
+      position: absolute;
+      right: -50px;
+      top: -50px;
+      width: 200px;
+      height: 200px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 50%;
+    }
+    
+    .header-title h1 {
       font-size: 32px;
       font-weight: 700;
-      color: #5F6F52;
-      margin: 0 0 8px 0;
+      margin: 0 0 6px 0;
+      letter-spacing: -0.5px;
+      line-height: 1.1;
     }
-    .header p {
+    
+    .header-title p {
       font-size: 14px;
-      color: #555;
+      opacity: 0.85;
       margin: 0;
+      font-weight: 400;
     }
-    .logo-text {
+    
+    .header-meta {
+      text-align: right;
+    }
+    
+    .header-logo {
       font-family: Georgia, serif;
       font-size: 26px;
       font-style: italic;
-      color: #5F6F52;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
     }
+    
+    .header-meta p {
+      font-size: 12px;
+      opacity: 0.8;
+      margin: 0;
+    }
+    
     .dossier-grid {
       display: grid;
       grid-template-columns: 1.5fr 1fr;
-      gap: 30px;
-      margin-bottom: 35px;
+      gap: 20px;
+      margin-bottom: 25px;
     }
+    
     .card {
-      background: #fcfdfb;
-      border: 1px solid #e1e8db;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: 12px;
       padding: 20px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
     }
+    
     .card-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #5F6F52;
-      margin-top: 0;
-      margin-bottom: 15px;
-      border-bottom: 1px solid #e1e8db;
-      padding-bottom: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--primary);
+      margin: 0 0 15px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1.5px solid var(--border);
+      padding-bottom: 6px;
     }
+    
     .meta-row {
       display: flex;
-      margin-bottom: 10px;
-      font-size: 14px;
+      margin-bottom: 8px;
+      font-size: 13.5px;
     }
+    
     .meta-label {
-      width: 130px;
+      width: 120px;
       font-weight: 600;
-      color: #666;
+      color: var(--muted);
     }
+    
     .meta-value {
-      color: #1a2310;
+      color: var(--ink);
       flex: 1;
     }
+    
     .kpi-row {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 15px;
-      margin-bottom: 35px;
+      margin-bottom: 25px;
     }
+    
     .kpi-card {
-      background: #f9faf7;
-      border: 1px solid #e1e8db;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
       border-radius: 10px;
       padding: 15px;
       text-align: center;
+      position: relative;
     }
+    
     .kpi-num {
       font-size: 26px;
       font-weight: 700;
-      color: #2c3820;
+      color: var(--ink);
+      line-height: 1.2;
     }
+    
     .kpi-label {
-      font-size: 12px;
-      font-weight: 500;
-      color: #666;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-top: 4px;
     }
-    .table-container {
-      margin-top: 25px;
+    
+    .charts-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 25px;
     }
-    .table-container h3 {
-      font-size: 18px;
-      color: #2c3820;
-      margin-bottom: 15px;
+    
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th, td {
-      padding: 12px 14px;
-      text-align: left;
-      font-size: 13.5px;
-      border-bottom: 1px solid #eef2eb;
-    }
-    th {
-      background-color: #f5f8f2;
-      color: #5F6F52;
-      font-weight: 600;
+    
+    .chart-card h4 {
+      margin: 0 0 12px 0;
+      color: var(--primary);
+      font-size: 13px;
+      font-weight: 700;
       text-transform: uppercase;
-      font-size: 11px;
       letter-spacing: 0.5px;
     }
-    .status-badge {
-      display: inline-block;
-      padding: 3px 8px;
-      border-radius: 5px;
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-    }
-    .status-complete { background: #e8f5e9; color: #2e7d32; }
-    .status-pending { background: #fff8e1; color: #f57f17; }
-    .status-in_progress { background: #e3f2fd; color: #1565c0; }
-    .status-blocked { background: #f3e5f5; color: #6b3fa0; }
-    .status-overdue { background: #ffebee; color: #c62828; }
-    .status-rejected { background: #efebe9; color: #4e342e; }
-    .status-cancelled { background: #eceff1; color: #37474f; }
     
-    .proof-box {
-      font-size: 12px;
-      background: #f4f7f1;
-      border-left: 3px solid #5F6F52;
-      padding: 6px 10px;
-      margin-top: 5px;
-      border-radius: 0 4px 4px 0;
-    }
-    .proof-box a {
-      color: #5F6F52;
-      text-decoration: underline;
-      font-weight: 500;
+    .chart-wrapper {
+      position: relative;
+      height: 180px;
     }
     
-    .timeline-container {
-      background: #fcfdfb;
-      border: 1px solid #e1e8db;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 30px;
-    }
     .timeline {
       position: relative;
-      border-left: 2px solid #e1e8db;
-      padding-left: 20px;
+      border-left: 2px solid var(--border);
+      padding-left: 24px;
       margin-left: 10px;
       margin-top: 15px;
     }
+    
     .timeline-item {
       position: relative;
-      margin-bottom: 20px;
+      margin-bottom: 25px;
     }
+    
     .timeline-item::before {
       content: '';
       position: absolute;
-      left: -27px;
+      left: -31px;
       top: 4px;
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      background: #fff;
-      border: 2px solid #e1e8db;
+      background: #ffffff;
+      border: 2px solid var(--border);
     }
+    
     .timeline-item.completed::before {
-      background: #2e7d32;
-      border-color: #2e7d32;
+      background: var(--color-complete);
+      border-color: var(--color-complete);
     }
+    
     .timeline-item.active::before {
-      background: #2860A1;
-      border-color: #2860A1;
-      box-shadow: 0 0 0 4px rgba(40, 96, 161, 0.2);
+      background: var(--color-progress);
+      border-color: var(--color-progress);
+      box-shadow: 0 0 0 4px rgba(46, 80, 119, 0.2);
     }
+    
     .timeline-item.pending::before {
-      background: #fff;
-      border-color: #ccc;
+      background: #ffffff;
+      border-color: var(--primary-light);
     }
+    
     .timeline-badge {
       font-size: 10px;
       font-weight: 600;
@@ -1647,197 +1729,440 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
       padding: 2px 6px;
       border-radius: 4px;
     }
+    
     .timeline-badge.badge-completed {
       background: #e8f5e9;
-      color: #2e7d32;
+      color: var(--color-complete);
     }
+    
     .timeline-badge.badge-active {
       background: #e3f2fd;
       color: #1565c0;
     }
+    
     .timeline-badge.badge-pending {
       background: #eceff1;
       color: #37474f;
     }
+    
     .timeline-title {
-      font-size: 14px;
+      font-size: 14.5px;
       font-weight: 600;
-      color: #2c3820;
+      color: var(--ink);
     }
+    
     .timeline-time {
       font-size: 12px;
-      color: #666;
+      color: var(--muted);
       margin-top: 2px;
     }
     
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    
+    th, td {
+      padding: 12px 14px;
+      text-align: left;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    
+    th {
+      background-color: var(--bg-panel);
+      color: var(--primary);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 5px;
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    
+    .status-complete { background: #e8f5e9; color: var(--color-complete); }
+    .status-pending { background: #fff8e1; color: #f57f17; }
+    .status-in_progress { background: #e3f2fd; color: #1565c0; }
+    .status-blocked { background: #f3e5f5; color: #6b3fa0; }
+    .status-overdue { background: #ffebee; color: var(--color-overdue); }
+    .status-rejected { background: #efebe9; color: #4e342e; }
+    .status-cancelled { background: #eceff1; color: #37474f; }
+    
+    .proof-box {
+      font-size: 11.5px;
+      background: var(--bg-panel);
+      border-left: 3px solid var(--primary);
+      padding: 6px 10px;
+      margin-top: 6px;
+      border-radius: 0 4px 4px 0;
+    }
+    
+    .proof-box a {
+      color: var(--primary-dark);
+      text-decoration: underline;
+      font-weight: 500;
+    }
+    
     @media print {
-      body { padding: 0; }
-      .card, .kpi-card, .timeline-container { page-break-inside: avoid; }
-      tr { page-break-inside: avoid; }
-      @page { margin: 1.5cm; }
+      body {
+        background-color: #ffffff;
+      }
+      .page {
+        page-break-after: always;
+        page-break-inside: avoid;
+        padding: 0;
+        margin-bottom: 30px;
+      }
+      .page:last-child {
+        page-break-after: avoid;
+        margin-bottom: 0;
+      }
+      tr {
+        page-break-inside: avoid;
+      }
+      @page {
+        size: A4 portrait;
+        margin: 1.6cm;
+      }
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body onload="window.print()">
-  <div class="header">
-    <div>
-      <h1>Client Onboarding & Progress Report</h1>
-      <p>Official status summary for ${client.brandName || client.fullName}</p>
-    </div>
-    <div class="logo-text">MyC Operations</div>
-  </div>
-
-  <div class="dossier-grid">
-    <div class="card">
-      <h3 class="card-title">Client Details</h3>
-      <div class="meta-row">
-        <div class="meta-label">Brand Name:</div>
-        <div class="meta-value"><strong>${client.brandName || '—'}</strong></div>
+<body>
+  <!-- PAGE 1: Executive Summary & Dashboard Charts -->
+  <div class="page">
+    <div class="header-box">
+      <div class="header-title">
+        <h1>Project Delivery Report</h1>
+        <p>Comprehensive Performance & SLA Audit for <strong>${client.brandName || client.fullName}</strong></p>
       </div>
-      <div class="meta-row">
-        <div class="meta-label">Primary Contact:</div>
-        <div class="meta-value">${client.fullName}</div>
-      </div>
-      <div class="meta-row">
-        <div class="meta-label">Email Address:</div>
-        <div class="meta-value">${client.email || '—'}</div>
-      </div>
-      <div class="meta-row">
-        <div class="meta-label">WhatsApp/Phone:</div>
-        <div class="meta-value">${client.whatsappNumber || '—'}</div>
-      </div>
-      <div class="meta-row">
-        <div class="meta-label">Account Status:</div>
-        <div class="meta-value"><span style="text-transform: capitalize; font-weight: 600;">${client.status}</span></div>
+      <div class="header-meta">
+        <div class="header-logo">MyC Operations</div>
+        <p>Generated: ${new Date().toLocaleDateString()}</p>
       </div>
     </div>
-
-    <div class="card">
-      <h3 class="card-title">Pipeline Tracking</h3>
-      <div class="meta-row">
-        <div class="meta-label">Current Pipeline:</div>
-        <div class="meta-value">Step ${client.currentStep?.stepNumber || '—'}</div>
-      </div>
-      <div class="meta-row">
-        <div class="meta-label">Step Name:</div>
-        <div class="meta-value"><strong>${client.currentStep?.name || '—'}</strong></div>
-      </div>
-      <div class="meta-row">
-        <div class="meta-label">Owning Team:</div>
-        <div class="meta-value">${client.currentStep?.owningTeamName || '—'}</div>
-      </div>
-      <div class="meta-row">
-        <div class="meta-label">Joined Date:</div>
-        <div class="meta-value">${new Date(client.dateJoined).toLocaleDateString()}</div>
-      </div>
-      <div class="meta-row">
-        <div class="meta-label">Report Date:</div>
-        <div class="meta-value">${new Date().toLocaleDateString()}</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="kpi-row">
-    <div class="kpi-card">
-      <div class="kpi-num">${total}</div>
-      <div class="kpi-label">Total Tasks</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-num" style="color: #2e7d32;">${done}</div>
-      <div class="kpi-label">Completed</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-num" style="color: #c62828;">${overdue}</div>
-      <div class="kpi-label">Overdue</div>
-    </div>
-    <div class="kpi-card">
-      <div class="kpi-num" style="color: #6b3fa0;">${blocked}</div>
-      <div class="kpi-label">Blocked</div>
-    </div>
-  </div>
-
-  <div class="timeline-container">
-    <h3 style="margin-top: 0; color: #2c3820; font-size: 16px; border-bottom: 1px solid #e1e8db; padding-bottom: 8px;">Pipeline Stage Durations</h3>
-    <div class="timeline">
-      ${stepDurations.map((sd: any) => `
-        <div class="timeline-item ${sd.statusClass}">
-          <span class="timeline-badge badge-${sd.statusClass}">${sd.statusLabel}</span>
-          <div class="timeline-title">Step ${sd.step.stepNumber}: ${sd.step.name}</div>
-          <div class="timeline-time">Duration: <strong>${sd.durationText}</strong></div>
+    
+    <div class="dossier-grid">
+      <div class="card">
+        <h3 class="card-title">Client Profile</h3>
+        <div class="meta-row">
+          <div class="meta-label">Brand Name:</div>
+          <div class="meta-value"><strong>${client.brandName || '—'}</strong></div>
         </div>
-      `).join('')}
+        <div class="meta-row">
+          <div class="meta-label">Contact Person:</div>
+          <div class="meta-value">${client.fullName}</div>
+        </div>
+        <div class="meta-row">
+          <div class="meta-label">Email:</div>
+          <div class="meta-value">${client.email || '—'}</div>
+        </div>
+        <div class="meta-row">
+          <div class="meta-label">Phone:</div>
+          <div class="meta-value">${client.whatsappNumber || '—'}</div>
+        </div>
+        <div class="meta-row">
+          <div class="meta-label">Client Status:</div>
+          <div class="meta-value"><span style="text-transform: uppercase; font-weight: 700; color: var(--primary);">${client.status}</span></div>
+        </div>
+      </div>
+      
+      <div class="card">
+        <h3 class="card-title">Pipeline Position</h3>
+        <div class="meta-row">
+          <div class="meta-label">Current Stage:</div>
+          <div class="meta-value">Step ${client.currentStep?.stepNumber || '—'}: ${client.currentStep?.name || '—'}</div>
+        </div>
+        <div class="meta-row">
+          <div class="meta-label">Owning Team:</div>
+          <div class="meta-value">${client.currentStep?.owningTeamName || '—'}</div>
+        </div>
+        <div class="meta-row">
+          <div class="meta-label">Date Onboarded:</div>
+          <div class="meta-value">${new Date(client.dateJoined).toLocaleDateString()}</div>
+        </div>
+        <div class="meta-row">
+          <div class="meta-label">Time on Step:</div>
+          <div class="meta-value">${daysInStep} days / SLA ${sla}d</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-num" style="color: var(--primary);">${completedRate}%</div>
+        <div class="kpi-label">Completion Rate</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-num">${total}</div>
+        <div class="kpi-label">Total Tasks</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-num" style="color: var(--secondary);">${totalTrackedHours}h</div>
+        <div class="kpi-label">Tracked Time</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-num" style="color: var(--color-overdue);">${overdue}</div>
+        <div class="kpi-label">Overdue Tasks</div>
+      </div>
+    </div>
+    
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h4>Task Status Breakdown</h4>
+        <div class="chart-wrapper">
+          <canvas id="taskStatusChart"></canvas>
+        </div>
+      </div>
+      
+      <div class="chart-card">
+        <h4>Workload / Time Spent per Team (hrs)</h4>
+        <div class="chart-wrapper">
+          <canvas id="teamTimeChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- PAGE 2: Step Timeline & Cycle Times -->
+  <div class="page">
+    <div class="card" style="margin-bottom: 25px;">
+      <h3 class="card-title">Stage Cycle Times vs. SLA Benchmark</h3>
+      <div style="position: relative; height: 230px;">
+        <canvas id="stepSlaChart"></canvas>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3 class="card-title" style="margin-bottom: 10px;">Pipeline Stage History</h3>
+      <div class="timeline">
+        ${stepDurations.map((sd: any) => `
+          <div class="timeline-item ${sd.statusClass}">
+            <span class="timeline-badge badge-${sd.statusClass}">${sd.statusLabel}</span>
+            <div class="timeline-title">Step ${sd.step.stepNumber}: ${sd.step.name}</div>
+            <div class="timeline-time">Duration in Stage: <strong>${sd.durationText}</strong> &nbsp;·&nbsp; Target SLA: <strong>${sd.step.slaDays} days</strong></div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  </div>
+  
+  <!-- PAGE 3: Detailed Tasks List & Deliverables -->
+  <div class="page">
+    <div class="card">
+      <h3 class="card-title">Detailed Pipeline Deliverables & Tasks Log</h3>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 85px;">Stage</th>
+            <th>Task Details</th>
+            <th style="width: 140px;">Assignee</th>
+            <th style="width: 105px;">Due Date</th>
+            <th style="width: 110px;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+            (client.tasks || []).forEach((t: any) => {
+              const stepNum = t.step?.stepNumber || '';
+              const stepName = t.step?.name || '';
+              const assigneeName = t.assignedTo?.fullName || '—';
+              const teamName = t.assignedTo?.teamName || '';
+              const dueStr = t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '—';
+              
+              let badgeClass = 'status-pending';
+              if (t.status === 'complete') badgeClass = 'status-complete';
+              else if (t.status === 'in_progress') badgeClass = 'status-in_progress';
+              else if (t.status === 'blocked') badgeClass = 'status-blocked';
+              else if (t.status === 'rejected') badgeClass = 'status-rejected';
+              else if (t.status === 'cancelled') badgeClass = 'status-cancelled';
+              else if (t.status !== 'complete' && t.dueDate && new Date(t.dueDate) < new Date()) badgeClass = 'status-overdue';
+  
+              let statusLabel = t.status.replace('_', ' ');
+              if (badgeClass === 'status-overdue') statusLabel = 'overdue';
+  
+              const doc = t.documents && t.documents[0];
+              const proofUrl = doc?.driveUrl || doc?.fileUrl;
+              const proofNotes = doc?.description || doc?.notes;
+  
+              html += `
+          <tr>
+            <td><strong>Step ${stepNum}</strong></td>
+            <td>
+              <div style="font-weight: 600; color: var(--ink);">${t.title}</div>
+              ${t.description ? `<div style="font-size: 11.5px; color: var(--muted); margin-top: 2px;">${t.description}</div>` : ''}
+              ${t.blockerNote ? `<div style="font-size: 11.5px; color: var(--color-blocked); margin-top: 2px; font-weight: 500;">Blocker: "${t.blockerNote}"</div>` : ''}
+              ${t.rejectionNote ? `<div style="font-size: 11.5px; color: var(--color-overdue); margin-top: 2px; font-weight: 500;">Rejection: "${t.rejectionNote}"</div>` : ''}
+              ${proofUrl ? `
+                <div class="proof-box">
+                  <strong>Vault Deliverable:</strong> <a href="${proofUrl}" target="_blank">${proofUrl}</a>
+                  ${proofNotes ? `<div style="color: var(--muted); margin-top: 2px; font-size: 10.5px;">${proofNotes}</div>` : ''}
+                </div>
+              ` : ''}
+            </td>
+            <td>
+              <div>${assigneeName}</div>
+              ${teamName ? `<div style="font-size: 10.5px; color: var(--muted);">${teamName}</div>` : ''}
+            </td>
+            <td>${dueStr}</td>
+            <td>
+              <span class="status-badge ${badgeClass}">${statusLabel}</span>
+            </td>
+          </tr>
+  `;
+            });
+  
+            html += `
+        </tbody>
+      </table>
     </div>
   </div>
 
-  <div class="table-container">
-    <h3>Detailed Pipeline Tasks</h3>
-    <table>
-      <thead>
-        <tr>
-          <th style="width: 80px;">Step</th>
-          <th>Task Title</th>
-          <th style="width: 140px;">Assignee</th>
-          <th style="width: 110px;">Due Date</th>
-          <th style="width: 120px;">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-`;
-
-          (client.tasks || []).forEach((t: any) => {
-            const stepNum = t.step?.stepNumber || '';
-            const stepName = t.step?.name || '';
-            const assigneeName = t.assignedTo?.fullName || '—';
-            const teamName = t.assignedTo?.teamName || '';
-            const dueStr = t.dueDate ? new Date(t.dueDate).toLocaleDateString() : '—';
-            
-            let badgeClass = 'status-pending';
-            if (t.status === 'complete') badgeClass = 'status-complete';
-            else if (t.status === 'in_progress') badgeClass = 'status-in_progress';
-            else if (t.status === 'blocked') badgeClass = 'status-blocked';
-            else if (t.status === 'rejected') badgeClass = 'status-rejected';
-            else if (t.status === 'cancelled') badgeClass = 'status-cancelled';
-            else if (t.status !== 'complete' && t.dueDate && new Date(t.dueDate) < new Date()) badgeClass = 'status-overdue';
-
-            let statusLabel = t.status.replace('_', ' ');
-            if (badgeClass === 'status-overdue') statusLabel = 'overdue';
-
-            const doc = t.documents && t.documents[0];
-            const proofUrl = doc?.driveUrl || doc?.fileUrl;
-            const proofNotes = doc?.description || doc?.notes;
-
-            html += `
-        <tr>
-          <td><strong>Step ${stepNum}</strong></td>
-          <td>
-            <div style="font-weight: 600; color: #2c3820;">${t.title}</div>
-            ${t.description ? `<div style="font-size: 12px; color: #555; margin-top: 3px;">${t.description}</div>` : ''}
-            ${t.blockerNote ? `<div style="font-size: 12px; color: #6b3fa0; margin-top: 3px; font-weight: 500;">Blocker: "${t.blockerNote}"</div>` : ''}
-            ${t.rejectionNote ? `<div style="font-size: 12px; color: #c62828; margin-top: 3px; font-weight: 500;">Rejection: "${t.rejectionNote}"</div>` : ''}
-            ${proofUrl ? `
-              <div class="proof-box">
-                <strong>Vault Deliverable:</strong> <a href="${proofUrl}" target="_blank">${proofUrl}</a>
-                ${proofNotes ? `<div style="color: #666; margin-top: 2px;">${proofNotes}</div>` : ''}
-              </div>
-            ` : ''}
-          </td>
-          <td>
-            <div>${assigneeName}</div>
-            ${teamName ? `<div style="font-size: 11px; color: #666;">${teamName}</div>` : ''}
-          </td>
-          <td>${dueStr}</td>
-          <td>
-            <span class="status-badge ${badgeClass}">${statusLabel}</span>
-          </td>
-        </tr>
-`;
-          });
-
-          html += `
-      </tbody>
-    </table>
-  </div>
-</body>
+  <script>
+    // Initialise Chart.js graphics
+    window.addEventListener('load', () => {
+      // 1. Task Status Chart
+      const statusCtx = document.getElementById('taskStatusChart').getContext('2d');
+      new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Completed', 'In Progress', 'Pending', 'Blocked', 'Overdue', 'Others'],
+          datasets: [{
+            data: [
+              ${taskCounts.complete}, 
+              ${taskCounts.in_progress}, 
+              ${taskCounts.pending}, 
+              ${taskCounts.blocked}, 
+              ${taskCounts.overdue}, 
+              ${taskCounts.others}
+            ],
+            backgroundColor: [
+              '#5F6F52', // completed
+              '#2E5077', // in_progress
+              '#A9B2A1', // pending
+              '#8A4F7D', // blocked
+              '#C84B31', // overdue
+              '#888888'  // others
+            ],
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                font: { family: 'Outfit', size: 10.5 },
+                boxWidth: 10,
+                color: '#1E2519'
+              }
+            }
+          }
+        }
+      });
+      
+      // 2. Team Workload / Time Tracked Chart
+      const teamCtx = document.getElementById('teamTimeChart').getContext('2d');
+      new Chart(teamCtx, {
+        type: 'bar',
+        data: {
+          labels: ${JSON.stringify(teamLabels)},
+          datasets: [{
+            data: ${JSON.stringify(teamHours)},
+            backgroundColor: '#2E5077',
+            borderRadius: 5,
+            borderWidth: 0,
+            barThickness: 15
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { family: 'Outfit', size: 9 }, color: '#667060' }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { font: { family: 'Outfit', size: 10 }, color: '#1E2519' }
+            }
+          },
+          plugins: {
+            legend: { display: false }
+          }
+        }
+      });
+      
+      // 3. Step SLA vs Actual Duration Chart
+      const stepCtx = document.getElementById('stepSlaChart').getContext('2d');
+      new Chart(stepCtx, {
+        type: 'bar',
+        data: {
+          labels: ${JSON.stringify(stepDurations.map(sd => 'Step ' + sd.step.stepNumber))},
+          datasets: [
+            {
+              label: 'Actual Days',
+              data: ${JSON.stringify(stepDurations.map(sd => sd.durationDays))},
+              backgroundColor: '#5F6F52',
+              borderRadius: 4,
+              barThickness: 16
+            },
+            {
+              label: 'SLA Days',
+              data: ${JSON.stringify(stepDurations.map(sd => sd.step.slaDays))},
+              backgroundColor: '#D1D7CD',
+              borderRadius: 4,
+              barThickness: 16
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { font: { family: 'Outfit', size: 9.5 }, color: '#1E2519' }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: '#E4E9DF' },
+              ticks: { font: { family: 'Outfit', size: 9.5 }, color: '#667060' }
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: { font: { family: 'Outfit', size: 10.5 }, boxWidth: 10, color: '#1E2519' }
+            }
+          }
+        }
+      });
+      
+      // Delay printing to guarantee canvas charts are rendered completely
+      setTimeout(() => {
+        window.print();
+      }, 500);
+    });
+  </script>
 </html>`;
           res.setHeader('Content-Type', 'text/html');
           res.send(html);

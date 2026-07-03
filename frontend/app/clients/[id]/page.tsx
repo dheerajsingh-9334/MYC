@@ -410,25 +410,11 @@ export default function ClientDetailPage() {
     });
   }, [client, currentUser, isAdmin]);
 
-  if (isLoading) return (
-    <AppLayout>
-      <Topbar title="Client Detail" />
-      <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)', fontFamily: 'Instrument Serif, serif', fontSize: 20 }}>Loading client…</div>
-    </AppLayout>
-  );
-
-  if (!client) return (
-    <AppLayout>
-      <Topbar title="Client Detail" />
-      <div style={{ padding: 60, textAlign: 'center', color: 'var(--red)', fontSize: 15 }}>Client not found.</div>
-    </AppLayout>
-  );
-
-  const currentStepNum = client.currentStep?.stepNumber || 1;
-  const daysInStep = client.daysInStep || 0;
-  const sla = client.currentStep?.slaDays || 0;
+  const currentStepNum = client?.currentStep?.stepNumber || 1;
+  const daysInStep = client?.daysInStep || 0;
+  const sla = client?.currentStep?.slaDays || 0;
   const isOverSLA = daysInStep > sla;
-  const initials = (client.brandName || client.fullName).split(' ').map((n: string) => n[0]).join('').slice(0, 2);
+  const initials = (client?.brandName || client?.fullName || '').split(' ').map((n: string) => n[0]).join('').slice(0, 2);
 
   // Compute how long it takes to complete each step
   const durations = useMemo(() => {
@@ -481,6 +467,20 @@ export default function ClientDetailPage() {
     
     return formatted;
   }, [client, steps, currentStepNum]);
+
+  if (isLoading) return (
+    <AppLayout>
+      <Topbar title="Client Detail" />
+      <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)', fontFamily: 'Instrument Serif, serif', fontSize: 20 }}>Loading client…</div>
+    </AppLayout>
+  );
+
+  if (!client) return (
+    <AppLayout>
+      <Topbar title="Client Detail" />
+      <div style={{ padding: 60, textAlign: 'center', color: 'var(--red)', fontSize: 15 }}>Client not found.</div>
+    </AppLayout>
+  );
 
   // Status badge helper
   const statusConfig: Record<string, { bg: string; color: string; dot: string; label: string }> = {
