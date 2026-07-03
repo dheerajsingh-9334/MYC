@@ -163,7 +163,10 @@ export default function AdminDashboard() {
 
   // Workload computations
   const filteredWorkload = useMemo(() => {
-    let list = data.teams;
+    let list = data.teams.filter((t) => {
+      const name = t.teamName.toLowerCase().trim();
+      return name !== 'admin' && name !== 'administrators' && name !== '(unassigned)';
+    });
     if (workloadSearch.trim()) {
       const q = workloadSearch.toLowerCase();
       list = list.filter((t) => t.teamName.toLowerCase().includes(q));
@@ -445,27 +448,82 @@ export default function AdminDashboard() {
                         scrollableWorkload.map((t) => {
                           const max = Math.max(...data.teams.map(x => x.activeTasks), 1);
                           const pct = (t.activeTasks / max) * 100;
-                          const overloaded = t.overdue > 2 || t.activeTasks > max * 0.85;
+                          const avgTasksPerMember = t.activeTasks / Math.max(t.memberCount, 1);
+                          const overloaded = t.overdue > 2 || avgTasksPerMember > 3;
+                          const loadStatus = overloaded 
+                            ? { label: 'High Load', bg: '#FBEEF1', color: 'var(--red)', dot: 'var(--red)' } 
+                            : t.activeTasks > 0 
+                              ? { label: 'Normal', bg: 'var(--olive-50)', color: 'var(--olive)', dot: 'var(--olive)' } 
+                              : { label: 'Idle', bg: 'var(--surface-2)', color: 'var(--muted)', dot: 'var(--soft)' };
+
                           return (
-                            <div key={t.teamName} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)' }}>
+                            <div
+                              key={t.teamName}
+                              onClick={() => router.push(`/team?team=${encodeURIComponent(t.teamName)}`)}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 12,
+                                padding: '12px 14px',
+                                border: '1px solid var(--border)',
+                                borderRadius: 'var(--radius-sm)',
+                                background: 'var(--surface)',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--olive)';
+                                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                                e.currentTarget.style.background = 'var(--olive-50)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--border)';
+                                e.currentTarget.style.boxShadow = 'none';
+                                e.currentTarget.style.background = 'var(--surface)';
+                              }}
+                            >
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 6 }}>{t.teamName}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+                                  <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{t.teamName}</span>
+                                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                                    · {t.memberCount} member{t.memberCount !== 1 ? 's' : ''}
+                                  </span>
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    padding: '2px 6px',
+                                    borderRadius: 4,
+                                    fontSize: 10,
+                                    fontWeight: 600,
+                                    background: loadStatus.bg,
+                                    color: loadStatus.color,
+                                    marginLeft: 'auto',
+                                  }}>
+                                    <span style={{ width: 4, height: 4, borderRadius: '50%', background: loadStatus.dot }} />
+                                    {loadStatus.label}
+                                  </span>
+                                </div>
                                 <div style={{ height: 6, background: 'var(--surface-2)', borderRadius: 3, overflow: 'hidden' }}>
                                   <div style={{ height: '100%', width: `${pct}%`, background: overloaded ? 'var(--amber)' : 'var(--olive)', borderRadius: 3 }} />
                                 </div>
                               </div>
-                              <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
-                                <span style={{ textAlign: 'center', minWidth: 45 }}>
-                                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{t.activeTasks}</div>
-                                  <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase' }}>Active</div>
+                              <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+                                <span style={{ textAlign: 'center', minWidth: 40 }}>
+                                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{t.activeTasks}</div>
+                                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Active</div>
                                 </span>
-                                <span style={{ textAlign: 'center', minWidth: 45 }}>
-                                  <div style={{ fontSize: 15, fontWeight: 600, color: t.overdue > 0 ? 'var(--red)' : 'var(--muted)' }}>{t.overdue}</div>
-                                  <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase' }}>Late</div>
+                                <span style={{ textAlign: 'center', minWidth: 40 }}>
+                                  <div style={{ fontSize: 14, fontWeight: 600, color: t.overdue > 0 ? 'var(--red)' : 'var(--muted)' }}>{t.overdue}</div>
+                                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Late</div>
                                 </span>
-                                <span style={{ textAlign: 'center', minWidth: 45 }}>
-                                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--green)' }}>{t.completedLast7d}</div>
-                                  <div style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase' }}>Done</div>
+                                <span style={{ textAlign: 'center', minWidth: 40 }}>
+                                  <div style={{ fontSize: 14, fontWeight: 600, color: t.blocked > 0 ? '#6B3FA0' : 'var(--muted)' }}>{t.blocked}</div>
+                                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Blocked</div>
+                                </span>
+                                <span style={{ textAlign: 'center', minWidth: 40 }}>
+                                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--green)' }}>{t.completedLast7d}</div>
+                                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Done</div>
                                 </span>
                               </div>
                             </div>

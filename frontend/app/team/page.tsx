@@ -77,6 +77,21 @@ export default function TeamPage() {
 
   const [search, setSearch] = useState('');
 
+  useEffect(() => {
+    if (mounted && typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const teamQuery = params.get('team');
+      if (teamQuery) {
+        setSearch(teamQuery);
+        setExpandedTeams((prev) => {
+          const n = new Set(prev);
+          n.add(teamQuery);
+          return n;
+        });
+      }
+    }
+  }, [mounted]);
+
   const activeAdmins = useMemo(() => {
     const list = team.filter((m) => m.role === 'admin' && m.isActive !== false);
     if (!search.trim()) return list;
