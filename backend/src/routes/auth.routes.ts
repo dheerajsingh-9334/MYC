@@ -176,6 +176,7 @@ router.post('/login', async (req: Request, res: Response) => {
         teamName: user.teamName,
         organisationId: user.organisationId,
         organisation: { name: user.organisation.name, slug: user.organisation.slug },
+        avatarUrl: user.avatarUrl,
       },
     });
   } catch (err) {
@@ -224,6 +225,7 @@ router.get('/me', requireAuth, async (req: Request, res: Response) => {
       teamName: user.teamName,
       organisationId: user.organisationId,
       organisation: { name: user.organisation.name, slug: user.organisation.slug },
+      avatarUrl: user.avatarUrl,
     });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ChevronRight, Folder, FolderOpen, FileText, Search, Lock,
@@ -72,7 +72,10 @@ function driveIcon(url?: string) {
 /* ─── Main Page ─────────────────────────────────────────────────────────── */
 export default function VaultPage() {
   const qc = useQueryClient();
-  const user = getUser();
+  const [user, setUser] = useState<any>(null);
+  useEffect(() => {
+    setUser(getUser());
+  }, []);
   const isAdmin = user?.role === 'admin';
 
   const [search, setSearch] = useState('');

@@ -146,6 +146,23 @@ router.patch('/:id', requireAuth, requireAdminOrLeader, async (req: Request, res
       if (status === 'complete') {
         data.completedAt = new Date();
         data.completedById = req.user.userId;
+        
+        let finalTimeSpentSeconds = existing.timeSpentSeconds;
+        if (existing.isTimerRunning && existing.timerStartedAt) {
+          const elapsed = Math.floor((new Date().getTime() - new Date(existing.timerStartedAt).getTime()) / 1000);
+          finalTimeSpentSeconds += Math.max(0, elapsed);
+        }
+        data.isTimerRunning = false;
+        data.timerStartedAt = null;
+        data.timeSpentSeconds = finalTimeSpentSeconds;
+      } else if (status === 'in_progress' && existing.status !== 'in_progress') {
+        data.isTimerRunning = true;
+        data.timerStartedAt = new Date();
+      } else if (status !== 'in_progress' && existing.isTimerRunning) {
+        const elapsed = existing.timerStartedAt ? Math.floor((new Date().getTime() - new Date(existing.timerStartedAt).getTime()) / 1000) : 0;
+        data.isTimerRunning = false;
+        data.timerStartedAt = null;
+        data.timeSpentSeconds = existing.timeSpentSeconds + Math.max(0, elapsed);
       }
     }
     if (assignedToId !== undefined) {
@@ -180,6 +197,134 @@ router.patch('/:id', requireAuth, requireAdminOrLeader, async (req: Request, res
   }
 });
 
+// PATCH /api/tasks/:id/status — allows assignee or admin to transition status
+router.patch('/:id/status', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { status } = req.body;
+    if (!status) { res.status(400).json({ error: 'Status is required' }); return; }
+
+    const task = await prisma.task.findFirst({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+    });
+    if (!task) { res.status(404).json({ error: 'Task not found' }); return; }
+
+    // Only assignee or admin can change status
+    if (task.assignedToId !== req.user.userId && req.user.role !== 'admin') {
+      res.status(403).json({ error: 'Only the assignee can change the task status' });
+      return;
+    }
+
+    const data: any = { status };
+
+    // Handle timer transitions based on new status
+    if (status === 'in_progress') {
+      // Auto start timer when status becomes in_progress
+      if (!task.isTimerRunning) {
+        data.isTimerRunning = true;
+        data.timerStartedAt = new Date();
+      }
+    } else {
+      // If moving away from in_progress, stop the timer if it is running
+      if (task.isTimerRunning) {
+        const now = new Date();
+        const elapsed = task.timerStartedAt ? Math.floor((now.getTime() - new Date(task.timerStartedAt).getTime()) / 1000) : 0;
+        data.isTimerRunning = false;
+        data.timerStartedAt = null;
+        data.timeSpentSeconds = task.timeSpentSeconds + Math.max(0, elapsed);
+      }
+    }
+
+    const updated = await prisma.task.update({
+      where: { id: req.params.id },
+      data,
+      include: {
+        client: { select: { id: true, brandName: true, fullName: true } },
+        step: { select: { id: true, name: true, stepNumber: true, owningTeamName: true } },
+        assignedTo: { select: { id: true, fullName: true, teamName: true } },
+      },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    console.error('[tasks] status update error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/tasks/:id/start-timer — starts/resumes the clock timer
+router.patch('/:id/start-timer', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const task = await prisma.task.findFirst({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+    });
+    if (!task) { res.status(404).json({ error: 'Task not found' }); return; }
+    
+    // Only assignee or admin can start the timer
+    if (task.assignedToId !== req.user.userId && req.user.role !== 'admin') {
+      res.status(403).json({ error: 'Only the assignee can start the timer' });
+      return;
+    }
+
+    if (task.isTimerRunning) {
+      res.status(400).json({ error: 'Timer is already running' });
+      return;
+    }
+
+    const updated = await prisma.task.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'in_progress', // automatically transition to In Progress
+        isTimerRunning: true,
+        timerStartedAt: new Date(),
+      },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    console.error('[tasks] start-timer error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/tasks/:id/stop-timer — stops/pauses the clock timer
+router.patch('/:id/stop-timer', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const task = await prisma.task.findFirst({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+    });
+    if (!task) { res.status(404).json({ error: 'Task not found' }); return; }
+
+    // Only assignee or admin can stop the timer
+    if (task.assignedToId !== req.user.userId && req.user.role !== 'admin') {
+      res.status(403).json({ error: 'Only the assignee can stop the timer' });
+      return;
+    }
+
+    if (!task.isTimerRunning) {
+      res.status(400).json({ error: 'Timer is not running' });
+      return;
+    }
+
+    const now = new Date();
+    const elapsed = task.timerStartedAt ? Math.floor((now.getTime() - new Date(task.timerStartedAt).getTime()) / 1000) : 0;
+
+    const updated = await prisma.task.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'pending',
+        isTimerRunning: false,
+        timerStartedAt: null,
+        timeSpentSeconds: task.timeSpentSeconds + Math.max(0, elapsed),
+      },
+    });
+
+    res.json(updated);
+  } catch (err) {
+    console.error('[tasks] stop-timer error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // PATCH /api/tasks/:id/complete
 router.patch('/:id/complete', requireAuth, async (req: Request, res: Response) => {
   try {
@@ -197,6 +342,13 @@ router.patch('/:id/complete', requireAuth, async (req: Request, res: Response) =
     const completedAt = new Date();
     const onTime = completedAt <= new Date(task.dueDate);
 
+    // Calculate final timeSpentSeconds if timer is running
+    let finalTimeSpentSeconds = task.timeSpentSeconds;
+    if (task.isTimerRunning && task.timerStartedAt) {
+      const elapsed = Math.floor((completedAt.getTime() - new Date(task.timerStartedAt).getTime()) / 1000);
+      finalTimeSpentSeconds += Math.max(0, elapsed);
+    }
+
     const updated = await prisma.$transaction(async (tx) => {
       const up = await tx.task.update({
         where: { id: req.params.id },
@@ -204,6 +356,9 @@ router.patch('/:id/complete', requireAuth, async (req: Request, res: Response) =
           status: 'complete',
           completedAt,
           completedById: req.user.userId,
+          isTimerRunning: false,
+          timerStartedAt: null,
+          timeSpentSeconds: finalTimeSpentSeconds,
         },
       });
 
@@ -512,9 +667,10 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
       // 2. Find step
       let step = steps.find(
         (s) =>
-          s.id === stepInput ||
-          String(s.stepNumber) === String(stepInput) ||
-          s.name.toLowerCase() === stepInput.toLowerCase()
+          s.clientId === client.id &&
+          (s.id === stepInput ||
+           String(s.stepNumber) === String(stepInput) ||
+           s.name.toLowerCase() === stepInput.toLowerCase())
       );
       // Default to client's current step if not specified/found
       if (!step) {

@@ -24,6 +24,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  Play,
+  Pause,
 } from 'lucide-react';
 import {
   differenceInCalendarDays,
@@ -40,7 +42,10 @@ type TabKey = 'active' | 'completed' | 'rejected';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const user = getUser();
+  const [user, setUser] = useState<any>(null);
+  useEffect(() => {
+    setUser(getUser());
+  }, []);
   const qc = useQueryClient();
   const [tab, setTab] = useState<TabKey>('active');
   const [showDueDrawer, setShowDueDrawer] = useState(false);
@@ -160,6 +165,126 @@ export default function DashboardPage() {
     },
   });
 
+  const startTimerMut = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/tasks/${id}/start-timer`, { method: 'PATCH' }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => {
+          if (t.id === id) {
+            return {
+              ...t,
+              status: 'in_progress',
+              isTimerRunning: true,
+              timerStartedAt: new Date().toISOString(),
+            };
+          }
+          return t;
+        });
+      });
+
+      return { previousTasks };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousTasks) {
+        qc.setQueryData(['tasks'], context.previousTasks);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const stopTimerMut = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/tasks/${id}/stop-timer`, { method: 'PATCH' }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => {
+          if (t.id === id) {
+            let addedSeconds = 0;
+            if (t.timerStartedAt) {
+              addedSeconds = Math.max(0, Math.floor((Date.now() - new Date(t.timerStartedAt).getTime()) / 1000));
+            }
+             return {
+              ...t,
+              status: 'pending',
+              isTimerRunning: false,
+              timerStartedAt: null,
+              timeSpentSeconds: t.timeSpentSeconds + addedSeconds,
+            };
+          }
+          return t;
+        });
+      });
+
+      return { previousTasks };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousTasks) {
+        qc.setQueryData(['tasks'], context.previousTasks);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const statusMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      apiFetch(`/api/tasks/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+    onMutate: async ({ id, status }) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => {
+          if (t.id === id) {
+            let data = { ...t, status };
+            if (status === 'in_progress') {
+              if (!t.isTimerRunning) {
+                data.isTimerRunning = true;
+                data.timerStartedAt = new Date().toISOString();
+              }
+            } else {
+              if (t.isTimerRunning) {
+                let addedSeconds = 0;
+                if (t.timerStartedAt) {
+                  addedSeconds = Math.max(0, Math.floor((Date.now() - new Date(t.timerStartedAt).getTime()) / 1000));
+                }
+                data.isTimerRunning = false;
+                data.timerStartedAt = null;
+                data.timeSpentSeconds = t.timeSpentSeconds + addedSeconds;
+              }
+            }
+            return data;
+          }
+          return t;
+        });
+      });
+
+      return { previousTasks };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousTasks) {
+        qc.setQueryData(['tasks'], context.previousTasks);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
   // ── Progress snapshot ────────────────────────────────────────────────
   const completionRate = useMemo(() => {
     const total = myTasks.length;
@@ -168,13 +293,27 @@ export default function DashboardPage() {
   }, [myTasks, grouped]);
 
   const avgCompletionTimeStr = useMemo(() => {
-    const completedTasks = grouped.completed.filter(t => t.createdAt && t.completedAt);
-    if (completedTasks.length === 0) return '—';
+    const completedTasks = grouped.completed;
+    const timedTasks = completedTasks.filter(t => t.timeSpentSeconds > 0);
+    const tasksToUse = timedTasks.length > 0 ? timedTasks : completedTasks;
+    if (tasksToUse.length === 0) return '—';
+
     let totalMs = 0;
-    for (const t of completedTasks) {
-      totalMs += new Date(t.completedAt).getTime() - new Date(t.createdAt).getTime();
+    if (timedTasks.length > 0) {
+      for (const t of timedTasks) {
+        totalMs += t.timeSpentSeconds * 1000;
+      }
+    } else {
+      let validCount = 0;
+      for (const t of completedTasks) {
+        if (t.createdAt && t.completedAt) {
+          totalMs += new Date(t.completedAt).getTime() - new Date(t.createdAt).getTime();
+          validCount++;
+        }
+      }
+      if (validCount === 0) return '—';
     }
-    const avgMs = totalMs / completedTasks.length;
+    const avgMs = totalMs / tasksToUse.length;
     const avgDays = avgMs / (1000 * 60 * 60 * 24);
     if (avgDays >= 1) {
       return `${avgDays.toFixed(1)}d`;
@@ -184,7 +323,10 @@ export default function DashboardPage() {
       return `${avgHours.toFixed(1)}h`;
     }
     const avgMins = avgMs / (1000 * 60);
-    return `${Math.round(avgMins)}m`;
+    if (avgMins >= 1) {
+      return `${avgMins.toFixed(1)}m`;
+    }
+    return `${Math.round(avgMs / 1000)}s`;
   }, [grouped.completed]);
 
   const taskStats = useMemo(() => {
@@ -456,6 +598,37 @@ export default function DashboardPage() {
                               {t.priority === 'high' && tab !== 'completed' && tab !== 'rejected' && (
                                 <span style={{ color: 'var(--red)', marginLeft: 8, fontWeight: 600 }}>· High priority</span>
                               )}
+                              {tab !== 'completed' && (t.status === 'in_progress' || t.timeSpentSeconds > 0) && (
+                                <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
+                                  · Status: <span style={{ fontWeight: 600, color: t.status === 'in_progress' ? 'var(--olive)' : 'var(--muted)' }}>
+                                    {t.status === 'in_progress' ? 'In Progress' : t.status}
+                                  </span>
+                                  <TaskTimer
+                                    isTimerRunning={t.isTimerRunning}
+                                    timerStartedAt={t.timerStartedAt}
+                                    timeSpentSeconds={t.timeSpentSeconds}
+                                  />
+                                  {t.status === 'in_progress' && (
+                                    t.isTimerRunning ? (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); stopTimerMut.mutate(t.id); }}
+                                        title="Pause timer"
+                                        style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                                      >
+                                        <Pause size={12} style={{ color: 'var(--amber)' }} />
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); startTimerMut.mutate(t.id); }}
+                                        title="Resume timer"
+                                        style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                                      >
+                                        <Play size={12} style={{ color: 'var(--green)' }} />
+                                      </button>
+                                    )
+                                  )}
+                                </span>
+                              )}
                             </div>
                             {tab === 'rejected' && (t.rejectionNote || t.blockerNote) && (
                               <div style={{ fontSize: 11.5, color: '#B0436A', marginTop: 4, fontStyle: 'italic' }}>
@@ -499,25 +672,44 @@ export default function DashboardPage() {
                               </button>
                             )}
                             {tab === 'active' && (
-                              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                <SmallTaskButton
-                                  label="Complete"
-                                  icon={<Check size={11} />}
-                                  color="var(--green)"
-                                  onClick={(e) => { e.stopPropagation(); completeMut.mutate(t.id); }}
-                                />
-                                <SmallTaskButton
-                                  label="Blocker"
-                                  icon={<TriangleAlert size={11} />}
-                                  color="#6B3FA0"
-                                  onClick={(e) => { e.stopPropagation(); setBlockerTask(t); }}
-                                />
-                                <SmallTaskButton
-                                  label="Extension"
-                                  icon={<Hourglass size={11} />}
-                                  color="var(--amber)"
-                                  onClick={(e) => { e.stopPropagation(); setExtensionTask(t); }}
-                                />
+                              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                <select
+                                  value={t.status}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === 'in_progress') {
+                                      startTimerMut.mutate(t.id);
+                                    } else if (val === 'pending') {
+                                      statusMut.mutate({ id: t.id, status: 'pending' });
+                                    } else if (val === 'complete') {
+                                      completeMut.mutate(t.id);
+                                    } else if (val === 'blocked') {
+                                      setBlockerTask(t);
+                                      setBlockerNote('');
+                                    } else if (val === 'extension_requested') {
+                                      setExtensionTask(t);
+                                      setExtensionReason('');
+                                      setExtensionDate(format(addDays(new Date(), 2), 'yyyy-MM-dd'));
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '4px 8px',
+                                    borderRadius: 6,
+                                    border: '1px solid var(--border)',
+                                    background: 'var(--surface)',
+                                    color: 'var(--ink-2)',
+                                    fontSize: 11.5,
+                                    fontWeight: 500,
+                                    outline: 'none',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  <option value="pending">Pending</option>
+                                  <option value="in_progress">In Progress</option>
+                                  <option value="complete">Complete...</option>
+                                  <option value="blocked">Blocked...</option>
+                                  <option value="extension_requested">Request Extension...</option>
+                                </select>
                               </div>
                             )}
                           </div>
@@ -1243,5 +1435,79 @@ function DueTasksDrawer({ tasks, onClose }: { tasks: any[]; onClose: () => void 
         </div>
       </div>
     </div>
+  );
+}
+
+function TaskTimer({
+  isTimerRunning,
+  timerStartedAt,
+  timeSpentSeconds,
+}: {
+  isTimerRunning: boolean;
+  timerStartedAt: string | null;
+  timeSpentSeconds: number;
+}) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const calculateSeconds = () => {
+      if (isTimerRunning && timerStartedAt) {
+        const elapsed = Math.floor((Date.now() - new Date(timerStartedAt).getTime()) / 1000);
+        setSeconds(timeSpentSeconds + Math.max(0, elapsed));
+      } else {
+        setSeconds(timeSpentSeconds);
+      }
+    };
+
+    calculateSeconds();
+
+    if (isTimerRunning) {
+      const interval = setInterval(calculateSeconds, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isTimerRunning, timerStartedAt, timeSpentSeconds]);
+
+  const formatTime = (totalSeconds: number) => {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return [
+      hrs.toString().padStart(2, '0'),
+      mins.toString().padStart(2, '0'),
+      secs.toString().padStart(2, '0'),
+    ].join(':');
+  };
+
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '11px',
+      color: isTimerRunning ? 'var(--olive-dark)' : 'var(--muted)',
+      fontWeight: 600,
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      padding: '2px 6px',
+      borderRadius: '4px',
+      marginLeft: '8px',
+    }}>
+      <span style={{
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: isTimerRunning ? 'var(--green)' : 'var(--muted)',
+        animation: isTimerRunning ? 'pulse 1.5s infinite' : 'none',
+      }} />
+      {formatTime(seconds)}
+      <style>{`
+        @keyframes pulse {
+          0% { opacity: 0.3; }
+          50% { opacity: 1; }
+          100% { opacity: 0.3; }
+        }
+      `}</style>
+    </span>
   );
 }

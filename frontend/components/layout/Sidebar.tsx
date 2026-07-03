@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { USE_MOCK } from '@/lib/mockData';
+import ProfileModal from './ProfileModal';
 
 const MOCK_USER = { fullName: 'Ambesh Kumar', role: 'admin', teamName: null };
 
@@ -27,9 +28,9 @@ const navItems = [
   { label: 'Clients',       icon: GitBranch,        href: '/clients',         section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   { label: 'Vault',         icon: FolderLock,       href: '/vault',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   // Manage section
-  { label: 'Step Config',   icon: Settings,         href: '/settings/steps',  section: 'manage',    roles: ['admin'] },
   { label: 'Team',          icon: Users,            href: '/team',            section: 'manage',    roles: ['admin', 'team_leader'] },
   { label: 'Performance',   icon: TrendingUp,       href: '/performance',     section: 'manage',    roles: ['admin'] },
+  { label: 'Step Config',   icon: Settings,         href: '/settings/steps',  section: 'manage',    roles: ['admin'] },
 ];
 
 const ROLE_BADGE: Record<string, { label: string; color: string; bg: string }> = {
@@ -42,6 +43,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(USE_MOCK ? MOCK_USER : null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     if (!USE_MOCK) setUser(getUser());
@@ -131,17 +133,35 @@ export default function Sidebar() {
           display: 'flex', alignItems: 'center', gap: 10, padding: 8,
           borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'background 0.15s',
         }}
+          onClick={() => setShowProfileModal(true)}
           onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--olive-50)')}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: role === 'admin' ? 'linear-gradient(135deg, var(--olive), var(--olive-light))'
-              : role === 'team_leader' ? 'linear-gradient(135deg, #2860A1, #5B9BD5)'
-              : 'var(--surface-2)',
-            color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 700, fontSize: 12, border: role === 'team_member' ? '1.5px solid var(--border)' : 'none',
-          }}>
-            {initials}
+          <div style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.fullName || 'User'}
+                style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  objectFit: 'cover', border: role === 'team_member' ? '1.5px solid var(--border)' : 'none',
+                }}
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const sibling = e.currentTarget.nextSibling as HTMLElement;
+                  if (sibling) sibling.style.display = 'flex';
+                }}
+              />
+            ) : null}
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: role === 'admin' ? 'linear-gradient(135deg, var(--olive), var(--olive-light))'
+                : role === 'team_leader' ? 'linear-gradient(135deg, #2860A1, #5B9BD5)'
+                : 'var(--surface-2)',
+              color: '#fff', display: user?.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 12, border: role === 'team_member' ? '1.5px solid var(--border)' : 'none',
+            }}>
+              {initials}
+            </div>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.fullName || 'Guest'}</div>
@@ -149,11 +169,16 @@ export default function Sidebar() {
               {roleBadge.label}
             </div>
           </div>
-          <button onClick={handleLogout} title="Logout" style={{ color: 'var(--soft)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+          <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} title="Logout" style={{ color: 'var(--soft)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
             <LogOut size={14} />
           </button>
         </div>
       </div>
+      <ProfileModal
+        open={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onUpdateSuccess={(updatedUser) => setUser(updatedUser)}
+      />
     </aside>
   );
 }

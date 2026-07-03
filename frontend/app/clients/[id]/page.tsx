@@ -25,6 +25,9 @@ export default function ClientDetailPage() {
   const [showAddStep, setShowAddStep] = useState(false);
   const [addStepForm, setAddStepForm] = useState({ name: '', owningTeamName: '', slaDays: '3', description: '', stepNumber: '' });
   const [addStepError, setAddStepError] = useState('');
+  const [editingStep, setEditingStep] = useState<any>(null);
+  const [editStepForm, setEditStepForm] = useState({ name: '', owningTeamName: '', slaDays: '3', description: '' });
+  const [editStepError, setEditStepError] = useState('');
   const [checkedTasks, setCheckedTasks] = useState<Set<string>>(new Set());
   const [blockerTaskId, setBlockerTaskId] = useState<string | null>(null);
   const [blockerNote, setBlockerNote] = useState('');
@@ -211,9 +214,9 @@ export default function ClientDetailPage() {
     retry: false,
   });
   const { data: liveSteps = [] } = useQuery({
-    queryKey: ['steps'],
-    queryFn: () => apiFetch('/api/steps'),
-    enabled: !USE_MOCK,
+    queryKey: ['steps', id],
+    queryFn: () => apiFetch(`/api/steps?clientId=${id}`),
+    enabled: !USE_MOCK && !!id,
     retry: false,
   });
   const moveMutation = useMutation({
@@ -240,15 +243,43 @@ export default function ClientDetailPage() {
 
   const addStepMutation = useMutation({
     mutationFn: (data: typeof addStepForm) =>
-      apiFetch('/api/steps', { method: 'POST', body: JSON.stringify(data) }),
+      apiFetch('/api/steps', { method: 'POST', body: JSON.stringify({ ...data, clientId: id }) }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['steps'] });
+      qc.invalidateQueries({ queryKey: ['steps', id] });
+      qc.invalidateQueries({ queryKey: ['client', id] });
       setShowAddStep(false);
       setAddStepForm({ name: '', owningTeamName: '', slaDays: '3', description: '', stepNumber: '' });
       setAddStepError('');
     },
     onError: (err: any) => {
       setAddStepError(err.message || 'Failed to add step');
+    }
+  });
+
+  const deleteStepMutation = useMutation({
+    mutationFn: (stepId: string) =>
+      apiFetch(`/api/steps/${stepId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['steps', id] });
+      qc.invalidateQueries({ queryKey: ['client', id] });
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to delete step');
+    }
+  });
+
+  const editStepMutation = useMutation({
+    mutationFn: (data: typeof editStepForm) =>
+      apiFetch(`/api/steps/${editingStep.id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['steps', id] });
+      qc.invalidateQueries({ queryKey: ['client', id] });
+      setEditingStep(null);
+      setEditStepForm({ name: '', owningTeamName: '', slaDays: '3', description: '' });
+      setEditStepError('');
+    },
+    onError: (err: any) => {
+      setEditStepError(err.message || 'Failed to update step');
     }
   });
 
@@ -280,6 +311,7 @@ export default function ClientDetailPage() {
       let condition = 'pending';
       if (done) condition = 'complete';
       else if (isBlocked) condition = 'blocked';
+      else if (t.status === 'in_progress') condition = 'in_progress';
       else if (isOverdue) condition = 'overdue';
       else if (isDueToday) condition = 'due_today';
 
@@ -398,6 +430,58 @@ export default function ClientDetailPage() {
   const isOverSLA = daysInStep > sla;
   const initials = (client.brandName || client.fullName).split(' ').map((n: string) => n[0]).join('').slice(0, 2);
 
+  // Compute how long it takes to complete each step
+  const durations = useMemo(() => {
+    if (!client || !steps || steps.length === 0) return {};
+    const historyList = [...(client.stepHistory || [])].sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    
+    const totals: Record<string, number> = {};
+    
+    // Find step 1 ID or first step
+    const firstStep = steps.find((s: any) => s.stepNumber === 1);
+    let activeStepId = firstStep?.id || client.currentStepId;
+    let enteredAt = new Date(client.dateJoined || client.createdAt).getTime();
+    
+    for (const h of historyList) {
+      const transitionTime = new Date(h.createdAt).getTime();
+      if (activeStepId) {
+        totals[activeStepId] = (totals[activeStepId] || 0) + (transitionTime - enteredAt);
+      }
+      activeStepId = h.toStepId;
+      enteredAt = transitionTime;
+    }
+    
+    // Add current active step duration
+    if (activeStepId) {
+      const endTime = client.status === 'completed'
+        ? (historyList[historyList.length - 1] ? new Date(historyList[historyList.length - 1].createdAt).getTime() : new Date().getTime())
+        : Date.now();
+      totals[activeStepId] = (totals[activeStepId] || 0) + (endTime - enteredAt);
+    }
+    
+    const formatted: Record<string, string> = {};
+    steps.forEach((s: any) => {
+      const ms = totals[s.id] || 0;
+      if (ms <= 0) {
+        formatted[s.id] = s.stepNumber < currentStepNum ? '< 1h' : '';
+        return;
+      }
+      const mins = ms / (1000 * 60);
+      const hours = mins / 60;
+      const days = hours / 24;
+      
+      if (days >= 1) {
+        formatted[s.id] = `${days.toFixed(1)}d`;
+      } else if (hours >= 1) {
+        formatted[s.id] = `${hours.toFixed(1)}h`;
+      } else {
+        formatted[s.id] = `${Math.round(mins)}m`;
+      }
+    });
+    
+    return formatted;
+  }, [client, steps, currentStepNum]);
+
   // Status badge helper
   const statusConfig: Record<string, { bg: string; color: string; dot: string; label: string }> = {
     on_track:  { bg: 'var(--green-bg)', color: 'var(--green)', dot: 'var(--green)', label: 'On track' },
@@ -480,11 +564,6 @@ export default function ClientDetailPage() {
             </button>
             {isAdmin && (
               <>
-                <button onClick={() => setShowAddStep(true)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
-                  Add step
-                </button>
                 <button onClick={() => setShowMoveStep(true)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
@@ -587,6 +666,11 @@ export default function ClientDetailPage() {
                     color: current ? 'var(--olive)' : completed ? 'var(--ink-2)' : 'var(--muted)',
                   }}>
                     {step.name}
+                    {durations[step.id] && (
+                      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, fontStyle: 'italic', fontWeight: 400 }}>
+                        ⏱️ {durations[step.id]}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -816,6 +900,15 @@ export default function ClientDetailPage() {
                               <span style={chipStyle('var(--green-bg)', 'var(--green)')}>DONE</span>
                             ) : isBlocked ? (
                               <span style={chipStyle('#F0E8FA', '#6B3FA0')}>BLOCKED</span>
+                            ) : task.status === 'in_progress' ? (
+                              <div style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                <span style={chipStyle('var(--olive-50)', 'var(--olive-dark)')}>IN PROGRESS</span>
+                                <TaskTimer
+                                  isTimerRunning={task.isTimerRunning}
+                                  timerStartedAt={task.timerStartedAt}
+                                  timeSpentSeconds={task.timeSpentSeconds}
+                                />
+                              </div>
                             ) : task._daysLate > 0 ? (
                               <span style={chipStyle('var(--red-bg)', 'var(--red)')}>+{task._daysLate}d</span>
                             ) : task._isDueToday ? (
@@ -850,6 +943,7 @@ export default function ClientDetailPage() {
               </table>
             </div>
           </div>
+
 
           {/* Step History timeline */}
           {isAdmin && (
@@ -1080,63 +1174,6 @@ export default function ClientDetailPage() {
                   }}
                 >
                   {addTaskMut.isPending ? 'Adding…' : 'Add Task'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {showAddStep && isAdmin && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
-            onClick={(e) => { if (e.target === e.currentTarget) setShowAddStep(false); }}>
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 460, boxShadow: 'var(--shadow-lg)' }}>
-              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Add Step to Pipeline</div>
-                  <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>This will append a new step to the end of the pipeline.</div>
-                </div>
-                <button onClick={() => setShowAddStep(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
-              </div>
-
-              <div style={{ padding: '20px 24px' }}>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Step Name *</label>
-                  <input value={addStepForm.name} onChange={(e) => setAddStepForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Graphic Assets Setup" style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 12 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Owning Team *</label>
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <select value={addStepForm.owningTeamName} onChange={(e) => setAddStepForm(f => ({ ...f, owningTeamName: e.target.value }))} style={{ flex: 1, padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
-                        <option value="">Select team...</option>
-                        {teamsList.map((t: string) => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                      <button type="button" onClick={handleCreateNewTeam}
-                        style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>
-                        + Team
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>SLA Days *</label>
-                    <input type="number" value={addStepForm.slaDays} onChange={(e) => setAddStepForm(f => ({ ...f, slaDays: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
-                  </div>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Position / Step Number (optional)</label>
-                  <input type="number" placeholder={`e.g. 1 to ${steps.length + 1}`} value={addStepForm.stepNumber} onChange={(e) => setAddStepForm(f => ({ ...f, stepNumber: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Description</label>
-                  <textarea value={addStepForm.description} onChange={(e) => setAddStepForm(f => ({ ...f, description: e.target.value }))} placeholder="Briefly describe the objective of this step..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical', minHeight: 60, fontFamily: 'inherit' }} />
-                </div>
-                {addStepError && <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>{addStepError}</div>}
-              </div>
-
-              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
-                <button onClick={() => setShowAddStep(false)} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
-                <button onClick={() => { setAddStepError(''); addStepMutation.mutate(addStepForm); }} disabled={addStepMutation.isPending || !addStepForm.name.trim() || !addStepForm.owningTeamName}
-                  style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (addStepMutation.isPending || !addStepForm.name.trim() || !addStepForm.owningTeamName) ? 0.6 : 1 }}>
-                  {addStepMutation.isPending ? 'Adding…' : 'Add Step'}
                 </button>
               </div>
             </div>
@@ -1451,3 +1488,77 @@ const tdStyle: React.CSSProperties = {
   padding: '14px 20px',
   verticalAlign: 'middle',
 };
+
+function TaskTimer({
+  isTimerRunning,
+  timerStartedAt,
+  timeSpentSeconds,
+}: {
+  isTimerRunning: boolean;
+  timerStartedAt: string | null;
+  timeSpentSeconds: number;
+}) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const calculateSeconds = () => {
+      if (isTimerRunning && timerStartedAt) {
+        const elapsed = Math.floor((Date.now() - new Date(timerStartedAt).getTime()) / 1000);
+        setSeconds(timeSpentSeconds + Math.max(0, elapsed));
+      } else {
+        setSeconds(timeSpentSeconds);
+      }
+    };
+
+    calculateSeconds();
+
+    if (isTimerRunning) {
+      const interval = setInterval(calculateSeconds, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isTimerRunning, timerStartedAt, timeSpentSeconds]);
+
+  const formatTime = (totalSeconds: number) => {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return [
+      hrs.toString().padStart(2, '0'),
+      mins.toString().padStart(2, '0'),
+      secs.toString().padStart(2, '0'),
+    ].join(':');
+  };
+
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '11px',
+      color: isTimerRunning ? 'var(--olive-dark)' : 'var(--muted)',
+      fontWeight: 600,
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      padding: '2px 6px',
+      borderRadius: '4px',
+      marginLeft: '8px',
+    }}>
+      <span style={{
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: isTimerRunning ? 'var(--green)' : 'var(--muted)',
+        animation: isTimerRunning ? 'pulse 1.5s infinite' : 'none',
+      }} />
+      {formatTime(seconds)}
+      <style>{`
+        @keyframes pulse {
+          0% { opacity: 0.3; }
+          50% { opacity: 1; }
+          100% { opacity: 0.3; }
+        }
+      `}</style>
+    </span>
+  );
+}

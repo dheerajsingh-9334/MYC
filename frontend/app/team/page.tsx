@@ -21,6 +21,7 @@ interface Member {
   overdue?: number;
   completedLast7d?: number;
   avgCompletionTime?: string | null;
+  avatarUrl?: string | null;
   _count?: { assignedTasks?: number };
 }
 
@@ -50,8 +51,8 @@ export default function TeamPage() {
   });
 
   const team: Member[] = USE_MOCK ? MOCK_TEAM : liveTeam;
-  const active = team.filter((m) => m.isActive !== false);
-  const inactive = team.filter((m) => m.isActive === false);
+  const active = team.filter((m) => m.isActive !== false && m.role !== 'admin');
+  const inactive = team.filter((m) => m.isActive === false && m.role !== 'admin');
 
   // Admin sees the full file-based tree. Team leaders see only their team.
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
@@ -71,6 +72,7 @@ export default function TeamPage() {
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ fullName: '', email: '', role: 'team_member', teamName: '', whatsappNumber: '' });
   const [error, setError] = useState('');
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   // Build tree: team → members
   const tree = useMemo(() => {
@@ -114,14 +116,16 @@ export default function TeamPage() {
   const collapseAll = () => setExpandedTeams(new Set());
 
   const createMut = useMutation({
-    mutationFn: () => apiFetch('/api/users', { method: 'POST', body: JSON.stringify(form) }),
-    onSuccess: () => {
+    mutationFn: () => apiFetch('/api/teams/invite', {
+      method: 'POST',
+      body: JSON.stringify({ email: form.email, role: form.role, teamName: form.role === 'admin' ? '' : form.teamName })
+    }),
+    onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ['users'] });
-      setShowModal(false);
-      setForm({ fullName: '', email: '', role: 'team_member', teamName: '', whatsappNumber: '' });
+      setInviteLink(data.link);
       setError('');
     },
-    onError: (e: any) => setError(e.message || 'Failed to create member'),
+    onError: (e: any) => setError(e.message || 'Failed to generate invitation link'),
   });
 
   const deactivateMut = useMutation({
@@ -225,8 +229,30 @@ export default function TeamPage() {
                               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                               
                               {/* Avatar */}
-                              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 12, flexShrink: 0, boxShadow: 'var(--shadow-sm)' }}>
-                                {getInitials(m.fullName)}
+                              <div style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
+                                {m.avatarUrl ? (
+                                  <img
+                                    src={m.avatarUrl}
+                                    alt={m.fullName}
+                                    style={{
+                                      width: 32, height: 32, borderRadius: '50%',
+                                      objectFit: 'cover', boxShadow: 'var(--shadow-sm)',
+                                    }}
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      const sibling = e.currentTarget.nextSibling as HTMLElement;
+                                      if (sibling) sibling.style.display = 'flex';
+                                    }}
+                                  />
+                                ) : null}
+                                <div style={{
+                                  width: 32, height: 32, borderRadius: '50%',
+                                  background: 'linear-gradient(135deg, var(--olive), var(--olive-light))',
+                                  color: '#fff', display: m.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
+                                  fontWeight: 600, fontSize: 12, boxShadow: 'var(--shadow-sm)',
+                                }}>
+                                  {getInitials(m.fullName)}
+                                </div>
                               </div>
                               
                               {/* Info */}
@@ -319,65 +345,90 @@ export default function TeamPage() {
 
         <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--olive-50)', border: '1px solid var(--olive-100)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, color: 'var(--olive-dark)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
           <CircleAlert size={13} style={{ flexShrink: 0, marginTop: 1 }} />
-          <div>New members are created with a default password of <code>password123</code>. They should change it on first login.</div>
+          <div>Admins generate a secure magic-link invitation. Invited team members use it to verify, set their password, and enter their WhatsApp number to join.</div>
         </div>
       </div>
 
       {/* ── CREATE MEMBER MODAL ── */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}>
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowModal(false); setInviteLink(null); setError(''); } }}>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 480, boxShadow: 'var(--shadow-lg)' }}>
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Add Team Member</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>They'll receive access to their assigned tasks immediately.</div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Invite Team Member</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+                  {inviteLink ? 'Share this magic link with the member.' : 'Generate a secure signup link for a new member.'}
+                </div>
               </div>
-              <button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
+              <button onClick={() => { setShowModal(false); setInviteLink(null); setError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
             </div>
 
-            <div style={{ padding: '20px 24px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                <div>
-                  <label style={lbl}>Full Name *</label>
-                  <input value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} placeholder="Priya Sharma" style={inp} />
+            {inviteLink ? (
+              <>
+                <div style={{ padding: '20px 24px' }}>
+                  <div style={{ background: '#EBF7EE', border: '1px solid #D1F0D8', color: '#2E7D32', padding: '12px 14px', borderRadius: 'var(--radius-sm)', fontSize: 13, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <UserCheck size={16} />
+                    <span>Invitation link generated successfully!</span>
+                  </div>
+                  <label style={lbl}>Shareable Magic-Link</label>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+                    <input readOnly value={inviteLink} style={{ ...inp, flex: 1, background: 'var(--surface-2)' }} onClick={(e) => (e.target as HTMLInputElement).select()} />
+                    <button onClick={() => {
+                      navigator.clipboard.writeText(inviteLink);
+                      alert('Invitation link copied to clipboard!');
+                    }} style={btnPrimary}>Copy</button>
+                  </div>
                 </div>
-                <div>
-                  <label style={lbl}>Email *</label>
-                  <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="priya@myc.in" style={inp} />
+                <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+                  <button onClick={() => { setShowModal(false); setInviteLink(null); setForm({ fullName: '', email: '', role: 'team_member', teamName: '', whatsappNumber: '' }); setError(''); }} style={btnPrimary}>Done</button>
                 </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                <div>
-                  <label style={lbl}>Role *</label>
-                  <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} style={inp}>
-                    <option value="team_member">Team Member</option>
-                    <option value="team_leader">Team Lead</option>
-                    <option value="admin">Admin</option>
-                  </select>
+              </>
+            ) : (
+              <>
+                <div style={{ padding: '20px 24px' }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={lbl}>Email Address *</label>
+                    <input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="member@myc.in" style={inp} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                    <div>
+                      <label style={lbl}>Role *</label>
+                      <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} style={inp}>
+                        <option value="team_member">Team Member</option>
+                        <option value="team_leader">Team Lead</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={lbl}>Team</label>
+                      <select
+                        value={form.role === 'admin' ? '' : form.teamName}
+                        onChange={(e) => setForm((f) => ({ ...f, teamName: e.target.value }))}
+                        disabled={form.role === 'admin'}
+                        style={{
+                          ...inp,
+                          opacity: form.role === 'admin' ? 0.6 : 0.9,
+                          cursor: form.role === 'admin' ? 'not-allowed' : 'default',
+                        }}
+                      >
+                        <option value="">Select team...</option>
+                        {TEAMS.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  {error && <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>{error}</div>}
                 </div>
-                <div>
-                  <label style={lbl}>Team</label>
-                  <select value={form.teamName} onChange={(e) => setForm((f) => ({ ...f, teamName: e.target.value }))} style={inp}>
-                    <option value="">Select team...</option>
-                    {TEAMS.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label style={lbl}>WhatsApp Number</label>
-                <input value={form.whatsappNumber} onChange={(e) => setForm((f) => ({ ...f, whatsappNumber: e.target.value }))} placeholder="+91 98765 43210" style={inp} />
-              </div>
-              {error && <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>{error}</div>}
-            </div>
 
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
-              <button onClick={() => setShowModal(false)} style={{ ...btnSecondary, padding: '8px 14px' }}>Cancel</button>
-              <button onClick={() => { setError(''); createMut.mutate(); }} disabled={createMut.isPending || !form.fullName || !form.email}
-                style={{ ...btnPrimary, padding: '8px 16px', opacity: createMut.isPending || !form.fullName || !form.email ? 0.6 : 1 }}>
-                {createMut.isPending ? 'Adding…' : 'Add Member'}
-              </button>
-            </div>
+                <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+                  <button onClick={() => { setShowModal(false); setError(''); }} style={{ ...btnSecondary, padding: '8px 14px' }}>Cancel</button>
+                  <button onClick={() => { setError(''); createMut.mutate(); }} disabled={createMut.isPending || !form.email}
+                    style={{ ...btnPrimary, padding: '8px 16px', opacity: createMut.isPending || !form.email ? 0.6 : 1 }}>
+                    {createMut.isPending ? 'Generating…' : 'Generate Link'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

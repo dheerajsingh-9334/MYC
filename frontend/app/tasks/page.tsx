@@ -16,13 +16,14 @@ import {
   Search, XCircle, RotateCcw, ChevronLeft, ChevronRight,
   ArrowUpDown, CircleCheck, Clock, TriangleAlert, Eye,
   Check, X, FolderOpen, Link2, Upload, FileText, Plus, ExternalLink, AlertCircle,
+  Play, Pause,
 } from 'lucide-react';
 
 const AUTO_REFRESH_MS = 30_000;
 const PAGE_SIZE = 15;
 
 // Chip filter kinds — virtual filters that don't map 1:1 to a status enum
-type ChipKind = '' | 'overdue' | 'today' | 'rejected' | 'complete' | 'extension_requested';
+type ChipKind = '' | 'overdue' | 'today' | 'rejected' | 'complete' | 'extension_requested' | 'in_progress';
 
 export default function TasksPage() {
   const qc = useQueryClient();
@@ -78,6 +79,20 @@ export default function TasksPage() {
   const [proofLink, setProofLink] = useState('');
   const [proofDescription, setProofDescription] = useState('');
 
+  // Add Task Modal State
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [addTaskForm, setAddTaskForm] = useState({
+    clientId: '',
+    stepId: '',
+    teamName: '',
+    title: '',
+    description: '',
+    priority: 'normal',
+    dueDate: '',
+    assignedToId: '',
+  });
+  const [addTaskError, setAddTaskError] = useState('');
+
   useEffect(() => {
     if (!USE_MOCK) setUser(getUser());
   }, []);
@@ -92,6 +107,60 @@ export default function TasksPage() {
     refetchOnWindowFocus: true,
     retry: false,
   });
+
+  const { data: liveClients = [] } = useQuery({
+    queryKey: ['clients'],
+    queryFn: () => apiFetch('/api/clients'),
+    enabled: !USE_MOCK && showAddTask && isAdmin,
+    retry: false,
+  });
+
+  const { data: liveUsers = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => apiFetch('/api/users'),
+    enabled: !USE_MOCK && showAddTask && isAdmin,
+    retry: false,
+  });
+
+  const { data: addTaskClientSteps = [] } = useQuery({
+    queryKey: ['steps', addTaskForm.clientId],
+    queryFn: () => apiFetch(`/api/steps?clientId=${addTaskForm.clientId}`),
+    enabled: !USE_MOCK && !!addTaskForm.clientId && showAddTask && isAdmin,
+    retry: false,
+  });
+
+  const addTaskMut = useMutation({
+    mutationFn: () => apiFetch('/api/tasks', {
+      method: 'POST',
+      body: JSON.stringify({
+        clientId: addTaskForm.clientId,
+        stepId: addTaskForm.stepId || undefined,
+        title: addTaskForm.title,
+        description: addTaskForm.description || undefined,
+        priority: addTaskForm.priority,
+        dueDate: addTaskForm.dueDate,
+        assignedToId: addTaskForm.assignedToId,
+      }),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      setShowAddTask(false);
+      setAddTaskForm({ clientId: '', stepId: '', teamName: '', title: '', description: '', priority: 'normal', dueDate: '', assignedToId: '' });
+      setAddTaskError('');
+    },
+    onError: (e: any) => setAddTaskError(e.message || 'Failed to create task'),
+  });
+
+  const addTaskTeamOptions = useMemo(() => {
+    const set = new Set<string>();
+    (liveUsers as any[]).forEach((u) => { if (u.teamName && u.isActive !== false) set.add(u.teamName); });
+    return Array.from(set).sort();
+  }, [liveUsers]);
+
+  const addTaskAssignees = useMemo(() => {
+    if (!addTaskForm.teamName) return liveUsers as any[];
+    return (liveUsers as any[]).filter((u) => u.teamName === addTaskForm.teamName && u.isActive !== false);
+  }, [liveUsers, addTaskForm.teamName]);
 
   const tasks: any[] = USE_MOCK ? MOCK_TASKS : liveTasks;
 
@@ -131,10 +200,12 @@ export default function TasksPage() {
       list = list.filter((t) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled' && isToday(new Date(t.dueDate)));
     } else if (chipFilter === 'rejected') {
       list = list.filter((t) => t.status === 'rejected' || t.status === 'cancelled');
-    } else if (chipFilter === 'complete') {
+        } else if (chipFilter === 'complete') {
       list = list.filter((t) => t.status === 'complete');
     } else if (chipFilter === 'extension_requested') {
       list = list.filter((t) => t.status === 'extension_requested');
+    } else if (chipFilter === 'in_progress') {
+      list = list.filter((t) => t.status === 'in_progress');
     }
 
     if (search.trim()) {
@@ -208,6 +279,126 @@ export default function TasksPage() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); setExtendTaskId(null); setExtensionDate(''); setExtensionReason(''); },
   });
 
+  const startTimerMut = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/tasks/${id}/start-timer`, { method: 'PATCH' }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => {
+          if (t.id === id) {
+            return {
+              ...t,
+              status: 'in_progress',
+              isTimerRunning: true,
+              timerStartedAt: new Date().toISOString(),
+            };
+          }
+          return t;
+        });
+      });
+
+      return { previousTasks };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousTasks) {
+        qc.setQueryData(['tasks'], context.previousTasks);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const stopTimerMut = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/tasks/${id}/stop-timer`, { method: 'PATCH' }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => {
+          if (t.id === id) {
+            let addedSeconds = 0;
+            if (t.timerStartedAt) {
+              addedSeconds = Math.max(0, Math.floor((Date.now() - new Date(t.timerStartedAt).getTime()) / 1000));
+            }
+            return {
+              ...t,
+              status: 'pending',
+              isTimerRunning: false,
+              timerStartedAt: null,
+              timeSpentSeconds: t.timeSpentSeconds + addedSeconds,
+            };
+          }
+          return t;
+        });
+      });
+
+      return { previousTasks };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousTasks) {
+        qc.setQueryData(['tasks'], context.previousTasks);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
+  const statusMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      apiFetch(`/api/tasks/${id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+    onMutate: async ({ id, status }) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => {
+          if (t.id === id) {
+            let data = { ...t, status };
+            if (status === 'in_progress') {
+              if (!t.isTimerRunning) {
+                data.isTimerRunning = true;
+                data.timerStartedAt = new Date().toISOString();
+              }
+            } else {
+              if (t.isTimerRunning) {
+                let addedSeconds = 0;
+                if (t.timerStartedAt) {
+                  addedSeconds = Math.max(0, Math.floor((Date.now() - new Date(t.timerStartedAt).getTime()) / 1000));
+                }
+                data.isTimerRunning = false;
+                data.timerStartedAt = null;
+                data.timeSpentSeconds = t.timeSpentSeconds + addedSeconds;
+              }
+            }
+            return data;
+          }
+          return t;
+        });
+      });
+
+      return { previousTasks };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousTasks) {
+        qc.setQueryData(['tasks'], context.previousTasks);
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+
   // Vault mutations
   const vaultDocsQuery = useQuery({
     queryKey: ['vault-task', vaultTask?.id],
@@ -259,6 +450,7 @@ export default function TasksPage() {
       rejected: tasks.filter((t: any) => t.status === 'rejected' || t.status === 'cancelled').length,
       complete: tasks.filter((t: any) => t.status === 'complete').length,
       extension_requested: tasks.filter((t: any) => t.status === 'extension_requested').length,
+      in_progress: tasks.filter((t: any) => t.status === 'in_progress').length,
     };
   }, [tasks]);
 
@@ -266,6 +458,7 @@ export default function TasksPage() {
     { key: '',          label: 'All',        count: counts.total },
     { key: 'overdue',   label: 'Overdue',    count: counts.overdue, color: 'var(--red)' },
     { key: 'today',     label: 'Due Today',  count: counts.today,   color: 'var(--amber)' },
+    { key: 'in_progress', label: 'In Progress', count: counts.in_progress, color: 'var(--olive)' },
     { key: 'extension_requested', label: 'Extension Requested', count: counts.extension_requested, color: 'var(--blue)' },
     { key: 'rejected',  label: 'Rejected',   count: counts.rejected, color: '#B0436A' },
     { key: 'complete',  label: 'Completed',  count: counts.complete, color: 'var(--green)' },
@@ -277,20 +470,36 @@ export default function TasksPage() {
         title={isAdmin ? 'All Tasks' : 'My Tasks'}
         subtitle={isAdmin ? `Org-wide · ${counts.total} tasks` : `${user?.fullName || 'Team Member'} · ${user?.teamName || ''}`}
         renderActions={() => isAdmin && (
-          <button
-            onClick={() => setShowCSVModal(true)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-          >
-            Upload CSV
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setShowAddTask(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--olive)', border: 'none',
+                color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-dark)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
+            >
+              <Plus size={14} /> Add Task
+            </button>
+            <button
+              onClick={() => setShowCSVModal(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+            >
+              Upload CSV
+            </button>
+          </div>
         )}
       />
       <div style={{ padding: '16px 20px', flex: 1 }}>
@@ -389,6 +598,9 @@ export default function TasksPage() {
                         onOpenVault={() => setVaultTask(t)}
                         onBlock={() => setBlockerTaskId(t.id)}
                         onExtend={() => setExtendTaskId(t.id)}
+                        onStartTimer={() => startTimerMut.mutate(t.id)}
+                        onStopTimer={() => stopTimerMut.mutate(t.id)}
+                        onStatusChange={(id, status) => statusMut.mutate({ id, status })}
                       />
                     ))}
                   </tbody>
@@ -594,6 +806,90 @@ export default function TasksPage() {
           </div>
         </div>
       )}
+      {showAddTask && isAdmin && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAddTask(false); }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 500, boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Create & Assign Task</div>
+              <button onClick={() => setShowAddTask(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Project / Client *</label>
+                <select value={addTaskForm.clientId} onChange={(e) => setAddTaskForm(f => ({ ...f, clientId: e.target.value, stepId: '' }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                  <option value="">Select project / client...</option>
+                  {liveClients.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.brandName || c.fullName}</option>
+                  ))}
+                </select>
+              </div>
+
+              {addTaskForm.clientId && (
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Pipeline Step (optional, defaults to current step)</label>
+                  <select value={addTaskForm.stepId} onChange={(e) => setAddTaskForm(f => ({ ...f, stepId: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                    <option value="">Use current step...</option>
+                    {addTaskClientSteps.map((s: any) => (
+                      <option key={s.id} value={s.id}>Step {s.stepNumber} — {s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Task Title *</label>
+                <input value={addTaskForm.title} onChange={(e) => setAddTaskForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Write Facebook Ad Copy" style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Team *</label>
+                  <select value={addTaskForm.teamName} onChange={(e) => setAddTaskForm(f => ({ ...f, teamName: e.target.value, assignedToId: '' }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                    <option value="">Select team...</option>
+                    {addTaskTeamOptions.map((t: string) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Assignee *</label>
+                  <select value={addTaskForm.assignedToId} onChange={(e) => setAddTaskForm(f => ({ ...f, assignedToId: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                    <option value="">Select assignee...</option>
+                    {addTaskAssignees.map((u: any) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Priority</label>
+                  <select value={addTaskForm.priority} onChange={(e) => setAddTaskForm(f => ({ ...f, priority: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Due Date *</label>
+                  <input type="date" value={addTaskForm.dueDate} onChange={(e) => setAddTaskForm(f => ({ ...f, dueDate: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Description</label>
+                <textarea value={addTaskForm.description} onChange={(e) => setAddTaskForm(f => ({ ...f, description: e.target.value }))} placeholder="Briefly outline requirements..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical', minHeight: 60, fontFamily: 'inherit' }} />
+              </div>
+
+              {addTaskError && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13, marginBottom: 12 }}>{addTaskError}</div>}
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+              <button onClick={() => setShowAddTask(false)} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
+              <button onClick={() => { setAddTaskError(''); addTaskMut.mutate(); }} disabled={addTaskMut.isPending || !addTaskForm.clientId || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId}
+                style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (addTaskMut.isPending || !addTaskForm.clientId || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId) ? 0.6 : 1 }}>
+                {addTaskMut.isPending ? 'Adding…' : 'Add Task'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <CSVImportModal
         open={showCSVModal}
         onClose={() => setShowCSVModal(false)}
@@ -649,7 +945,7 @@ export default function TasksPage() {
 // ── Staff / admin task row ────────────────────────────────────────────────
 
 function StaffTaskRow({
-  task: t, isAdmin, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend,
+  task: t, isAdmin, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend, onStartTimer, onStopTimer, onStatusChange,
 }: {
   task: any; isAdmin: boolean;
   onComplete: () => void;
@@ -659,6 +955,9 @@ function StaffTaskRow({
   onOpenVault: () => void;
   onBlock?: () => void;
   onExtend?: () => void;
+  onStartTimer?: () => void;
+  onStopTimer?: () => void;
+  onStatusChange?: (id: string, status: string) => void;
 }) {
   const done = t.status === 'complete';
   const rej = t.status === 'rejected' || t.status === 'cancelled';
@@ -709,21 +1008,51 @@ function StaffTaskRow({
         </span>
       </td>
       <td style={{ padding: '10px 18px', verticalAlign: 'middle' }}>
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          padding: '3px 9px', borderRadius: 999,
-          fontSize: 11.5, fontWeight: 600,
-          background: t.status === 'complete' ? 'var(--green-bg)'
-            : t.status === 'blocked' ? '#F0E8FA'
-            : t.status === 'rejected' ? '#FBEEF1'
-            : t.status === 'extension_requested' ? 'var(--amber-bg)'
-            : t.status === 'in_progress' ? 'var(--olive-50)'
-            : 'var(--surface-2)',
-          color: statusColor[t.status],
-        }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor[t.status] }} />
-          {statusLabel[t.status] || t.status}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            padding: '3px 9px', borderRadius: 999,
+            fontSize: 11.5, fontWeight: 600,
+            background: t.status === 'complete' ? 'var(--green-bg)'
+              : t.status === 'blocked' ? '#F0E8FA'
+              : t.status === 'rejected' ? '#FBEEF1'
+              : t.status === 'extension_requested' ? 'var(--amber-bg)'
+              : t.status === 'in_progress' ? 'var(--olive-50)'
+              : 'var(--surface-2)',
+            color: statusColor[t.status],
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor[t.status] }} />
+            {statusLabel[t.status] || t.status}
+          </span>
+          {(t.status === 'in_progress' || t.timeSpentSeconds > 0) && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <TaskTimer
+                isTimerRunning={t.isTimerRunning}
+                timerStartedAt={t.timerStartedAt}
+                timeSpentSeconds={t.timeSpentSeconds}
+              />
+              {!isAdmin && t.status === 'in_progress' && (
+                t.isTimerRunning ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onStopTimer?.(); }}
+                    title="Pause timer"
+                    style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    <Pause size={12} style={{ color: 'var(--amber)' }} />
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onStartTimer?.(); }}
+                    title="Resume timer"
+                    style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+                  >
+                    <Play size={12} style={{ color: 'var(--green)' }} />
+                  </button>
+                )
+              )}
+            </div>
+          )}
+        </div>
       </td>
       <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: whenColor, fontWeight: overdue ? 600 : 400, whiteSpace: 'nowrap' }}>
         {done && <CircleCheck size={11} style={{ display: 'inline', marginRight: 4 }} />}
@@ -731,17 +1060,42 @@ function StaffTaskRow({
         {whenLabel}
       </td>
       <td style={{ padding: '10px 18px', verticalAlign: 'middle' }}>
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           {!isAdmin && !done && (
-            <>
-              <IconBtn title="Mark complete" onClick={onComplete}><Check size={11} /></IconBtn>
-              {t.status !== 'blocked' && onBlock && (
-                <IconBtn title="Raise blocker" onClick={onBlock}><TriangleAlert size={11} style={{ color: '#6B3FA0' }} /></IconBtn>
-              )}
-              {t.status !== 'extension_requested' && onExtend && (
-                <IconBtn title="Request extension" onClick={onExtend}><Clock size={11} style={{ color: 'var(--amber)' }} /></IconBtn>
-              )}
-            </>
+            <select
+              value={t.status}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === 'in_progress') {
+                  onStartTimer?.();
+                } else if (val === 'pending') {
+                  onStatusChange?.(t.id, 'pending');
+                } else if (val === 'complete') {
+                  onComplete();
+                } else if (val === 'blocked') {
+                  onBlock?.();
+                } else if (val === 'extension_requested') {
+                  onExtend?.();
+                }
+              }}
+              style={{
+                padding: '4px 8px',
+                borderRadius: 6,
+                border: '1px solid var(--border)',
+                background: 'var(--surface)',
+                color: 'var(--ink-2)',
+                fontSize: 12,
+                fontWeight: 500,
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="pending">Pending</option>
+              <option value="in_progress">In Progress</option>
+              <option value="complete">Complete...</option>
+              <option value="blocked">Blocked...</option>
+              <option value="extension_requested">Request Extension...</option>
+            </select>
           )}
           {isAdmin && !done && (
             <IconBtn title="Reject" onClick={onReject}><XCircle size={11} /></IconBtn>
@@ -762,6 +1116,80 @@ function StaffTaskRow({
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────
+
+function TaskTimer({
+  isTimerRunning,
+  timerStartedAt,
+  timeSpentSeconds,
+}: {
+  isTimerRunning: boolean;
+  timerStartedAt: string | null;
+  timeSpentSeconds: number;
+}) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    const calculateSeconds = () => {
+      if (isTimerRunning && timerStartedAt) {
+        const elapsed = Math.floor((Date.now() - new Date(timerStartedAt).getTime()) / 1000);
+        setSeconds(timeSpentSeconds + Math.max(0, elapsed));
+      } else {
+        setSeconds(timeSpentSeconds);
+      }
+    };
+
+    calculateSeconds();
+
+    if (isTimerRunning) {
+      const interval = setInterval(calculateSeconds, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isTimerRunning, timerStartedAt, timeSpentSeconds]);
+
+  const formatTime = (totalSeconds: number) => {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return [
+      hrs.toString().padStart(2, '0'),
+      mins.toString().padStart(2, '0'),
+      secs.toString().padStart(2, '0'),
+    ].join(':');
+  };
+
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 4,
+      fontFamily: 'JetBrains Mono, monospace',
+      fontSize: '11px',
+      color: isTimerRunning ? 'var(--olive-dark)' : 'var(--muted)',
+      fontWeight: 600,
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      padding: '2px 6px',
+      borderRadius: '4px',
+      marginLeft: '8px',
+    }}>
+      <span style={{
+        width: 6,
+        height: 6,
+        borderRadius: '50%',
+        background: isTimerRunning ? 'var(--green)' : 'var(--muted)',
+        animation: isTimerRunning ? 'pulse 1.5s infinite' : 'none',
+      }} />
+      {formatTime(seconds)}
+      <style>{`
+        @keyframes pulse {
+          0% { opacity: 0.3; }
+          50% { opacity: 1; }
+          100% { opacity: 0.3; }
+        }
+      `}</style>
+    </span>
+  );
+}
 
 function Th({ children, onClick, active, dir }: { children: React.ReactNode; onClick?: () => void; active?: boolean; dir?: 'asc' | 'desc' }) {
   return (

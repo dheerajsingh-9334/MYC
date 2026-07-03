@@ -7,7 +7,7 @@ import { apiFetch, getUser } from '@/lib/api';
 import { USE_MOCK } from '@/lib/mockData';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity, ArrowRight, BarChart3, Search, Bell, Check, X, Download } from 'lucide-react';
+import { Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity, ArrowRight, BarChart3, Search, Bell, Check, X, Download, Play } from 'lucide-react';
 import { format } from 'date-fns';
 import DashboardHeader from '@/components/ui/DashboardHeader';
 import StatCard from '@/components/ui/StatCard';
@@ -19,12 +19,12 @@ interface AdminData {
     totalClients: number; activeClients: number; completedClients: number;
     avgCompletionTimeDays?: number;
     totalTasks: number; activeTasks: number; overdueTasks: number;
-    blockedTasks: number; extensionTasks: number;
+    blockedTasks: number; extensionTasks: number; inProgressTasks?: number;
     completedLast7d: number; onTimePct: number;
   };
   teams: Array<{ teamName: string; memberCount: number; leadCount: number; activeTasks: number; overdue: number; blocked: number; completedLast7d: number; }>;
   members: Array<{ userId: string; name: string; team: string; role: string; active: number; overdue: number; blocked: number; completedLast7d: number; }>;
-  stepRollup: Array<{ stepId: string; stepNumber: number; name: string; owningTeamName: string; activeTasks: number; overdue: number; blocked: number; completedLast7d: number; }>;
+  stepRollup: Array<{ stepId: string; stepNumber: number; name: string; owningTeamName: string; activeTasks: number; overdue: number; blocked: number; completedLast7d: number; averageDurationDays?: number; }>;
   recentCompletions: Array<{ id: string; title: string; completedAt: string; assignee: string; team: string; client: string; step: string; }>;
   pendingExtensions?: Array<{ id: string; title: string; dueDate: string; extensionRequestedDate: string; extensionReason: string; assignee: string; team: string; client: string; step: string; }>;
 }
@@ -34,7 +34,7 @@ const EMPTY_DATA: AdminData = {
     totalClients: 0, activeClients: 0, completedClients: 0,
     avgCompletionTimeDays: 0,
     totalTasks: 0, activeTasks: 0, overdueTasks: 0,
-    blockedTasks: 0, extensionTasks: 0,
+    blockedTasks: 0, extensionTasks: 0, inProgressTasks: 0,
     completedLast7d: 0, onTimePct: 0,
   },
   teams: [],
@@ -46,7 +46,10 @@ const EMPTY_DATA: AdminData = {
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const user = getUser();
+  const [user, setUser] = useState<any>(null);
+  useEffect(() => {
+    setUser(getUser());
+  }, []);
   const qc = useQueryClient();
   const [memberSearch, setMemberSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState<string>('');
@@ -343,7 +346,17 @@ export default function AdminDashboard() {
             icon={Clock}
             onClick={() => router.push('/tasks?filter=extension_requested')}
           />
+          <StatCard
+            label="In Progress Tasks"
+            value={data.orgStats.inProgressTasks || 0}
+            accent="var(--olive)"
+            trend="Currently active tasks"
+            trendType="neutral"
+            icon={Play}
+            onClick={() => router.push('/tasks?filter=in_progress')}
+          />
         </div>
+
 
         {/* ── Main Dashboard Body ── */}
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
@@ -796,6 +809,10 @@ export default function AdminDashboard() {
                   <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 8 }}>Select Report Type</label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                     {[
+                      { type: 'projects', label: 'Projects Portfolio', desc: 'Status, priority, manager, and completion rates' },
+                      { type: 'clients', label: 'Clients List', desc: 'Company, contact info, and status details' },
+                      { type: 'tasks', label: 'Tasks List', desc: 'Detailed task assignments, due dates, and statuses' },
+                      { type: 'users', label: 'Employees Roster', desc: 'Roster, workloads, and department stats' },
                       { type: 'client_full', label: 'Client Full Report', desc: 'Active & task progress summary' },
                       { type: 'team_performance', label: 'Team Performance', desc: 'Workload & on-time stats' }
                     ].map((item) => (
@@ -825,12 +842,9 @@ export default function AdminDashboard() {
                   <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
                     <span style={{ fontSize: 11.5, color: 'var(--muted)', marginRight: 4 }}>Other Exports:</span>
                     {[
-                      { type: 'clients', label: 'Clients List' },
-                      { type: 'users', label: 'Users List' },
                       { type: 'teams', label: 'Teams List' },
                       { type: 'steps', label: 'Steps List' },
-                      { type: 'templates', label: 'Templates' },
-                      { type: 'tasks', label: 'Tasks List' }
+                      { type: 'templates', label: 'Templates' }
                     ].map((item) => (
                       <button
                         key={item.type}

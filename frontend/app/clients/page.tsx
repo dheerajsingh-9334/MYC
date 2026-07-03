@@ -19,7 +19,10 @@ export default function ClientsPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
-  const user = getUser();
+  const [user, setUser] = useState<any>(null);
+  useEffect(() => {
+    setUser(getUser());
+  }, []);
   const isAdmin = mounted && user?.role === 'admin';
   const [showModal, setShowModal] = useState(false);
   const [showCSVModal, setShowCSVModal] = useState(false);
@@ -524,6 +527,8 @@ export default function ClientsPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                   {[
                     { type: 'clients', label: 'Clients List', desc: 'Summary list of onboarding details' },
+                    { type: 'projects', label: 'Projects Portfolio', desc: 'Status, priority, manager, and completion rates' },
+                    { type: 'tasks', label: 'Tasks List', desc: 'Detailed task assignments, due dates, and statuses' },
                     { type: 'client_full', label: 'Client Full Report', desc: 'Task counts & active steps' }
                   ].map((item) => (
                     <button

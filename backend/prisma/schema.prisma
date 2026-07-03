@@ -24,6 +24,7 @@ model Organisation {
   pendingApplications PendingApplication[]
   formDrafts          FormDraft[]
   teams               Team[]
+  teamInvites         TeamInvite[]
 }
 
 model OnboardingInvite {
@@ -40,6 +41,23 @@ model OnboardingInvite {
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
   application  PendingApplication?
+}
+
+model TeamInvite {
+  id             String    @id @default(uuid())
+  organisationId String
+  email          String
+  role           Role
+  teamName       String?
+  token          String    @unique @default(uuid())
+  createdById    String
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, email])
 }
 
 model PendingApplication {
@@ -89,6 +107,7 @@ model User {
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   lastLoginAt    DateTime?
+  avatarUrl      String?
 
   organisation    Organisation         @relation(fields: [organisationId], references: [id])
   assignedTasks   Task[]               @relation("AssignedTo")
@@ -109,6 +128,7 @@ enum Role {
 model Step {
   id             String  @id @default(uuid())
   organisationId String
+  clientId       String?
   stepNumber     Int
   name           String
   owningTeamName String
@@ -117,8 +137,9 @@ model Step {
   isActive       Boolean @default(true)
 
   organisation  Organisation       @relation(fields: [organisationId], references: [id])
+  client        Client?            @relation("ClientSteps", fields: [clientId], references: [id], onDelete: Cascade)
   taskTemplates StepTaskTemplate[]
-  clients       Client[]
+  clients       Client[]           @relation("CurrentStep")
   tasks         Task[]
   historyFrom   StepHistory[]      @relation("FromStep")
   historyTo     StepHistory[]      @relation("ToStep")
@@ -158,7 +179,8 @@ model Client {
   createdById    String
 
   organisation Organisation  @relation(fields: [organisationId], references: [id])
-  currentStep  Step          @relation(fields: [currentStepId], references: [id])
+  currentStep  Step          @relation("CurrentStep", fields: [currentStepId], references: [id])
+  steps        Step[]        @relation("ClientSteps")
   tasks        Task[]
   stepHistory  StepHistory[]
   documents    Document[]
@@ -191,6 +213,9 @@ model Task {
   rejectionNote          String?
   rejectedAt             DateTime?
   rejectedById           String?
+  timerStartedAt         DateTime?
+  timeSpentSeconds       Int        @default(0)
+  isTimerRunning         Boolean    @default(false)
   createdAt              DateTime   @default(now())
 
   organisation Organisation @relation(fields: [organisationId], references: [id])

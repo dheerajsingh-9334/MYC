@@ -64,6 +64,8 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       steps,
       recentCompletions,
       completedClientsList,
+      allClientsList,
+      histories,
     ] = await Promise.all([
       prisma.client.count({ where: { organisationId: orgId } }),
       prisma.client.count({ where: { organisationId: orgId, status: 'active' } }),
@@ -84,7 +86,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         select: { id: true, fullName: true, role: true, teamName: true },
       }),
       prisma.step.findMany({
-        where: { organisationId: orgId, isActive: true },
+        where: { organisationId: orgId, clientId: null, isActive: true },
         select: { id: true, name: true, stepNumber: true, owningTeamName: true },
       }),
       prisma.task.findMany({
@@ -101,6 +103,17 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         where: { organisationId: orgId, status: 'completed' },
         include: { stepHistory: { orderBy: { createdAt: 'desc' }, take: 1 } },
       }),
+      prisma.client.findMany({
+        where: { organisationId: orgId },
+      }),
+      prisma.stepHistory.findMany({
+        where: { organisationId: orgId },
+        include: {
+          fromStep: { select: { stepNumber: true } },
+          toStep: { select: { stepNumber: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
     ]);
 
     const today = new Date();
@@ -112,6 +125,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
     const overdueTasks = activeTasks.filter((t) => new Date(t.dueDate) < today);
     const blockedTasks = activeTasks.filter((t) => t.status === 'blocked');
     const extensionTasks = activeTasks.filter((t) => t.status === 'extension_requested');
+    const inProgressTasks = activeTasks.filter((t) => t.status === 'in_progress');
 
     // Calculate average completion time
     let totalDurationDays = 0;
@@ -129,6 +143,73 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
     const completedLast7d = tasks.filter((t) => t.status === 'complete' && t.completedAt && new Date(t.completedAt) >= sevenDaysAgo);
     const completedOnTime = completedLast7d.filter((t) => t.completedAt && new Date(t.completedAt) <= new Date(t.dueDate));
     const onTimePct = completedLast7d.length > 0 ? Math.round((completedOnTime.length / completedLast7d.length) * 100) : 0;
+
+    // Calculate step transition timings across all clients
+    const clientJoinedMap = new Map(allClientsList.map(c => [c.id, c.dateJoined || c.createdAt]));
+    
+    // Group histories by client
+    const clientHistories = new Map<string, typeof histories>();
+    histories.forEach(h => {
+      if (!clientHistories.has(h.clientId)) {
+        clientHistories.set(h.clientId, []);
+      }
+      clientHistories.get(h.clientId)!.push(h);
+    });
+
+    const stepStays = new Map<number, number[]>(); // stepNumber -> array of durations in ms
+
+    allClientsList.forEach(client => {
+      const cHist = clientHistories.get(client.id) || [];
+      const joined = clientJoinedMap.get(client.id) || client.createdAt;
+      
+      if (cHist.length === 0) {
+        const end = new Date();
+        const duration = end.getTime() - joined.getTime();
+        if (duration > 0) {
+          const arr = stepStays.get(1) || [];
+          arr.push(duration);
+          stepStays.set(1, arr);
+        }
+        return;
+      }
+
+      let lastTime = joined.getTime();
+      let lastStepNum = 1;
+
+      cHist.forEach((h) => {
+        if (!h.toStep) return;
+        const currTime = h.createdAt.getTime();
+        const duration = currTime - lastTime;
+        if (duration > 0 && lastStepNum >= 1 && lastStepNum <= 9) {
+          const arr = stepStays.get(lastStepNum) || [];
+          arr.push(duration);
+          stepStays.set(lastStepNum, arr);
+        }
+        lastTime = currTime;
+        lastStepNum = h.toStep.stepNumber;
+      });
+
+      if (client.status !== 'completed') {
+        const duration = Date.now() - lastTime;
+        if (duration > 0 && lastStepNum >= 1 && lastStepNum <= 9) {
+          const arr = stepStays.get(lastStepNum) || [];
+          arr.push(duration);
+          stepStays.set(lastStepNum, arr);
+        }
+      }
+    });
+
+    const avgStepDurations = new Map<number, number>();
+    for (let stepNum = 1; stepNum <= 9; stepNum++) {
+      const stays = stepStays.get(stepNum) || [];
+      if (stays.length > 0) {
+        const totalMs = stays.reduce((sum, val) => sum + val, 0);
+        const avgDays = totalMs / stays.length / (1000 * 60 * 60 * 24);
+        avgStepDurations.set(stepNum, parseFloat(avgDays.toFixed(1)));
+      } else {
+        avgStepDurations.set(stepNum, 0);
+      }
+    }
 
     // Per-team rollup
     const teamMap = new Map<string, {
@@ -188,14 +269,15 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
 
     // Per-step rollup
     const stepRollup = steps.map((s) => {
-      const stepActive = activeTasks.filter((t) => t.stepId === s.id);
-      const stepCompleted = completedLast7d.filter((t) => t.stepId === s.id).length;
+      const stepActive = activeTasks.filter((t) => t.step?.name === s.name);
+      const stepCompleted = completedLast7d.filter((t) => t.step?.name === s.name).length;
       return {
         stepId: s.id, stepNumber: s.stepNumber, name: s.name, owningTeamName: s.owningTeamName,
         activeTasks: stepActive.length,
         overdue: stepActive.filter((t) => new Date(t.dueDate) < today).length,
         blocked: stepActive.filter((t) => t.status === 'blocked').length,
         completedLast7d: stepCompleted,
+        averageDurationDays: avgStepDurations.get(s.stepNumber) || 0,
       };
     });
 
@@ -210,6 +292,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         overdueTasks: overdueTasks.length,
         blockedTasks: blockedTasks.length,
         extensionTasks: extensionTasks.length,
+        inProgressTasks: inProgressTasks.length,
         completedLast7d: completedLast7d.length,
         onTimePct,
       },
@@ -370,15 +453,15 @@ router.get('/staff', requireAuth, async (req: Request, res: Response) => {
 
     // Pipeline Distribution (active client counts per step)
     const stepsList = await prisma.step.findMany({
-      where: { organisationId: orgId, isActive: true },
+      where: { organisationId: orgId, clientId: null, isActive: true },
       orderBy: { stepNumber: 'asc' }
     });
     const activeClients = await prisma.client.findMany({
       where: { organisationId: orgId, status: 'active' },
-      select: { currentStepId: true }
+      include: { currentStep: true }
     });
     const pipelineDistribution = stepsList.map(step => {
-      const count = activeClients.filter(c => c.currentStepId === step.id).length;
+      const count = activeClients.filter(c => c.currentStep?.name === step.name).length;
       return {
         id: step.id,
         stepNumber: step.stepNumber,

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
+import bcrypt from 'bcryptjs';
 
 const router = Router();
 
@@ -83,6 +84,168 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
     res.status(201).json(newTeam);
   } catch (err) {
     console.error('[teams] POST error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/teams/invite — Admin sends invite link
+router.post('/invite', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { email, role, teamName } = req.body;
+    if (!email || !role) {
+      res.status(400).json({ error: 'email and role are required' });
+      return;
+    }
+
+    const validRoles = ['admin', 'team_leader', 'team_member'];
+    if (!validRoles.includes(role)) {
+      res.status(400).json({ error: `role must be one of: ${validRoles.join(', ')}` });
+      return;
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+    if (existingUser) {
+      res.status(409).json({ error: 'A user with this email already exists' });
+      return;
+    }
+
+    // Delete any existing invites for this email/org
+    await prisma.teamInvite.deleteMany({
+      where: {
+        organisationId: req.user.orgId,
+        email,
+      },
+    }).catch(() => {});
+
+    const invite = await prisma.teamInvite.create({
+      data: {
+        organisationId: req.user.orgId,
+        email,
+        role: role as any,
+        teamName: teamName || null,
+        createdById: req.user.userId,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      },
+    });
+
+    const link = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/accept?token=${invite.token}`;
+
+    res.status(201).json({ invite, link });
+  } catch (err) {
+    console.error('[teams.invite] error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/teams/invite/:token — Public: validate token and get details
+router.get('/invite/:token', async (req: Request, res: Response) => {
+  try {
+    const invite = await prisma.teamInvite.findUnique({
+      where: { token: req.params.token },
+      include: { organisation: true },
+    });
+
+    if (!invite) {
+      res.status(404).json({ error: 'Invalid or expired invitation link' });
+      return;
+    }
+    if (invite.usedAt) {
+      res.status(410).json({ error: 'This invitation has already been used' });
+      return;
+    }
+    if (new Date() > invite.expiresAt) {
+      res.status(410).json({ error: 'This invitation has expired' });
+      return;
+    }
+
+    res.json({
+      email: invite.email,
+      role: invite.role,
+      teamName: invite.teamName,
+      organisationName: invite.organisation.name,
+    });
+  } catch (err) {
+    console.error('[teams.invite.validate] error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/teams/invite/accept — Public: accept invite and create user
+router.post('/invite/accept', async (req: Request, res: Response) => {
+  try {
+    const { token, fullName, password, whatsappNumber } = req.body;
+    if (!token || !fullName || !password) {
+      res.status(400).json({ error: 'token, fullName, and password are required' });
+      return;
+    }
+    if (String(password).length < 8) {
+      res.status(400).json({ error: 'Password must be at least 8 characters' });
+      return;
+    }
+
+    const invite = await prisma.teamInvite.findUnique({
+      where: { token },
+    });
+
+    if (!invite) {
+      res.status(404).json({ error: 'Invalid invitation link' });
+      return;
+    }
+    if (invite.usedAt) {
+      res.status(410).json({ error: 'This invitation has already been used' });
+      return;
+    }
+    if (new Date() > invite.expiresAt) {
+      res.status(410).json({ error: 'This invitation has expired' });
+      return;
+    }
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email: invite.email },
+    });
+    if (existingUser) {
+      res.status(409).json({ error: 'A user with this email already exists' });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Create the user
+    const user = await prisma.user.create({
+      data: {
+        organisationId: invite.organisationId,
+        email: invite.email,
+        passwordHash,
+        fullName,
+        role: invite.role,
+        teamName: invite.teamName,
+        whatsappNumber: whatsappNumber || null,
+        isActive: true,
+      },
+    });
+
+    // Mark invite as used
+    await prisma.teamInvite.update({
+      where: { id: invite.id },
+      data: { usedAt: new Date() },
+    });
+
+    res.status(201).json({
+      message: 'Invitation accepted successfully',
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        role: user.role,
+        teamName: user.teamName,
+      },
+    });
+  } catch (err) {
+    console.error('[teams.invite.accept] error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

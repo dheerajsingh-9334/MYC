@@ -5,6 +5,107 @@ import { requireAuth, requireRole } from '../middleware/auth.middleware';
 
 const router = Router();
 
+// GET /api/users/me — Get logged-in user profile & stats
+router.get('/me', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user.userId;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        teamName: true,
+        whatsappNumber: true,
+        isActive: true,
+        createdAt: true,
+        avatarUrl: true,
+      }
+    });
+
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Get user stats
+    const tasks = await prisma.task.findMany({
+      where: { assignedToId: userId },
+      select: {
+        status: true,
+        dueDate: true,
+        completedAt: true,
+      }
+    });
+
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(t => t.status === 'complete').length;
+    const pendingTasks = tasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
+
+    // On-time completion rate: completed on or before due date
+    const completedTasksList = tasks.filter(t => t.status === 'complete' && t.completedAt);
+    const onTimeTasksCount = completedTasksList.filter(t => new Date(t.completedAt!) <= new Date(t.dueDate)).length;
+    const onTimeRate = completedTasksList.length > 0
+      ? Math.round((onTimeTasksCount / completedTasksList.length) * 100)
+      : 100;
+
+    res.json({
+      ...user,
+      performance: {
+        totalTasks,
+        completedTasks,
+        pendingTasks,
+        onTimeRate,
+      }
+    });
+  } catch (err) {
+    console.error('[users.me] error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/users/me — Update logged-in user profile/password
+router.patch('/me', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user.userId;
+    const { fullName, whatsappNumber, password, avatarUrl } = req.body;
+
+    const updateData: any = {};
+    if (fullName !== undefined) updateData.fullName = fullName;
+    if (whatsappNumber !== undefined) updateData.whatsappNumber = whatsappNumber || null;
+    if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl || null;
+    if (password) {
+      if (password.length < 8) {
+        res.status(400).json({ error: 'Password must be at least 8 characters' });
+        return;
+      }
+      updateData.passwordHash = await bcrypt.hash(password, 10);
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        teamName: true,
+        whatsappNumber: true,
+        isActive: true,
+        createdAt: true,
+        avatarUrl: true,
+      }
+    });
+
+    res.json(updated);
+  } catch (err) {
+    console.error('[users.me.update] error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /api/users
 // - admin: sees all users in the org
 // - team_leader: sees only members of their own team
@@ -28,6 +129,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       select: {
         id: true, email: true, fullName: true, role: true,
         teamName: true, isActive: true, createdAt: true, lastLoginAt: true,
+        avatarUrl: true,
       },
       orderBy: { createdAt: 'asc' },
     });

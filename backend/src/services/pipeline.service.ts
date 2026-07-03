@@ -182,6 +182,7 @@ export async function checkAutoAdvancement(clientId: string, stepId: string) {
     const nextStep = await prisma.step.findFirst({
       where: {
         organisationId: client.organisationId,
+        clientId: client.id,
         stepNumber: client.currentStep.stepNumber + 1,
         isActive: true,
       },
@@ -255,4 +256,198 @@ export async function handleManualStepMove(
   }
 
   return advanceClientToStep(clientId, toStepId, 'admin', adminUserId, reasonNote);
+}
+
+export const DEFAULT_12_STEPS = [
+  {
+    stepNumber: 1,
+    name: 'Client Onboarding',
+    owningTeamName: 'Intake Team',
+    slaDays: 3,
+    templates: [
+      { title: 'Collect client details', relativeDueDay: 1, sortOrder: 1 },
+      { title: 'Collect brand assets', relativeDueDay: 2, sortOrder: 2 },
+      { title: 'Send welcome message', relativeDueDay: 1, sortOrder: 3 },
+      { title: 'Create client folder', relativeDueDay: 2, sortOrder: 4 },
+    ],
+  },
+  {
+    stepNumber: 2,
+    name: 'Strategy Call',
+    owningTeamName: 'Sales Team',
+    slaDays: 5,
+    templates: [
+      { title: 'Schedule discovery call', relativeDueDay: 1, sortOrder: 1 },
+      { title: 'Conduct strategy call', relativeDueDay: 3, sortOrder: 2 },
+      { title: 'Define offer and pricing', relativeDueDay: 4, sortOrder: 3 },
+      { title: 'Confirm niche and target audience', relativeDueDay: 5, sortOrder: 4 },
+    ],
+  },
+  {
+    stepNumber: 3,
+    name: 'Brand Setup',
+    owningTeamName: 'Design Team',
+    slaDays: 7,
+    templates: [
+      { title: 'Create logo variations', relativeDueDay: 2, sortOrder: 1 },
+      { title: 'Define colour palette', relativeDueDay: 2, sortOrder: 2 },
+      { title: 'Design social media templates', relativeDueDay: 5, sortOrder: 3 },
+      { title: 'Create brand guidelines PDF', relativeDueDay: 7, sortOrder: 4 },
+    ],
+  },
+  {
+    stepNumber: 4,
+    name: 'Funnel Build',
+    owningTeamName: 'Tech Team',
+    slaDays: 10,
+    templates: [
+      { title: 'Set up domain and SSL', relativeDueDay: 2, sortOrder: 1 },
+      { title: 'Build landing page', relativeDueDay: 6, sortOrder: 2 },
+      { title: 'Configure payment gateway', relativeDueDay: 7, sortOrder: 3 },
+      { title: 'Build thank-you page', relativeDueDay: 8, sortOrder: 4 },
+      { title: 'Set up registration form', relativeDueDay: 9, sortOrder: 5 },
+    ],
+  },
+  {
+    stepNumber: 5,
+    name: 'Ad Creative',
+    owningTeamName: 'Creative Team',
+    slaDays: 7,
+    templates: [
+      { title: 'Write ad copy variants', relativeDueDay: 2, sortOrder: 1 },
+      { title: 'Design static ad creatives', relativeDueDay: 5, sortOrder: 2 },
+      { title: 'Produce video ad or reel', relativeDueDay: 7, sortOrder: 3 },
+    ],
+  },
+  {
+    stepNumber: 6,
+    name: 'Ad Launch',
+    owningTeamName: 'Media Buyer',
+    slaDays: 5,
+    templates: [
+      { title: 'Set up Meta ad campaign', relativeDueDay: 1, sortOrder: 1 },
+      { title: 'Define targeting and audience', relativeDueDay: 2, sortOrder: 2 },
+      { title: 'Set budget and schedule', relativeDueDay: 3, sortOrder: 3 },
+      { title: 'Go live and monitor', relativeDueDay: 5, sortOrder: 4 },
+    ],
+  },
+  {
+    stepNumber: 7,
+    name: 'Automation Setup',
+    owningTeamName: 'Automation Team',
+    slaDays: 5,
+    templates: [
+      { title: 'Configure email sequences', relativeDueDay: 2, sortOrder: 1 },
+      { title: 'Set up WhatsApp automation', relativeDueDay: 3, sortOrder: 2 },
+      { title: 'Configure CRM tagging', relativeDueDay: 5, sortOrder: 3 },
+    ],
+  },
+  {
+    stepNumber: 8,
+    name: 'Event Preparation',
+    owningTeamName: 'Event Team',
+    slaDays: 7,
+    templates: [
+      { title: 'Set up webinar platform', relativeDueDay: 2, sortOrder: 1 },
+      { title: 'Create event materials', relativeDueDay: 4, sortOrder: 2 },
+      { title: 'Brief the coach', relativeDueDay: 5, sortOrder: 3 },
+      { title: 'Conduct dry run', relativeDueDay: 7, sortOrder: 4 },
+    ],
+  },
+  {
+    stepNumber: 9,
+    name: 'Event Launch',
+    owningTeamName: 'Intake Team',
+    slaDays: 1,
+    templates: [
+      { title: 'Execute live event', relativeDueDay: 1, sortOrder: 1 },
+      { title: 'Provide real-time support', relativeDueDay: 1, sortOrder: 2 },
+      { title: 'Trigger post-event sequence', relativeDueDay: 1, sortOrder: 3 },
+    ],
+  },
+  {
+    stepNumber: 10,
+    name: 'Feedback & Optimization',
+    owningTeamName: 'Media Buyer',
+    slaDays: 5,
+    templates: [
+      { title: 'Review ad performance', relativeDueDay: 2, sortOrder: 1 },
+      { title: 'Optimize target audience', relativeDueDay: 3, sortOrder: 2 },
+      { title: 'Adjust budgets', relativeDueDay: 5, sortOrder: 3 },
+    ],
+  },
+  {
+    stepNumber: 11,
+    name: 'Client Offboarding/Review',
+    owningTeamName: 'Sales Team',
+    slaDays: 3,
+    templates: [
+      { title: 'Conduct review call', relativeDueDay: 1, sortOrder: 1 },
+      { title: 'Gather client testimonial', relativeDueDay: 2, sortOrder: 2 },
+      { title: 'Prepare performance report', relativeDueDay: 3, sortOrder: 3 },
+    ],
+  },
+  {
+    stepNumber: 12,
+    name: 'Project Handover',
+    owningTeamName: 'Intake Team',
+    slaDays: 2,
+    templates: [
+      { title: 'Hand over assets', relativeDueDay: 1, sortOrder: 1 },
+      { title: 'Archive folders', relativeDueDay: 2, sortOrder: 2 },
+      { title: 'Final billing check', relativeDueDay: 2, sortOrder: 3 },
+    ],
+  },
+];
+
+export async function initializeClientPipeline(
+  clientId: string,
+  organisationId: string,
+  userId: string,
+  startingStepNumber: number = 1
+) {
+  // Create 12 default steps for this client
+  let startingStepId = '';
+  for (const s of DEFAULT_12_STEPS) {
+    const createdStep = await prisma.step.create({
+      data: {
+        organisationId,
+        clientId,
+        stepNumber: s.stepNumber,
+        name: s.name,
+        owningTeamName: s.owningTeamName,
+        slaDays: s.slaDays,
+        isActive: true,
+      },
+    });
+
+    if (s.stepNumber === startingStepNumber) {
+      startingStepId = createdStep.id;
+    }
+
+    // Create templates for this step
+    for (const t of s.templates) {
+      await prisma.stepTaskTemplate.create({
+        data: {
+          stepId: createdStep.id,
+          organisationId,
+          title: t.title,
+          relativeDueDay: t.relativeDueDay,
+          sortOrder: t.sortOrder,
+          priority: 'normal',
+        },
+      });
+    }
+  }
+
+  // Update client with the real startingStepId
+  await prisma.client.update({
+    where: { id: clientId },
+    data: { currentStepId: startingStepId },
+  });
+
+  // Auto-advance to the starting step (creates tasks + notifications)
+  await advanceClientToStep(clientId, startingStepId, 'admin', userId, 'Client created');
+  
+  return startingStepId;
 }

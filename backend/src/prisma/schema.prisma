@@ -86,6 +86,7 @@ model User {
   isActive       Boolean   @default(true)
   createdAt      DateTime  @default(now())
   lastLoginAt    DateTime?
+  avatarUrl      String?
 
   organisation   Organisation   @relation(fields: [organisationId], references: [id])
   assignedTasks  Task[]         @relation("AssignedTo")

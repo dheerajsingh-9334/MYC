@@ -4,7 +4,7 @@ import path from 'path';
 import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { notifyClientStatusChanged, notifyClientAdded } from '../services/notify.service';
-import { computeClientStatus, advanceClientToStep, handleManualStepMove } from '../services/pipeline.service';
+import { computeClientStatus, advanceClientToStep, handleManualStepMove, initializeClientPipeline } from '../services/pipeline.service';
 
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
@@ -158,11 +158,11 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
     const { fullName, brandName, email, whatsappNumber, notes } = req.body;
     if (!fullName) { res.status(400).json({ error: 'fullName is required' }); return; }
 
-    // Find step 1
-    const step1 = await prisma.step.findFirst({
-      where: { organisationId: req.user.orgId, stepNumber: 1, isActive: true },
+    // Find any existing step to satisfy the foreign key constraint initially
+    const firstStep = await prisma.step.findFirst({
+      where: { organisationId: req.user.orgId },
     });
-    if (!step1) { res.status(400).json({ error: 'Step 1 not configured' }); return; }
+    if (!firstStep) { res.status(400).json({ error: 'System steps not seeded. Please run database setup first.' }); return; }
 
     const client = await prisma.client.create({
       data: {
@@ -172,7 +172,7 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
         email,
         whatsappNumber,
         notes,
-        currentStepId: step1.id,
+        currentStepId: firstStep.id, // temporary reference
         stepEnteredAt: new Date(),
         dateJoined: new Date(),
         createdById: req.user.userId,
@@ -180,8 +180,8 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
       },
     });
 
-    // Auto-advance to step 1 (creates tasks + notifications)
-    await advanceClientToStep(client.id, step1.id, 'admin', req.user.userId, 'Client created');
+    // Initialize client-specific steps and advance to step 1
+    await initializeClientPipeline(client.id, req.user.orgId, req.user.userId, 1);
 
     // Notify organization that client was added
     try {
@@ -381,42 +381,47 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
         .on('error', reject);
     });
 
-    const steps = await prisma.step.findMany({
+    // Find any existing step to satisfy the foreign key constraint initially
+    const firstStep = await prisma.step.findFirst({
       where: { organisationId: req.user.orgId },
-      orderBy: { stepNumber: 'asc' },
     });
-    const stepMap = Object.fromEntries(steps.map((s) => [s.stepNumber, s.id]));
+    if (!firstStep) { res.status(400).json({ error: 'System steps not seeded. Please run database setup first.' }); return; }
 
     const errors: { row: number; reason: string }[] = [];
-    const toCreate: any[] = [];
+    const importedClients = [];
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const name = row['client_name'] || row['Client_name'];
+      const name = (row['client_name'] || row['Client_name'] || '').trim();
       const stepNum = parseInt(row['current_step_number'] || row['Current_step_number'] || '1');
       if (!name) { errors.push({ row: i + 2, reason: 'Missing client_name' }); continue; }
-      if (!stepMap[stepNum]) { errors.push({ row: i + 2, reason: `Invalid step number: ${stepNum}` }); continue; }
-      toCreate.push({
-        organisationId: req.user.orgId,
-        fullName: name,
-        email: row['email'] || null,
-        whatsappNumber: row['whatsapp'] || null,
-        currentStepId: stepMap[stepNum],
-        stepEnteredAt: new Date(),
-        dateJoined: row['date_joined'] ? new Date(row['date_joined']) : new Date(),
-        createdById: req.user.userId,
-        status: 'active',
+      if (isNaN(stepNum) || stepNum < 1 || stepNum > 12) { errors.push({ row: i + 2, reason: `Invalid step number: ${row['current_step_number'] || '1'}` }); continue; }
+
+      const client = await prisma.client.create({
+        data: {
+          organisationId: req.user.orgId,
+          fullName: name,
+          email: row['email'] || null,
+          whatsappNumber: row['whatsapp'] || null,
+          currentStepId: firstStep.id, // temporary reference
+          stepEnteredAt: new Date(),
+          dateJoined: row['date_joined'] ? new Date(row['date_joined']) : new Date(),
+          createdById: req.user.userId,
+          status: 'active',
+        },
       });
+
+      // Initialize client-specific pipeline steps and advance to the imported step number
+      await initializeClientPipeline(client.id, req.user.orgId, req.user.userId, stepNum);
+      importedClients.push(client);
     }
 
-    if (errors.length === 0 || toCreate.length > 0) {
-      await prisma.client.createMany({ data: toCreate });
-
+    if (errors.length === 0 || importedClients.length > 0) {
       // Notify organization that clients were imported
       try {
         const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { fullName: true } });
         const actorName = actor?.fullName || 'Admin';
-        const msg = `🆕 ${toCreate.length} new client${toCreate.length !== 1 ? 's' : ''} imported via CSV by ${actorName}`;
+        const msg = `🆕 ${importedClients.length} new client${importedClients.length !== 1 ? 's' : ''} imported via CSV by ${actorName}`;
         
         const allUsers = await prisma.user.findMany({
           where: { organisationId: req.user.orgId, isActive: true },
@@ -443,7 +448,7 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
       }
     }
 
-    res.json({ imported: toCreate.length, errors });
+    res.json({ imported: importedClients.length, errors });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });

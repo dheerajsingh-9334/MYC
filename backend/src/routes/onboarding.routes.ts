@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
-import { advanceClientToStep } from '../services/pipeline.service';
+import { advanceClientToStep, initializeClientPipeline } from '../services/pipeline.service';
 import { notifyClientAdded } from '../services/notify.service';
 
 const router = Router();
@@ -150,11 +150,11 @@ router.patch('/applications/:id/approve', requireAuth, requireRole('admin'), asy
     if (!app) { res.status(404).json({ error: 'Application not found' }); return; }
     if (app.status !== 'pending') { res.status(400).json({ error: 'Application already reviewed' }); return; }
 
-    // Find Step 1
-    const step1 = await prisma.step.findFirst({
-      where: { organisationId: req.user.orgId, stepNumber: 1, isActive: true },
+    // Find any existing step to satisfy the foreign key constraint initially
+    const firstStep = await prisma.step.findFirst({
+      where: { organisationId: req.user.orgId },
     });
-    if (!step1) { res.status(400).json({ error: 'Step 1 not configured' }); return; }
+    if (!firstStep) { res.status(400).json({ error: 'System steps not seeded. Please run database setup first.' }); return; }
 
     // Create client
     const client = await prisma.client.create({
@@ -164,7 +164,7 @@ router.patch('/applications/:id/approve', requireAuth, requireRole('admin'), asy
         brandName: app.brandName,
         email: app.email,
         whatsappNumber: app.whatsappNumber,
-        currentStepId: step1.id,
+        currentStepId: firstStep.id, // temporary reference
         stepEnteredAt: new Date(),
         dateJoined: new Date(),
         createdById: req.user.userId,
@@ -177,8 +177,8 @@ router.patch('/applications/:id/approve', requireAuth, requireRole('admin'), asy
       },
     });
 
-    // Advance to step 1 (creates tasks + notifies team)
-    await advanceClientToStep(client.id, step1.id, 'admin', req.user.userId, 'Application approved');
+    // Initialize client-specific steps and advance to step 1
+    await initializeClientPipeline(client.id, req.user.orgId, req.user.userId, 1);
 
     // Notify organization that client was added
     try {
