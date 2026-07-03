@@ -68,6 +68,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
         fullName: c.fullName,
         brandName: c.brandName,
         email: c.email,
+        whatsappNumber: c.whatsappNumber,
         status: c.status,
         computedStatus: status,
         currentStep: c.currentStep,

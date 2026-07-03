@@ -4,7 +4,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
-import { X, Plus, Trash2, Settings, ChevronRight, Briefcase } from 'lucide-react';
+import { X, Plus, Trash2, Settings, ChevronRight, Briefcase, Search, Clock, Shield } from 'lucide-react';
 
 type Template = {
   id?: string;
@@ -28,6 +28,8 @@ type Step = {
 
 export default function StepConfigPage() {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [clientLimit, setClientLimit] = useState(15);
 
   // Fetch all clients
   const { data: clients = [], isLoading: loadingClients } = useQuery({
@@ -47,89 +49,249 @@ export default function StepConfigPage() {
     return clients.find((c: any) => c.id === selectedClientId);
   }, [clients, selectedClientId]);
 
+  // Search filtering
+  const filteredClients = useMemo(() => {
+    let list = clients;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((c: any) =>
+        (c.brandName || '').toLowerCase().includes(q) ||
+        (c.fullName || '').toLowerCase().includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.currentStep?.name || '').toLowerCase().includes(q) ||
+        (c.currentStep?.owningTeamName || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [clients, search]);
+
+  const scrollableClients = useMemo(() => {
+    return filteredClients.slice(0, clientLimit);
+  }, [filteredClients, clientLimit]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollTop + clientHeight >= scrollHeight - 20) {
+      setClientLimit((prev) => Math.min(prev + 10, filteredClients.length));
+    }
+  };
+
+  // Reset limit when search changes
+  useMemo(() => {
+    setClientLimit(15);
+  }, [search]);
+
+  const statusConfig: Record<string, { bg: string; color: string; dot: string; label: string }> = {
+    on_track:  { bg: 'var(--green-bg)', color: 'var(--green)', dot: 'var(--green)', label: 'On track' },
+    due_today: { bg: 'var(--amber-bg)', color: 'var(--amber)', dot: 'var(--amber)', label: 'Due today' },
+    overdue:   { bg: 'var(--red-bg)',   color: 'var(--red)',   dot: 'var(--red)',   label: 'Overdue' },
+    blocked:   { bg: '#F0E8FA', color: '#6B3FA0', dot: '#6B3FA0', label: 'Blocked' },
+  };
+
+  const getInitials = (name: string) => name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+
+  const thStyle: React.CSSProperties = {
+    textAlign: 'left',
+    fontSize: '11.5px',
+    fontWeight: 600,
+    letterSpacing: '0.4px',
+    textTransform: 'uppercase',
+    color: 'var(--muted)',
+    padding: '12px 20px',
+    borderBottom: '1px solid var(--border)',
+    position: 'sticky',
+    top: 0,
+    background: 'var(--surface-2)',
+    zIndex: 10,
+  };
+
   return (
     <AppLayout>
       <Topbar title="Client Step Config" subtitle="Manage pipeline stages scoped per client" />
 
-      <div style={{ padding: '20px 24px', flex: 1, overflowY: 'auto' }}>
-        <div style={{ marginBottom: 20 }}>
+      <div style={{ padding: '20px 24px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ marginBottom: 16 }}>
           <h1 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 30, color: 'var(--ink)', letterSpacing: '-0.3px', lineHeight: 1.1 }}>Client Pipeline Management</h1>
           <div style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 6 }}>
             Select a client to view and configure their customized pipeline steps. Changes will apply immediately to that client.
           </div>
         </div>
 
+        {/* Search bar exactly like in tasks page */}
+        <div style={{ position: 'relative', marginBottom: 14 }}>
+          <Search size={13} style={{ position: 'absolute', top: '50%', left: 12, transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search clients by brand, name, email or active steps…"
+            style={{
+              width: '100%',
+              padding: '9px 12px 9px 32px',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: 13,
+              background: 'var(--surface)',
+              color: 'var(--ink)',
+              outline: 'none',
+            }}
+          />
+        </div>
+
         {loadingClients ? (
           <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--muted)' }}>Loading clients...</div>
         ) : (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13.5 }}>
+          <div
+            onScroll={handleScroll}
+            style={{
+              maxHeight: 'calc(100vh - 240px)',
+              minHeight: 450,
+              overflowY: 'auto',
+              overflowX: 'auto',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              background: 'var(--surface)',
+              flex: 1,
+            }}
+          >
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
               <thead>
-                <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--ink-2)' }}>Client / Brand</th>
-                  <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--ink-2)' }}>Current Step</th>
-                  <th style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--ink-2)', textAlign: 'right' }}>Actions</th>
+                <tr>
+                  <th style={thStyle}>Client / Brand</th>
+                  <th style={thStyle}>Contact Info</th>
+                  <th style={thStyle}>Current Step</th>
+                  <th style={thStyle}>Owning Team</th>
+                  <th style={thStyle}>Total Tasks</th>
+                  <th style={thStyle}>Status</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {clients.map((c: any) => {
-                  return (
-                    <tr
-                      key={c.id}
-                      style={{
-                        borderBottom: '1px solid var(--border)',
-                        transition: 'background 0.15s',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'var(--surface-2)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent';
-                      }}
-                    >
-                      <td style={{ padding: '16px', fontWeight: 500, color: 'var(--ink)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <Briefcase size={16} style={{ color: 'var(--olive)', opacity: 0.8 }} />
-                          <div>
-                            <div>{c.brandName || c.fullName}</div>
-                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{c.fullName}</div>
+                {scrollableClients.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>
+                      No clients match your search query.
+                    </td>
+                  </tr>
+                ) : (
+                  scrollableClients.map((c: any) => {
+                    const initials = getInitials(c.brandName || c.fullName);
+                    const sc = statusConfig[c.computedStatus] || statusConfig.on_track;
+                    const stepNumPad = String(c.currentStep?.stepNumber || 0).padStart(2, '0');
+                    const daysInStep = c.daysInStep ?? 0;
+                    const slaDays = c.currentStep?.slaDays ?? 1;
+                    const progressPct = Math.min(100, Math.round((daysInStep / slaDays) * 100));
+
+                    return (
+                      <tr
+                        key={c.id}
+                        style={{
+                          borderBottom: '1px solid var(--border)',
+                          transition: 'background 0.1s',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => setSelectedClientId(c.id)}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'var(--olive-50)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        {/* Client details */}
+                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
+                              {initials}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13.5 }}>{c.brandName || c.fullName}</div>
+                              <div style={{ fontSize: 11.5, color: 'var(--soft)' }}>{c.fullName}</div>
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td style={{ padding: '16px', color: 'var(--ink-2)' }}>
-                        {c.currentStep ? (
-                          <span style={{ fontSize: 12.5, fontWeight: 500 }}>
-                            Step {c.currentStep.stepNumber}: {c.currentStep.name}
+                        </td>
+
+                        {/* Contact info */}
+                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--ink-2)' }}>
+                          <div>{c.email || '—'}</div>
+                          {c.whatsappNumber && (
+                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>WhatsApp: {c.whatsappNumber}</div>
+                          )}
+                        </td>
+
+                        {/* Current step */}
+                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                          {c.currentStep ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'var(--olive-50)', border: '1px solid var(--olive-100)', borderRadius: 6, fontSize: 12, fontWeight: 600, color: 'var(--olive-dark)' }}>
+                              <span style={{ background: 'var(--olive)', color: '#fff', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>{stepNumPad}</span>
+                              {c.currentStep.name}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: 12 }}>Not set</span>
+                          )}
+                        </td>
+
+                        {/* Owning team */}
+                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--ink-2)' }}>
+                          {c.currentStep?.owningTeamName ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--olive-light)', flexShrink: 0 }} />
+                              {c.currentStep.owningTeamName}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--muted)' }}>—</span>
+                          )}
+                        </td>
+
+                        {/* Task Count */}
+                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--ink-2)', fontWeight: 500 }}>
+                          {c.taskCount ?? 0} task{c.taskCount !== 1 ? 's' : ''}
+                        </td>
+
+                        {/* Status */}
+                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', borderRadius: 5, fontSize: 11.5, fontWeight: 600, background: sc.bg, color: sc.color }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: sc.dot, flexShrink: 0 }} />
+                            {sc.label}
                           </span>
-                        ) : (
-                          <span style={{ color: 'var(--muted)', fontStyle: 'italic', fontSize: 12 }}>Not set</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '16px', textAlign: 'right' }}>
-                        <button
-                          onClick={() => {
-                            setSelectedClientId(c.id);
-                          }}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 4,
-                            padding: '6px 12px',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: 12,
-                            fontWeight: 500,
-                            background: 'var(--surface)',
-                            color: 'var(--ink-2)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Manage Steps <ChevronRight size={13} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+
+                        {/* Actions */}
+                        <td style={{ padding: '14px 20px', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedClientId(c.id);
+                            }}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '6px 12px',
+                              border: '1px solid var(--border)',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: 12,
+                              fontWeight: 500,
+                              background: 'var(--surface)',
+                              color: 'var(--ink-2)',
+                              cursor: 'pointer',
+                              transition: 'all 0.12s',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = 'var(--olive)';
+                              e.currentTarget.style.color = 'var(--olive)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = 'var(--border)';
+                              e.currentTarget.style.color = 'var(--ink-2)';
+                            }}
+                          >
+                            Manage Steps <ChevronRight size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>

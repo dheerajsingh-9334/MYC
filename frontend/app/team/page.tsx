@@ -29,7 +29,7 @@ export default function TeamPage() {
   const qc = useQueryClient();
   // Read the logged-in user on the client only. SSR has no localStorage,
   // so we render a neutral default until mount to avoid hydration mismatch.
-  const [user, setUser] = useState<{ role?: string; teamName?: string }>({});
+  const [user, setUser] = useState<any>({});
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -63,16 +63,28 @@ export default function TeamPage() {
     if (isAdmin) {
       // Expand all teams that have at least one active member
       active.forEach((m) => { if (m.teamName) teams.add(m.teamName); });
+      teams.add('Administrators');
     } else if (user?.teamName) {
       teams.add(user.teamName);
     }
     setExpandedTeams(teams);
-  }, [isAdmin, user?.teamName]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAdmin, user?.teamName, team.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ fullName: '', email: '', role: 'team_member', teamName: '', whatsappNumber: '' });
   const [error, setError] = useState('');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+
+  const [search, setSearch] = useState('');
+
+  const activeAdmins = useMemo(() => {
+    const list = team.filter((m) => m.role === 'admin' && m.isActive !== false);
+    if (!search.trim()) return list;
+    const q = search.toLowerCase();
+    return list.filter((m) =>
+      m.fullName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
+    );
+  }, [team, search]);
 
   // Build tree: team → members
   const tree = useMemo(() => {
@@ -95,7 +107,6 @@ export default function TeamPage() {
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [active]);
 
-  const [search, setSearch] = useState('');
   const filteredTree = useMemo(() => {
     if (!search.trim()) return tree;
     const q = search.toLowerCase();
@@ -112,7 +123,7 @@ export default function TeamPage() {
   const toggle = (name: string) => {
     setExpandedTeams((s) => { const n = new Set(s); if (n.has(name)) n.delete(name); else n.add(name); return n; });
   };
-  const expandAll = () => setExpandedTeams(new Set(tree.map(([n]) => n)));
+  const expandAll = () => setExpandedTeams(new Set([...tree.map(([n]) => n), 'Administrators']));
   const collapseAll = () => setExpandedTeams(new Set());
 
   const createMut = useMutation({
@@ -190,10 +201,99 @@ export default function TeamPage() {
 
         {/* File-based tree */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-          {filteredTree.length === 0 ? (
+          {(filteredTree.length === 0 && activeAdmins.length === 0) ? (
             <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)' }}>No matching teams or members.</div>
           ) : (
             <div style={{ padding: '8px 0' }}>
+              {/* Admins category */}
+              {activeAdmins.length > 0 && (
+                <div>
+                  <div onClick={() => toggle('Administrators')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', cursor: 'pointer', userSelect: 'none', borderBottom: (expandedTeams.has('Administrators') || !!search.trim()) ? '1px solid var(--border)' : 'none' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                    <ChevronRight size={14} style={{ color: 'var(--soft)', transform: (expandedTeams.has('Administrators') || !!search.trim()) ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', flexShrink: 0 }} />
+                    {(expandedTeams.has('Administrators') || !!search.trim()) ? <FolderOpen size={16} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={16} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Administrators</span>
+                    <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                      · {activeAdmins.length} admin{activeAdmins.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+
+                  {/* Members list inside the folder */}
+                  {(expandedTeams.has('Administrators') || !!search.trim()) && (
+                    <div style={{ paddingBottom: 8 }}>
+                      {activeAdmins.map((m) => {
+                        return (
+                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 16px 10px 60px', borderTop: '1px solid var(--surface-2)' }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                            
+                            {/* Avatar */}
+                            <div style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
+                              {m.avatarUrl ? (
+                                <img
+                                  src={m.avatarUrl}
+                                  alt={m.fullName}
+                                  style={{
+                                    width: 32, height: 32, borderRadius: '50%',
+                                    objectFit: 'cover', boxShadow: 'var(--shadow-sm)',
+                                  }}
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const sibling = e.currentTarget.nextSibling as HTMLElement;
+                                    if (sibling) sibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div style={{
+                                width: 32, height: 32, borderRadius: '50%',
+                                background: 'linear-gradient(135deg, var(--olive), var(--olive-light))',
+                                color: '#fff', display: m.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontWeight: 600, fontSize: 12, boxShadow: 'var(--shadow-sm)',
+                              }}>
+                                {getInitials(m.fullName)}
+                              </div>
+                            </div>
+                            
+                            {/* Info */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <span>{m.fullName}</span>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  padding: '2px 8px',
+                                  borderRadius: 999,
+                                  fontSize: 10.5,
+                                  fontWeight: 600,
+                                  background: 'var(--olive-50)',
+                                  color: 'var(--olive)',
+                                }}>
+                                  {roleIcon(m.role)}
+                                  {roleLabel(m.role)}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{m.email}</div>
+                            </div>
+
+                            {/* Actions for deactivating admins if not self */}
+                            {isAdmin && m.id !== user?.id && (
+                              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                <button onClick={() => { if (confirm(`Deactivate ${m.fullName}?`)) deactivateMut.mutate(m.id); }} style={{ ...btnMini, color: 'var(--red)', borderColor: 'rgba(220,38,38,0.2)' }}>
+                                  Deactivate
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {filteredTree.map(([teamName, members]) => {
                 const isOpen = expandedTeams.has(teamName) || !!search.trim();
                 const leaderCount = members.filter((m) => m.role === 'team_leader').length;
