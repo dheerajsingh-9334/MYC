@@ -89,6 +89,7 @@ export default function StaffDashboard() {
 
   const qc = useQueryClient();
   const [tab, setTab] = useState<TabKey>('active');
+  const [memberSearch, setMemberSearch] = useState('');
   const [showDueDrawer, setShowDueDrawer] = useState(false);
   const [blockerTask, setBlockerTask] = useState<any | null>(null);
   const [blockerNote, setBlockerNote] = useState('');
@@ -196,6 +197,16 @@ export default function StaffDashboard() {
       return uTeams.some((t: string) => userTeams.includes(t));
     });
   }, [liveUsers, user]);
+
+  const filteredTeamMembers = useMemo(() => {
+    if (!memberSearch.trim()) return teamMembers;
+    const query = memberSearch.toLowerCase();
+    return teamMembers.filter((m: any) => 
+      m.fullName?.toLowerCase().includes(query) || 
+      m.email?.toLowerCase().includes(query) ||
+      m.role?.toLowerCase().includes(query)
+    );
+  }, [teamMembers, memberSearch]);
 
   const teamTasks = useMemo(() => {
     const tasks = (USE_MOCK ? localTasks : (liveTasks as any[])) || [];
@@ -1046,16 +1057,40 @@ export default function StaffDashboard() {
 
                 {/* Members list */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.4px', textTransform: 'uppercase' }}>
-                    Team Members ({teamMembers.length})
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+                      Team Members ({filteredTeamMembers.length})
+                    </div>
                   </div>
-                  {teamMembers.length === 0 ? (
+
+                  {/* Search Input for Team Members */}
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Search size={12} style={{ position: 'absolute', left: 8, color: 'var(--muted)' }} />
+                    <input
+                      type="text"
+                      placeholder="Search team members..."
+                      value={memberSearch}
+                      onChange={(e) => setMemberSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px 6px 26px',
+                        border: '1px solid var(--border)',
+                        borderRadius: 6,
+                        background: 'var(--surface)',
+                        color: 'var(--ink)',
+                        fontSize: 12,
+                        outline: 'none',
+                      }}
+                    />
+                  </div>
+
+                  {filteredTeamMembers.length === 0 ? (
                     <div style={{ fontSize: 12.5, color: 'var(--muted)', padding: '12px 0', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 8 }}>
                       No team members found.
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 'calc(100vh - 450px)', minHeight: 180, overflowY: 'auto', paddingRight: 4 }}>
-                      {teamMembers.map((m: any) => {
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, minHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
+                      {filteredTeamMembers.map((m: any) => {
                         const activeTasksCount = teamTasks.filter((t: any) => t.assignedToId === m.id && t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length;
                         const overdueTasksCount = teamTasks.filter((t: any) => {
                           if (t.assignedToId !== m.id || t.status === 'complete' || t.status === 'rejected' || t.status === 'cancelled') return false;

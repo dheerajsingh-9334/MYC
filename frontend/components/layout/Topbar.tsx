@@ -41,6 +41,9 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
   const [showCSVModal, setShowCSVModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
 
+  const [hoveredTask, setHoveredTask] = useState<any | null>(null);
+  const [hoveredTaskPosition, setHoveredTaskPosition] = useState<{ x: number, y: number } | null>(null);
+
   // Export options state
   const [exportType, setExportType] = useState('clients');
   const [expStartDate, setExpStartDate] = useState('');
@@ -418,8 +421,17 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
                   border: '1px solid var(--blue-100)',
                   transition: 'all 0.15s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setHoveredTask(t);
+                  setHoveredTaskPosition({ x: rect.left, y: rect.bottom });
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'none';
+                  setHoveredTask(null);
+                  setHoveredTaskPosition(null);
+                }}
               >
                 <span style={{ fontSize: 9, fontWeight: 800, opacity: 0.8 }}>TASK</span>
                 <span style={{ fontWeight: 600 }}>{t.title}</span>
@@ -625,6 +637,40 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+      {hoveredTask && hoveredTaskPosition && (
+        <div style={{
+          position: 'fixed',
+          top: hoveredTaskPosition.y + 6,
+          left: Math.max(10, Math.min(hoveredTaskPosition.x, typeof window !== 'undefined' ? window.innerWidth - 270 : hoveredTaskPosition.x)),
+          width: 260,
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+          padding: '12px 14px',
+          zIndex: 9999,
+          pointerEvents: 'none',
+        }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 8, borderBottom: '1px solid var(--border)', paddingBottom: 6 }}>
+            {hoveredTask.title}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '6px 12px', fontSize: 11.5 }}>
+            <span style={{ color: 'var(--muted)', fontWeight: 500 }}>Assignee:</span>
+            <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{hoveredTask.assignedTo?.fullName || 'Unassigned'}</span>
+            
+            <span style={{ color: 'var(--muted)', fontWeight: 500 }}>Team:</span>
+            <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{hoveredTask.assignedTo?.teamName || '—'}</span>
+            
+            <span style={{ color: 'var(--muted)', fontWeight: 500 }}>Assigned:</span>
+            <span style={{ color: 'var(--ink)' }}>{hoveredTask.createdAt ? new Date(hoveredTask.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span>
+            
+            <span style={{ color: 'var(--muted)', fontWeight: 500 }}>Due Date:</span>
+            <span style={{ color: 'var(--ink)', fontWeight: 600 }}>
+              {hoveredTask.dueDate ? new Date(hoveredTask.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
+            </span>
           </div>
         </div>
       )}

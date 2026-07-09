@@ -50,6 +50,7 @@ export default function StandupPage() {
   const [clientFilter, setClientFilter] = useState('');
   
   const [localHighlighted, setLocalHighlighted] = useState<Record<string, boolean>>({});
+  const [localClientPinned, setLocalClientPinned] = useState<Record<string, boolean>>({});
   const [ignoredItems, setIgnoredItems] = useState<Set<string>>(new Set());
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
@@ -148,6 +149,7 @@ export default function StandupPage() {
         createdAt: it.task?.createdAt,
         isAlerted: it.task?.isAlerted,
         isPinned: it.task?.isPinned,
+        clientPinned: it.client?.isPinned,
       };
     });
   }, [liveData]);
@@ -210,6 +212,27 @@ export default function StandupPage() {
       setLocalHighlighted(prev => ({
         ...prev,
         [id]: currentStatus
+      }));
+    }
+  };
+
+  const handlePinClient = async (clientId: string, currentPinStatus: boolean) => {
+    const nextStatus = !currentPinStatus;
+    setLocalClientPinned(prev => ({
+      ...prev,
+      [clientId]: nextStatus
+    }));
+    try {
+      await apiFetch(`/api/clients/${clientId}/${nextStatus ? 'pin' : 'unpin'}`, {
+        method: 'PATCH'
+      });
+      qc.invalidateQueries({ queryKey: ['standup'] });
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      window.dispatchEvent(new Event('pinned-updated'));
+    } catch (err) {
+      setLocalClientPinned(prev => ({
+        ...prev,
+        [clientId]: currentPinStatus
       }));
     }
   };
@@ -486,6 +509,34 @@ export default function StandupPage() {
                                   >
                                     {isHighlighted ? 'Alerted' : 'Alert'}
                                   </button>
+                                  {item.clientId && (
+                                     <button
+                                       onClick={() => handlePinClient(item.clientId, localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned)}
+                                       style={{
+                                         padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                                         background: (localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned) ? '#2860A1' : 'var(--surface)',
+                                         color: (localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned) ? '#fff' : 'var(--ink)',
+                                         border: `1px solid ${(localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned) ? '#2860A1' : 'var(--border)'}`,
+                                         transition: 'all 0.12s'
+                                       }}
+                                       onMouseEnter={e => {
+                                         const isPinned = (localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned);
+                                         if (!isPinned) {
+                                           e.currentTarget.style.background = 'var(--surface-2)';
+                                           e.currentTarget.style.borderColor = 'var(--soft)';
+                                         }
+                                       }}
+                                       onMouseLeave={e => {
+                                         const isPinned = (localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned);
+                                         if (!isPinned) {
+                                           e.currentTarget.style.background = 'var(--surface)';
+                                           e.currentTarget.style.borderColor = 'var(--border)';
+                                         }
+                                       }}
+                                     >
+                                       {(localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned) ? 'Pinned Client' : 'Pin Client'}
+                                     </button>
+                                   )}
                                   <button
                                     onClick={() => handleIgnore(item.id)}
                                     style={{

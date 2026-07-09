@@ -63,7 +63,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
         if (alertType) {
           alertItems.push({
-            client: { id: client.id, fullName: client.fullName, brandName: client.brandName },
+            client: { id: client.id, fullName: client.fullName, brandName: client.brandName, isPinned: client.isPinned },
             step: client.currentStep,
             task: {
               id: task.id,

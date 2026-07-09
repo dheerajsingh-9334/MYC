@@ -345,6 +345,8 @@ export default function ClientDetailPage() {
   // Apply filters on computed tasks
   const filteredAndSearchedTasks = useMemo(() => {
     return processedTasks.filter((t: any) => {
+      if (t.isPinned || t.isAlerted) return true;
+
       if (!isAdmin && currentUser) {
         const uTeam = currentUser.teamName || '';
         const tTeam = t._teamName || '';
