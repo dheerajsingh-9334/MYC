@@ -612,7 +612,7 @@ export default function StaffDashboard() {
         title="Dashboard"
         subtitle={`${user?.fullName || 'You'} · ${grouped.active.length} active · ${grouped.completed.length} completed`}
       />
-      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, boxSizing: 'border-box' }}>
+      <div style={{ padding: '16px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, boxSizing: 'border-box' }}>
 
         {/* Top metrics row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
@@ -1019,7 +1019,7 @@ export default function StaffDashboard() {
           </div>
 
           {/* Right 30% Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, height: '100%' }}>
             {/* Team Performance Card */}
             {user?.role === 'team_leader' && (
               <SectionCard

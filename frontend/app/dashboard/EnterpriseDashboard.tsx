@@ -297,7 +297,7 @@ export default function EnterpriseDashboard() {
         )}
       />
 
-      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ padding: '16px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
         
         {/* Daily Standup Brief Summary Bar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

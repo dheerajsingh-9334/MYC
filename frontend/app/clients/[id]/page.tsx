@@ -352,7 +352,13 @@ export default function ClientDetailPage() {
         const tTeam = t._teamName || '';
         const isSameTeam = uTeam && tTeam && uTeam.toLowerCase() === tTeam.toLowerCase();
         const isAssignedToMe = t.assignedToId === currentUser.id || t.assignedTo?.id === currentUser.id;
-        if (!isSameTeam || !isAssignedToMe) return false;
+        const isLead = currentUser.role === 'team_leader';
+
+        if (isLead) {
+          if (!isSameTeam) return false;
+        } else {
+          if (!isAssignedToMe) return false;
+        }
       }
       const matchesSearch = t.title.toLowerCase().includes(taskSearch.toLowerCase());
       const matchesStatus = taskStatusFilter === 'all' || t._condition === taskStatusFilter;
@@ -731,51 +737,43 @@ export default function ClientDetailPage() {
                   onBlur={(e) => e.target.style.borderColor = 'var(--border)'}
                 />
               </div>
-              {isAdmin ? (
-                <>
-                  {/* Status Filter */}
-                  <select
-                    value={taskStatusFilter}
-                    onChange={(e) => setTaskStatusFilter(e.target.value)}
-                    style={selectStyle}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="complete">Completed</option>
-                    <option value="blocked">Blocked</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="due_today">Due Today</option>
-                    <option value="pending">Pending</option>
-                  </select>
+              {/* Status Filter */}
+              <select
+                value={taskStatusFilter}
+                onChange={(e) => setTaskStatusFilter(e.target.value)}
+                style={selectStyle}
+              >
+                <option value="all">All Statuses</option>
+                <option value="complete">Completed</option>
+                <option value="blocked">Blocked</option>
+                <option value="overdue">Overdue</option>
+                <option value="due_today">Due Today</option>
+                <option value="pending">Pending</option>
+              </select>
 
-                  {/* Team Filter */}
-                  <select
-                    value={taskTeamFilter}
-                    onChange={(e) => setTaskTeamFilter(e.target.value)}
-                    style={selectStyle}
-                  >
-                    <option value="all">All Teams</option>
-                    {uniqueTeams.map(team => (
-                      <option key={team} value={team}>{team}</option>
-                    ))}
-                  </select>
+              {/* Team Filter */}
+              <select
+                value={taskTeamFilter}
+                onChange={(e) => setTaskTeamFilter(e.target.value)}
+                style={selectStyle}
+              >
+                <option value="all">All Teams</option>
+                {uniqueTeams.map(team => (
+                  <option key={team} value={team}>{team}</option>
+                ))}
+              </select>
 
-                  {/* Client Filter */}
-                  <select
-                    value={taskClientFilter}
-                    onChange={(e) => setTaskClientFilter(e.target.value)}
-                    style={selectStyle}
-                  >
-                    <option value="all">All Clients</option>
-                    {uniqueClients.map(cName => (
-                      <option key={cName} value={cName}>{cName}</option>
-                    ))}
-                  </select>
-                </>
-              ) : (
-                <div style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ink-2)', padding: '6px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8 }}>
-                  Client: {client?.brandName || client?.fullName}
-                </div>
-              )}
+              {/* Client Filter */}
+              <select
+                value={taskClientFilter}
+                onChange={(e) => setTaskClientFilter(e.target.value)}
+                style={selectStyle}
+              >
+                <option value="all">All Clients</option>
+                {uniqueClients.map(cName => (
+                  <option key={cName} value={cName}>{cName}</option>
+                ))}
+              </select>
             </div>
 
             {/* Table layout */}
