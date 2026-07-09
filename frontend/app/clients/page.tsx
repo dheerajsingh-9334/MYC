@@ -284,45 +284,62 @@ export default function ClientsPage() {
       <Topbar
         title="Clients"
         subtitle={`${allClients.filter((c: any) => c.status === 'active').length} active clients · ${allClients.length} total`}
-        showAddClient={isAdmin}
-        onAddClient={() => setShowModal(true)}
-        renderActions={() => isAdmin && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => {
-                setExportType('clients');
-                setShowExportModal(true);
-              }}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                color: 'var(--ink-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--soft)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-            >
-              <Download size={14} /> Export Clients
-            </button>
-            <button
-              onClick={() => setShowCSVModal(true)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                color: 'var(--ink-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--soft)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-            >
-              Upload CSV
-            </button>
-          </div>
-        )}
       />
       <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+        <DashboardHeader
+          title="Client Directory"
+          subtitle="Manage all your active and legacy clients in one place"
+        >
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => {
+                  setExportType('clients');
+                  setShowExportModal(true);
+                }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  color: 'var(--ink-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--soft)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+              >
+                <Download size={14} /> Export Clients
+              </button>
+              <button
+                onClick={() => setShowCSVModal(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  color: 'var(--ink-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--soft)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+              >
+                Upload CSV
+              </button>
+              <button
+                onClick={() => setShowModal(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--olive)', color: '#fff', border: 'none',
+                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
+              >
+                <UserPlus size={14} /> Add Client
+              </button>
+            </div>
+          )}
+        </DashboardHeader>
 
        
 

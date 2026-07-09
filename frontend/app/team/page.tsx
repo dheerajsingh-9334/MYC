@@ -228,10 +228,12 @@ export default function TeamPage() {
       <Topbar 
         title="Team" 
         subtitle={`${active.length} active member${active.length !== 1 ? 's' : ''}`} 
-        showAddClient={isAdmin}
-        actionLabel="Add Member"
-        onAddClient={() => setShowModal(true)}
-        renderActions={() => (
+      />
+      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
+        <DashboardHeader
+          title="Team Management"
+          subtitle="Manage your team structure and members"
+        >
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button onClick={expandAll} style={btnSecondary}>Expand all</button>
             <button onClick={collapseAll} style={btnSecondary}>Collapse all</button>
@@ -240,10 +242,13 @@ export default function TeamPage() {
                 <Plus size={13} /> New Team
               </button>
             )}
+            {isAdmin && (
+              <button onClick={() => setShowModal(true)} style={btnPrimary}>
+                <Plus size={14} /> Add Member
+              </button>
+            )}
           </div>
-        )}
-      />
-      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
+        </DashboardHeader>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {/* Search - decreased size! */}

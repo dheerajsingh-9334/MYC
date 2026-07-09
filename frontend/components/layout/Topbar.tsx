@@ -13,13 +13,9 @@ const EMPTY_ARRAY: any[] = [];
 interface TopbarProps {
   title: string;
   subtitle?: string;
-  onAddClient?: () => void;
-  showAddClient?: boolean;
-  actionLabel?: string;
-  renderActions?: () => React.ReactNode;
 }
 
-export default function Topbar({ title, subtitle, onAddClient, showAddClient, actionLabel, renderActions }: TopbarProps) {
+export default function Topbar({ title, subtitle }: TopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useState('');
@@ -261,23 +257,6 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
             >
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
-          {renderActions && renderActions()}
-          {showAddClient && (
-            <button
-              onClick={onAddClient}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--olive)', color: '#fff', border: 'none',
-                fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
-            >
-              <Plus size={14} /> {actionLabel || 'Add Client'}
-            </button>
-          )}
         </div>
       </header>
 

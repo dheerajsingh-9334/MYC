@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
+import DashboardHeader from '@/components/ui/DashboardHeader';
 import { apiFetch, getUser } from '@/lib/api';
 import { USE_MOCK, MOCK_CLIENTS, MOCK_TASKS } from '@/lib/mockData';
 import { useRouter } from 'next/navigation';
@@ -415,9 +416,10 @@ export default function AdminDashboard() {
       <Topbar
         title="Admin Dashboard"
         subtitle="Org-wide view · Tasks, teams, performance"
-        showAddClient={true}
-        onAddClient={() => router.push('/onboarding')}
-        renderActions={() => (
+      />
+
+      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <DashboardHeader title="Overview" subtitle="Key metrics and administrative actions">
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <button
               onClick={() => setShowBroadcastModal(true)}
@@ -466,31 +468,8 @@ export default function AdminDashboard() {
             >
               <Download size={14} /> Export Reports
             </button>
-            <button
-              onClick={toggleTheme}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 36,
-                height: 36,
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border)',
-                color: 'var(--ink-2)',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              title="Toggle theme"
-            >
-              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
           </div>
-        )}
-      />
-
-      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
-        
+        </DashboardHeader>
         {/* 3 Stat Cards in a row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           {/* Card 1: Total Clients */}

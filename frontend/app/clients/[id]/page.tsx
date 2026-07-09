@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, getUser } from '@/lib/api';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
+import DashboardHeader from '@/components/ui/DashboardHeader';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, X, Check, TriangleAlert, CircleCheck, Clock, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
@@ -497,25 +498,6 @@ export default function ClientDetailPage() {
       <Topbar
         title="Client Detail"
         subtitle={`${client.brandName || client.fullName} · Step ${currentStepNum}`}
-        renderActions={() => isAdmin && (
-          <button
-            onClick={() => {
-              setExportType('tasks');
-              setShowExportModal(true);
-            }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-          >
-            <Download size={14} /> Export Client Data
-          </button>
-        )}
       />
       <div style={{ padding: '16px 20px', flex: 1 }}>
 
@@ -531,6 +513,27 @@ export default function ClientDetailPage() {
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
           <ArrowLeft size={13} /> Back to Pipeline
         </Link>
+        <DashboardHeader title="" subtitle="">
+          {isAdmin && (
+            <button
+              onClick={() => {
+                setExportType('tasks');
+                setShowExportModal(true);
+              }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+            >
+              <Download size={14} /> Export Client Data
+            </button>
+          )}
+        </DashboardHeader>
 
         {/* ── CLIENT HEADER ─────────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
