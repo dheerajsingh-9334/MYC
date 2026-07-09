@@ -632,7 +632,7 @@ export default function TasksPage() {
           </div>
           {isAdmin && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
+              {/* <button
                 onClick={() => setShowCSVModal(true)}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -645,7 +645,7 @@ export default function TasksPage() {
                 onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
               >
                 Upload CSV
-              </button>
+              </button> */}
               <button
                 onClick={() => setShowAddTask(true)}
                 style={{
