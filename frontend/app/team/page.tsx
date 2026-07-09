@@ -312,73 +312,96 @@ export default function TeamPage() {
 
                   {/* Members list inside the folder */}
                   {(expandedTeams.has('Administrators') || !!search.trim()) && (
-                    <div style={{ paddingBottom: 8 }}>
-                      {activeAdmins.map((m) => {
-                        return (
-                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderTop: '1px solid var(--surface-2)', transition: 'background 0.1s', cursor: 'pointer' }}
-                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
-                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                            
-                            {/* Avatar */}
-                            <div style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
-                              {m.avatarUrl ? (
-                                <img
-                                  src={m.avatarUrl}
-                                  alt={m.fullName}
-                                  style={{
-                                    width: 32, height: 32, borderRadius: '50%',
-                                    objectFit: 'cover', boxShadow: 'var(--shadow-sm)',
-                                  }}
-                                  onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    const sibling = e.currentTarget.nextSibling as HTMLElement;
-                                    if (sibling) sibling.style.display = 'flex';
-                                  }}
-                                />
-                              ) : null}
-                              <div style={{
-                                width: 32, height: 32, borderRadius: '50%',
-                                background: 'linear-gradient(135deg, var(--olive), var(--olive-light))',
-                                color: '#fff', display: m.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontWeight: 600, fontSize: 12, boxShadow: 'var(--shadow-sm)',
-                              }}>
-                                {getInitials(m.fullName)}
-                              </div>
-                            </div>
-                            
-                            {/* Info */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <span>{m.fullName}</span>
-                                <span style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: 4,
-                                  padding: '2px 8px',
-                                  borderRadius: 999,
-                                  fontSize: 10.5,
-                                  fontWeight: 600,
-                                  background: 'var(--olive-50)',
-                                  color: 'var(--olive)',
-                                }}>
-                                  {roleIcon(m.role)}
-                                  {roleLabel(m.role)}
-                                </span>
-                              </div>
-                              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 16 }}>{m.email}</div>
-                            </div>
-
-                            {/* Actions for deactivating admins if not self */}
-                            {isAdmin && m.id !== user?.id && (
-                              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                                <button onClick={() => { if (confirm(`Deactivate ${m.fullName}?`)) deactivateMut.mutate(m.id); }} style={{ ...btnMini, color: 'var(--red)', borderColor: 'rgba(220,38,38,0.2)' }}>
-                                  Deactivate
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                    <div style={{ overflowX: 'auto', borderTop: '1px solid var(--border)' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                        <thead>
+                          <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                            <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Member</th>
+                            <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Email</th>
+                            <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Role</th>
+                            <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', textAlign: 'center' }}>Active</th>
+                            <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', textAlign: 'center' }}>Late</th>
+                            <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', textAlign: 'center' }}>Done</th>
+                            <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', textAlign: 'center' }}>Avg. Time</th>
+                            {isAdmin && <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activeAdmins.map((m) => {
+                            return (
+                              <tr key={m.id} style={{ borderBottom: '1px solid var(--surface-2)', background: 'transparent' }}>
+                                <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    <div style={{ position: 'relative', width: 28, height: 28, flexShrink: 0 }}>
+                                      {m.avatarUrl ? (
+                                        <img
+                                          src={m.avatarUrl}
+                                          alt={m.fullName}
+                                          style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+                                          onError={(e) => {
+                                            e.currentTarget.style.display = 'none';
+                                            const sibling = e.currentTarget.nextSibling as HTMLElement;
+                                            if (sibling) sibling.style.display = 'flex';
+                                          }}
+                                        />
+                                      ) : null}
+                                      <div style={{
+                                        width: 28, height: 28, borderRadius: '50%',
+                                        background: 'linear-gradient(135deg, var(--olive), var(--olive-light))',
+                                        color: '#fff', display: m.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontWeight: 600, fontSize: 11
+                                      }}>
+                                        {getInitials(m.fullName)}
+                                      </div>
+                                    </div>
+                                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{m.fullName}</span>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)' }}>
+                                  {m.email}
+                                </td>
+                                <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
+                                  <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    padding: '2px 8px',
+                                    borderRadius: 999,
+                                    fontSize: 10.5,
+                                    fontWeight: 600,
+                                    background: 'var(--olive-50)',
+                                    color: 'var(--olive)',
+                                  }}>
+                                    {roleIcon(m.role)}
+                                    {roleLabel(m.role)}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '10px 16px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                                  {m.active ?? 0}
+                                </td>
+                                <td style={{ padding: '10px 16px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 700, color: (m.overdue ?? 0) > 0 ? 'var(--red)' : 'var(--muted)' }}>
+                                  {m.overdue ?? 0}
+                                </td>
+                                <td style={{ padding: '10px 16px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>
+                                  {m.completedLast7d ?? 0}
+                                </td>
+                                <td style={{ padding: '10px 16px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--olive-dark)' }}>
+                                  {m.avgCompletionTime ?? '—'}
+                                </td>
+                                {isAdmin && (
+                                  <td style={{ padding: '10px 16px', verticalAlign: 'middle', textAlign: 'right' }}>
+                                    {m.id !== user?.id && (
+                                      <button onClick={() => { if (confirm(`Deactivate ${m.fullName}?`)) deactivateMut.mutate(m.id); }} style={{ ...btnMini, color: 'var(--red)', borderColor: 'rgba(220,38,38,0.2)' }}>
+                                        Deactivate
+                                      </button>
+                                    )}
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
@@ -410,104 +433,107 @@ export default function TeamPage() {
 
                     {/* Members list inside the folder */}
                     {isOpen && (
-                      <div style={{ paddingBottom: 8 }}>
-                        {members.map((m) => {
-                          const activeTasks = (m.active ?? m._count?.assignedTasks) || 0;
-                          return (
-                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderTop: '1px solid var(--surface-2)', transition: 'background 0.1s', cursor: 'pointer' }}
-                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
-                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                              
-                              {/* Avatar */}
-                              <div style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
-                                {m.avatarUrl ? (
-                                  <img
-                                    src={m.avatarUrl}
-                                    alt={m.fullName}
-                                    style={{
-                                      width: 32, height: 32, borderRadius: '50%',
-                                      objectFit: 'cover', boxShadow: 'var(--shadow-sm)',
-                                    }}
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none';
-                                      const sibling = e.currentTarget.nextSibling as HTMLElement;
-                                      if (sibling) sibling.style.display = 'flex';
-                                    }}
-                                  />
-                                ) : null}
-                                <div style={{
-                                  width: 32, height: 32, borderRadius: '50%',
-                                  background: 'linear-gradient(135deg, var(--olive), var(--olive-light))',
-                                  color: '#fff', display: m.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
-                                  fontWeight: 600, fontSize: 12, boxShadow: 'var(--shadow-sm)',
-                                }}>
-                                  {getInitials(m.fullName)}
-                                </div>
-                              </div>
-                              
-                              {/* Info */}
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                  <span>{m.fullName}</span>
-                                  <span style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    padding: '2px 8px',
-                                    borderRadius: 999,
-                                    fontSize: 10.5,
-                                    fontWeight: 600,
-                                    background: m.role === 'admin' ? 'var(--olive-50)' : m.role === 'team_leader' ? '#EBF3FB' : 'var(--surface-2)',
-                                    color: m.role === 'admin' ? 'var(--olive)' : m.role === 'team_leader' ? '#2860A1' : 'var(--muted)',
-                                  }}>
-                                    {roleIcon(m.role)}
-                                    {roleLabel(m.role)}
-                                  </span>
-                                </div>
-                                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 16 }}>{m.email}</div>
-                              </div>
-                              
-                              {/* Tasks Badge or Performance Stats */}
-                              <div style={{ display: 'flex', gap: 12, marginRight: 12, flexShrink: 0 }}>
-                                <span style={{ textAlign: 'center', minWidth: 40 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{m.active ?? 0}</div>
-                                  <div style={{ fontSize: 9.5, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>Active</div>
-                                </span>
-                                <span style={{ textAlign: 'center', minWidth: 40 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 700, color: (m.overdue ?? 0) > 0 ? 'var(--red)' : 'var(--muted)' }}>{m.overdue ?? 0}</div>
-                                  <div style={{ fontSize: 9.5, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>Late</div>
-                                </span>
-                                <span style={{ textAlign: 'center', minWidth: 40 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>{m.completedLast7d ?? 0}</div>
-                                  <div style={{ fontSize: 9.5, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>Done</div>
-                                </span>
-                                <span style={{ textAlign: 'center', minWidth: 50 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--olive-dark)' }}>{m.avgCompletionTime ?? '—'}</div>
-                                  <div style={{ fontSize: 9.5, color: 'var(--muted)', textTransform: 'uppercase', fontWeight: 600 }}>Avg. Time</div>
-                                </span>
-                              </div>
-
-                              {/* Actions */}
-                              {isAdmin && m.role !== 'admin' && (
-                                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                                  <button onClick={() => {
-                                    setChangeTeamTarget(m);
-                                    setNewTargetTeam(m.teamName || '');
-                                  }} style={btnMini}>Change Team</button>
-                                  <button onClick={() => {
-                                    const nextRole = m.role === 'team_leader' ? 'team_member' : 'team_leader';
-                                    if (confirm(`${nextRole === 'team_leader' ? 'Promote' : 'Demote'} ${m.fullName} to ${nextRole === 'team_leader' ? 'Team Lead' : 'Team Member'}?`)) {
-                                      roleMut.mutate({ id: m.id, role: nextRole });
-                                    }
-                                  }} style={btnMini}>{m.role === 'team_leader' ? 'Make Member' : 'Make Lead'}</button>
-                                  <button onClick={() => { if (confirm(`Deactivate ${m.fullName}?`)) deactivateMut.mutate(m.id); }} style={{ ...btnMini, color: 'var(--red)', borderColor: 'rgba(220,38,38,0.2)' }}>
-                                    Deactivate
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                      <div style={{ overflowX: 'auto', borderTop: '1px solid var(--border)' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                          <thead>
+                            <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                              <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Member</th>
+                              <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Email</th>
+                              <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Role</th>
+                              <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', textAlign: 'center' }}>Active</th>
+                              <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', textAlign: 'center' }}>Late</th>
+                              <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', textAlign: 'center' }}>Done</th>
+                              <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', textAlign: 'center' }}>Avg. Time</th>
+                              {isAdmin && <th style={{ padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {members.map((m) => {
+                              const activeTasks = (m.active ?? m._count?.assignedTasks) || 0;
+                              return (
+                                <tr key={m.id} style={{ borderBottom: '1px solid var(--surface-2)', background: 'transparent' }}>
+                                  <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                      <div style={{ position: 'relative', width: 28, height: 28, flexShrink: 0 }}>
+                                        {m.avatarUrl ? (
+                                          <img
+                                            src={m.avatarUrl}
+                                            alt={m.fullName}
+                                            style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+                                            onError={(e) => {
+                                              e.currentTarget.style.display = 'none';
+                                              const sibling = e.currentTarget.nextSibling as HTMLElement;
+                                              if (sibling) sibling.style.display = 'flex';
+                                            }}
+                                          />
+                                        ) : null}
+                                        <div style={{
+                                          width: 28, height: 28, borderRadius: '50%',
+                                          background: 'linear-gradient(135deg, var(--olive), var(--olive-light))',
+                                          color: '#fff', display: m.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
+                                          fontWeight: 600, fontSize: 11
+                                        }}>
+                                          {getInitials(m.fullName)}
+                                        </div>
+                                      </div>
+                                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{m.fullName}</span>
+                                    </div>
+                                  </td>
+                                  <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)' }}>
+                                    {m.email}
+                                  </td>
+                                  <td style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      padding: '2px 8px',
+                                      borderRadius: 999,
+                                      fontSize: 10.5,
+                                      fontWeight: 600,
+                                      background: m.role === 'admin' ? 'var(--olive-50)' : m.role === 'team_leader' ? '#EBF3FB' : 'var(--surface-2)',
+                                      color: m.role === 'admin' ? 'var(--olive)' : m.role === 'team_leader' ? '#2860A1' : 'var(--muted)',
+                                    }}>
+                                      {roleIcon(m.role)}
+                                      {roleLabel(m.role)}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '10px 16px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>
+                                    {activeTasks}
+                                  </td>
+                                  <td style={{ padding: '10px 16px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 700, color: (m.overdue ?? 0) > 0 ? 'var(--red)' : 'var(--muted)' }}>
+                                    {m.overdue ?? 0}
+                                  </td>
+                                  <td style={{ padding: '10px 16px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--green)' }}>
+                                    {m.completedLast7d ?? 0}
+                                  </td>
+                                  <td style={{ padding: '10px 16px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--olive-dark)' }}>
+                                    {m.avgCompletionTime ?? '—'}
+                                  </td>
+                                  {isAdmin && (
+                                    <td style={{ padding: '10px 16px', verticalAlign: 'middle', textAlign: 'right' }}>
+                                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                                        <button onClick={() => {
+                                          setChangeTeamTarget(m);
+                                          setNewTargetTeam(m.teamName || '');
+                                        }} style={btnMini}>Change Team</button>
+                                        <button onClick={() => {
+                                          const nextRole = m.role === 'team_leader' ? 'team_member' : 'team_leader';
+                                          if (confirm(`${nextRole === 'team_leader' ? 'Promote' : 'Demote'} ${m.fullName} to ${nextRole === 'team_leader' ? 'Team Lead' : 'Team Member'}?`)) {
+                                            roleMut.mutate({ id: m.id, role: nextRole });
+                                          }
+                                        }} style={btnMini}>{m.role === 'team_leader' ? 'Make Member' : 'Make Lead'}</button>
+                                        <button onClick={() => { if (confirm(`Deactivate ${m.fullName}?`)) deactivateMut.mutate(m.id); }} style={{ ...btnMini, color: 'var(--red)', borderColor: 'rgba(220,38,38,0.2)' }}>
+                                          Deactivate
+                                        </button>
+                                      </div>
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>

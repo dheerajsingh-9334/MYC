@@ -244,6 +244,10 @@ export default function AdminDashboard() {
 
   const [workloadSearch, setWorkloadSearch] = useState('');
   const [activitySearch, setActivitySearch] = useState('');
+  const [taskStatusFilter, setTaskStatusFilter] = useState('all');
+  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all');
+  const [taskClientFilter, setTaskClientFilter] = useState('all');
+  const [taskTeamFilter, setTaskTeamFilter] = useState('all');
 
   const [workloadLimit, setWorkloadLimit] = useState(15);
   const [pendingLimit, setPendingLimit] = useState(15);
@@ -305,6 +309,34 @@ export default function AdminDashboard() {
         return team === user.teamName;
       });
     }
+
+    if (taskStatusFilter !== 'all') {
+      if (taskStatusFilter === 'rejected_cancelled') {
+        list = list.filter((t: any) => t.status === 'rejected' || t.status === 'cancelled');
+      } else {
+        list = list.filter((t: any) => t.status === taskStatusFilter);
+      }
+    }
+
+    if (taskAssigneeFilter !== 'all') {
+      if (taskAssigneeFilter === 'unassigned') {
+        list = list.filter((t: any) => !t.assignedToId && !t.assignedTo?.id);
+      } else {
+        list = list.filter((t: any) => (t.assignedToId || t.assignedTo?.id) === taskAssigneeFilter);
+      }
+    }
+
+    if (user?.role === 'admin' && taskClientFilter !== 'all') {
+      list = list.filter((t: any) => t.clientId === taskClientFilter);
+    }
+
+    if (user?.role === 'admin' && taskTeamFilter !== 'all') {
+      list = list.filter((t: any) => {
+        const team = t.step?.owningTeamName || t.assignedTo?.teamName;
+        return team === taskTeamFilter;
+      });
+    }
+
     if (workloadSearch.trim()) {
       const q = workloadSearch.toLowerCase();
       list = list.filter((t: any) =>
@@ -313,7 +345,7 @@ export default function AdminDashboard() {
       );
     }
     return list;
-  }, [tasksList, user, workloadSearch]);
+  }, [tasksList, user, workloadSearch, taskStatusFilter, taskAssigneeFilter, taskClientFilter, taskTeamFilter]);
 
   // Recent Activity computations
   const filteredActivity = useMemo(() => {
@@ -571,9 +603,10 @@ export default function AdminDashboard() {
                 {/* 2. TEAM TASKS TAB (Leader Assignment View) */}
                 {opTab === 'Team Tasks' && (
                   <div>
-                    {/* Search bar */}
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                      <div style={{ position: 'relative', flex: 1 }}>
+                    {/* Filters Row */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+                      {/* Search Input */}
+                      <div style={{ position: 'relative', flex: '1 1 200px' }}>
                         <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
                         <input
                           value={workloadSearch}
@@ -581,16 +614,122 @@ export default function AdminDashboard() {
                           placeholder="Search team tasks or clients..."
                           style={{
                             width: '100%',
-                            padding: '12px 16px 12px 32px',
+                            padding: '8px 12px 8px 30px',
                             border: '1px solid var(--border)',
                             borderRadius: 'var(--radius-sm)',
                             fontSize: 12.5,
                             background: 'var(--surface)',
                             color: 'var(--ink)',
                             outline: 'none',
+                            boxSizing: 'border-box'
                           }}
                         />
                       </div>
+
+                      {/* Status Filter */}
+                      <select
+                        value={taskStatusFilter}
+                        onChange={(e) => setTaskStatusFilter(e.target.value)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border)',
+                          background: 'var(--surface)',
+                          color: 'var(--ink)',
+                          fontSize: 12.5,
+                          outline: 'none',
+                          cursor: 'pointer',
+                          minWidth: 140
+                        }}
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="todo">Pending / Todo</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="blocked">Blocked</option>
+                        <option value="complete">Complete</option>
+                        <option value="extension_requested">Extension Requested</option>
+                        <option value="rejected_cancelled">Rejected / Cancelled</option>
+                      </select>
+
+                      {/* Assignee Filter */}
+                      <select
+                        value={taskAssigneeFilter}
+                        onChange={(e) => setTaskAssigneeFilter(e.target.value)}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border)',
+                          background: 'var(--surface)',
+                          color: 'var(--ink)',
+                          fontSize: 12.5,
+                          outline: 'none',
+                          cursor: 'pointer',
+                          minWidth: 140
+                        }}
+                      >
+                        <option value="all">All Assignees</option>
+                        <option value="unassigned">Unassigned</option>
+                        {user?.role === 'admin' ? (
+                          usersList.map((u: any) => (
+                            <option key={u.id} value={u.id}>{u.fullName} ({u.teamName || 'No Team'})</option>
+                          ))
+                        ) : (
+                          <>
+                            <option value={user?.id}>{user?.fullName} (Lead)</option>
+                            {usersList.filter((u: any) => u.teamName === user?.teamName && u.id !== user?.id).map((u: any) => (
+                              <option key={u.id} value={u.id}>{u.fullName}</option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+
+                      {/* Client Filter (Admin Only) */}
+                      {user?.role === 'admin' && (
+                        <select
+                          value={taskClientFilter}
+                          onChange={(e) => setTaskClientFilter(e.target.value)}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--border)',
+                            background: 'var(--surface)',
+                            color: 'var(--ink)',
+                            fontSize: 12.5,
+                            outline: 'none',
+                            cursor: 'pointer',
+                            minWidth: 140
+                          }}
+                        >
+                          <option value="all">All Clients</option>
+                          {clientsList.map((c: any) => (
+                            <option key={c.id} value={c.id}>{c.brandName || c.fullName}</option>
+                          ))}
+                        </select>
+                      )}
+
+                      {/* Team Filter (Admin Only) */}
+                      {user?.role === 'admin' && (
+                        <select
+                          value={taskTeamFilter}
+                          onChange={(e) => setTaskTeamFilter(e.target.value)}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: 'var(--radius-sm)',
+                            border: '1px solid var(--border)',
+                            background: 'var(--surface)',
+                            color: 'var(--ink)',
+                            fontSize: 12.5,
+                            outline: 'none',
+                            cursor: 'pointer',
+                            minWidth: 140
+                          }}
+                        >
+                          <option value="all">All Teams</option>
+                          {teamsList.map((t: any) => (
+                            <option key={t.id || t.name} value={t.name}>{t.name}</option>
+                          ))}
+                        </select>
+                      )}
                     </div>
 
                     {/* Table of Tasks */}
