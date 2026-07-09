@@ -44,14 +44,16 @@ export default function TeamPage() {
     setMounted(true);
   }, []);
   const isAdmin = user?.role === 'admin';
+  const isTeamLeader = user?.role === 'team_leader';
+  const canAccess = isAdmin || isTeamLeader;
 
   useEffect(() => {
-    if (mounted && user && user.role && user.role !== 'admin') {
+    if (mounted && user && user.role && !canAccess) {
       router.push('/dashboard');
     }
-  }, [mounted, user, router]);
+  }, [mounted, user, router, canAccess]);
 
-  if (mounted && user?.role && user.role !== 'admin') {
+  if (mounted && user?.role && !canAccess) {
     return (
       <AppLayout>
         <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Redirecting...</div>
@@ -67,8 +69,21 @@ export default function TeamPage() {
   });
 
   const team: Member[] = USE_MOCK ? MOCK_TEAM : liveTeam;
-  const active = team.filter((m) => m.isActive !== false && m.role !== 'admin');
-  const inactive = team.filter((m) => m.isActive === false && m.role !== 'admin');
+  const active = useMemo(() => {
+    const list = team.filter((m) => m.isActive !== false && m.role !== 'admin');
+    if (user?.role === 'team_leader' && user.teamName) {
+      return list.filter((m) => m.teamName === user.teamName);
+    }
+    return list;
+  }, [team, user]);
+
+  const inactive = useMemo(() => {
+    const list = team.filter((m) => m.isActive === false && m.role !== 'admin');
+    if (user?.role === 'team_leader' && user.teamName) {
+      return list.filter((m) => m.teamName === user.teamName);
+    }
+    return list;
+  }, [team, user]);
 
   // Admin sees the full file-based tree. Team leaders see only their team.
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
@@ -117,13 +132,14 @@ export default function TeamPage() {
   }, [mounted]);
 
   const activeAdmins = useMemo(() => {
+    if (user?.role === 'team_leader') return [];
     const list = team.filter((m) => m.role === 'admin' && m.isActive !== false);
     if (!search.trim()) return list;
     const q = search.toLowerCase();
     return list.filter((m) =>
       m.fullName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
     );
-  }, [team, search]);
+  }, [team, search, user]);
 
   // Build tree: team → members
   const tree = useMemo(() => {

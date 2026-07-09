@@ -425,7 +425,7 @@ export default function StandupPage() {
                           handlePinClient(clientId, localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned);
                         }}
                         style={{
-                          marginLeft: 'auto',
+                          marginLeft: 8,
                           padding: '4px 8px',
                           borderRadius: 4,
                           fontSize: 11,

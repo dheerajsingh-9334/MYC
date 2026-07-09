@@ -29,7 +29,7 @@ const navItems = [
   { label: 'Workload',        icon: Activity,         href: '/workload',        section: 'workspace', roles: ['admin', 'team_leader'] },
   // Manage section
   { label: 'Reports',         icon: BarChart3,        href: '/reports',         section: 'manage',    roles: ['admin', 'team_leader'] },
-  { label: 'Team',            icon: Users,            href: '/team',            section: 'manage',    roles: ['admin'] },
+  { label: 'Team',            icon: Users,            href: '/team',            section: 'manage',    roles: ['admin', 'team_leader'] },
   { label: 'Performance',     icon: TrendingUp,       href: '/performance',     section: 'manage',    roles: ['admin'] },
   { label: 'Step Config',     icon: Settings,         href: '/settings/steps',  section: 'manage',    roles: ['admin'] },
 ];
