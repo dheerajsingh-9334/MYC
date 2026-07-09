@@ -170,13 +170,13 @@ export default function ProfilePage() {
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               
               {successMsg && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: 'var(--radius-sm)', fontSize: 13, border: '1px solid var(--green)' }}>
                   <Check size={14} /> {successMsg}
                 </div>
               )}
 
               {errorMsg && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13, border: '1px solid var(--red)' }}>
                   <AlertCircle size={14} /> {errorMsg}
                 </div>
               )}
@@ -195,11 +195,7 @@ export default function ProfilePage() {
                       autoComplete="off"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      style={{
-                        width: '100%', padding: '9px 12px 9px 32px',
-                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                        fontSize: 13.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
-                      }}
+                      className="profile-input"
                     />
                   </div>
                 </div>
@@ -212,14 +208,14 @@ export default function ProfilePage() {
                     readOnly
                     value={profile.email}
                     style={{
-                      width: '100%', padding: '9px 12px',
+                      width: '100%', padding: '10px 12px',
                       border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
                       fontSize: 13.5, background: 'var(--surface-2)', color: 'var(--muted)', cursor: 'not-allowed', outline: 'none',
                     }}
                   />
                 </div>
 
-                 <div>
+                <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>WhatsApp Number</label>
                   <div style={{ position: 'relative' }}>
                     <Phone size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
@@ -228,11 +224,7 @@ export default function ProfilePage() {
                       placeholder="+91 98765 43210"
                       value={whatsappNumber}
                       onChange={(e) => setWhatsappNumber(e.target.value)}
-                      style={{
-                        width: '100%', padding: '9px 12px 9px 32px',
-                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                        fontSize: 13.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
-                      }}
+                      className="profile-input"
                     />
                   </div>
                 </div>
@@ -244,14 +236,10 @@ export default function ProfilePage() {
                     placeholder="https://example.com/avatar.jpg"
                     value={avatarUrl}
                     onChange={(e) => setAvatarUrl(e.target.value)}
-                    style={{
-                      width: '100%', padding: '9px 12px',
-                      border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                      fontSize: 13.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
-                    }}
+                    className="profile-input-no-icon"
                   />
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                    Use an image hosted on some other website (e.g., Gravatar, Imgur, or your custom profile picture) as your avatar. Leave blank to use fallback initials.
+                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
+                    Use an image hosted on some other website (e.g. Gravatar or Imgur) as your avatar. Leave blank to use fallback initials.
                   </div>
                 </div>
               </div>
@@ -269,11 +257,7 @@ export default function ProfilePage() {
                       placeholder="Leave blank to keep current"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      style={{
-                        width: '100%', padding: '9px 12px 9px 32px',
-                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                        fontSize: 13.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
-                      }}
+                      className="profile-input"
                     />
                   </div>
                 </div>
@@ -287,11 +271,7 @@ export default function ProfilePage() {
                       placeholder="Confirm new password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      style={{
-                        width: '100%', padding: '9px 12px 9px 32px',
-                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                        fontSize: 13.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
-                      }}
+                      className="profile-input"
                     />
                   </div>
                 </div>
@@ -301,12 +281,8 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={updateMut.isPending}
-                  style={{
-                    padding: '10px 24px', background: 'var(--olive)', color: '#fff',
-                    border: 'none', borderRadius: 'var(--radius-sm)',
-                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                    opacity: updateMut.isPending ? 0.75 : 1, transition: 'opacity 0.15s',
-                  }}
+                  className="btn-primary"
+                  style={{ opacity: updateMut.isPending ? 0.75 : 1 }}
                 >
                   {updateMut.isPending ? 'Saving changes...' : 'Save Settings'}
                 </button>
@@ -319,6 +295,56 @@ export default function ProfilePage() {
 
       </div>
       <style>{`
+        .profile-input {
+          width: 100%;
+          padding: 10px 12px 10px 34px;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          font-size: 13.5px;
+          background: var(--surface);
+          color: var(--ink);
+          outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .profile-input:focus {
+          border-color: var(--olive);
+          box-shadow: 0 0 0 3px rgba(34, 63, 167, 0.12);
+        }
+        .profile-input-no-icon {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          font-size: 13.5px;
+          background: var(--surface);
+          color: var(--ink);
+          outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .profile-input-no-icon:focus {
+          border-color: var(--olive);
+          box-shadow: 0 0 0 3px rgba(34, 63, 167, 0.12);
+        }
+        .btn-primary {
+          padding: 10px 24px;
+          background: var(--olive);
+          color: #fff;
+          border: none;
+          border-radius: var(--radius-sm);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s, opacity 0.15s;
+        }
+        .btn-primary:hover {
+          background: var(--olive-light);
+        }
+
+        .dark .profile-input:focus, .dark .profile-input-no-icon:focus {
+          border-color: var(--olive);
+          box-shadow: 0 0 0 3px rgba(138, 157, 106, 0.2);
+        }
+
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }

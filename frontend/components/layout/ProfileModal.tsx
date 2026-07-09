@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, getUser } from '@/lib/api';
 import { User, Phone, Lock, Check, AlertCircle, X } from 'lucide-react';
@@ -12,6 +13,7 @@ interface ProfileModalProps {
 
 export default function ProfileModal({ open, onClose, onUpdateSuccess }: ProfileModalProps) {
   const queryClient = useQueryClient();
+  const [mounted, setMounted] = useState(false);
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -22,6 +24,10 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
 
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fetch logged-in user profile details
   const { data: profile, isLoading } = useQuery({
@@ -82,23 +88,23 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
     updateMut.mutate(payload);
   };
 
-  if (!open) return null;
+  if (!mounted || !open) return null;
 
   const initials = fullName
     ? fullName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
     : '?';
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(20, 25, 12, 0.45)',
-        backdropFilter: 'blur(4px)',
+        background: 'rgba(10, 12, 8, 0.65)',
+        backdropFilter: 'blur(5px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        zIndex: 200,
+        zIndex: 99999, // Render on top of everything
         padding: 20,
       }}
       onClick={(e) => {
@@ -116,6 +122,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
           display: 'flex',
           flexDirection: 'column',
           maxHeight: '90vh',
+          border: '1px solid var(--border)',
         }}
       >
         {/* Header */}
@@ -129,10 +136,10 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
           }}
         >
           <div>
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
               Profile Settings
             </div>
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+            <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>
               Update your personal information and security credentials.
             </div>
           </div>
@@ -147,14 +154,17 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              transition: 'color 0.15s',
             }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)'; }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--soft)'; }}
           >
             <X size={20} />
           </button>
         </div>
 
         {/* Scrollable Content */}
-        <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+        <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
           {isLoading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: 12, color: 'var(--muted)' }}>
               <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--olive)', animation: 'spin 1s linear infinite' }} />
@@ -163,13 +173,13 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
           ) : (
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
               {successMsg && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: 'var(--radius-sm)', fontSize: 13, border: '1px solid var(--green)' }}>
                   <Check size={14} /> {successMsg}
                 </div>
               )}
 
               {errorMsg && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13, border: '1px solid var(--red)' }}>
                   <AlertCircle size={14} /> {errorMsg}
                 </div>
               )}
@@ -213,7 +223,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
                 </div>
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{fullName || 'Your Name'}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>{profile?.email}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{profile?.email}</div>
                 </div>
               </div>
 
@@ -233,11 +243,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
                       autoComplete="off"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
-                      style={{
-                        width: '100%', padding: '9px 12px 9px 32px',
-                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                        fontSize: 13.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
-                      }}
+                      className="profile-input"
                     />
                   </div>
                 </div>
@@ -251,11 +257,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
                       placeholder="+91 98765 43210"
                       value={whatsappNumber}
                       onChange={(e) => setWhatsappNumber(e.target.value)}
-                      style={{
-                        width: '100%', padding: '9px 12px 9px 32px',
-                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                        fontSize: 13.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
-                      }}
+                      className="profile-input"
                     />
                   </div>
                 </div>
@@ -267,11 +269,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
                     placeholder="https://example.com/avatar.jpg"
                     value={avatarUrl}
                     onChange={(e) => setAvatarUrl(e.target.value)}
-                    style={{
-                      width: '100%', padding: '9px 12px',
-                      border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                      fontSize: 13.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
-                    }}
+                    className="profile-input-no-icon"
                   />
                   <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
                     Use an image hosted on some other website (e.g. Gravatar or Imgur) as your avatar.
@@ -294,11 +292,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
                       placeholder="Leave blank to keep current"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      style={{
-                        width: '100%', padding: '9px 12px 9px 32px',
-                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                        fontSize: 13.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
-                      }}
+                      className="profile-input"
                     />
                   </div>
                 </div>
@@ -312,11 +306,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
                       placeholder="Confirm new password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      style={{
-                        width: '100%', padding: '9px 12px 9px 32px',
-                        border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                        fontSize: 13.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none',
-                      }}
+                      className="profile-input"
                     />
                   </div>
                 </div>
@@ -327,22 +317,15 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
                 <button
                   type="button"
                   onClick={onClose}
-                  style={{
-                    padding: '9px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                    fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)'
-                  }}
+                  className="btn-secondary"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={updateMut.isPending}
-                  style={{
-                    padding: '9px 20px', background: 'var(--olive)', color: '#fff',
-                    border: 'none', borderRadius: 'var(--radius-sm)',
-                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                    opacity: updateMut.isPending ? 0.75 : 1, transition: 'opacity 0.15s',
-                  }}
+                  className="btn-primary"
+                  style={{ opacity: updateMut.isPending ? 0.75 : 1 }}
                 >
                   {updateMut.isPending ? 'Saving changes...' : 'Save Settings'}
                 </button>
@@ -352,6 +335,71 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
         </div>
       </div>
       <style>{`
+        .profile-input {
+          width: 100%;
+          padding: 10px 12px 10px 34px;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          font-size: 13.5px;
+          background: var(--surface);
+          color: var(--ink);
+          outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .profile-input:focus {
+          border-color: var(--olive);
+          box-shadow: 0 0 0 3px rgba(34, 63, 167, 0.12);
+        }
+        .profile-input-no-icon {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          font-size: 13.5px;
+          background: var(--surface);
+          color: var(--ink);
+          outline: none;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .profile-input-no-icon:focus {
+          border-color: var(--olive);
+          box-shadow: 0 0 0 3px rgba(34, 63, 167, 0.12);
+        }
+        .btn-primary {
+          padding: 9px 20px;
+          background: var(--olive);
+          color: #fff;
+          border: none;
+          border-radius: var(--radius-sm);
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background 0.15s, opacity 0.15s;
+        }
+        .btn-primary:hover {
+          background: var(--olive-light);
+        }
+        .btn-secondary {
+          padding: 9px 16px;
+          border: 1px solid var(--border);
+          border-radius: var(--radius-sm);
+          font-size: 13px;
+          font-weight: 500;
+          background: var(--surface);
+          color: var(--ink-2);
+          cursor: pointer;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .btn-secondary:hover {
+          background: var(--surface-2);
+          border-color: var(--border-strong);
+        }
+
+        .dark .profile-input:focus, .dark .profile-input-no-icon:focus {
+          border-color: var(--olive);
+          box-shadow: 0 0 0 3px rgba(138, 157, 106, 0.2);
+        }
+
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
@@ -361,6 +409,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
           to { transform: scale(1); opacity: 1; }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
