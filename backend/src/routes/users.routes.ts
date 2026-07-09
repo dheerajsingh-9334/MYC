@@ -307,4 +307,17 @@ router.patch('/:id/deactivate', requireAuth, requireRole('admin'), async (req: R
   }
 });
 
+// PATCH /api/users/:id/activate — ADMIN ONLY
+router.patch('/:id/activate', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const updated = await prisma.user.update({
+      where: { id: req.params.id },
+      data: { isActive: true },
+    });
+    res.json({ id: updated.id, isActive: updated.isActive });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

@@ -969,43 +969,71 @@ export default function StaffDashboard() {
                                   </div>
                                 )}
 
-                                <select
-                                  value={t.status}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === 'in_progress') {
-                                      startTimerMut.mutate(t.id);
-                                    } else if (val === 'pending') {
-                                      statusMut.mutate({ id: t.id, status: 'pending' });
-                                    } else if (val === 'complete') {
-                                      completeMut.mutate(t.id);
-                                    } else if (val === 'blocked') {
-                                      setBlockerTask(t);
-                                      setBlockerNote('');
-                                    } else if (val === 'extension_requested') {
-                                      setExtensionTask(t);
-                                      setExtensionReason('');
-                                      setExtensionDate(format(addDays(new Date(), 2), 'yyyy-MM-dd'));
-                                    }
-                                  }}
-                                  style={{
-                                    padding: '4px 8px',
-                                    borderRadius: 6,
-                                    border: '1px solid var(--border)',
-                                    background: 'var(--surface)',
-                                    color: 'var(--ink-2)',
-                                    fontSize: 11.5,
-                                    fontWeight: 500,
-                                    outline: 'none',
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  <option value="pending">Pending</option>
-                                  <option value="in_progress">In Progress</option>
-                                  <option value="complete">Complete...</option>
-                                  <option value="blocked">Blocked...</option>
-                                  <option value="extension_requested">Request Extension...</option>
-                                </select>
+                                <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                                  <select
+                                    value={t.status}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === 'in_progress') {
+                                        startTimerMut.mutate(t.id);
+                                      } else if (val === 'pending') {
+                                        statusMut.mutate({ id: t.id, status: 'pending' });
+                                      } else if (val === 'complete') {
+                                        completeMut.mutate(t.id);
+                                      } else if (val === 'blocked') {
+                                        setBlockerTask(t);
+                                        setBlockerNote('');
+                                      } else if (val === 'extension_requested') {
+                                        setExtensionTask(t);
+                                        setExtensionReason('');
+                                        setExtensionDate(format(addDays(new Date(), 2), 'yyyy-MM-dd'));
+                                      }
+                                    }}
+                                    style={{
+                                      padding: '4px 8px',
+                                      borderRadius: 6,
+                                      border: '1px solid var(--border)',
+                                      background: 'var(--surface)',
+                                      color: 'var(--ink-2)',
+                                      fontSize: 11.5,
+                                      fontWeight: 500,
+                                      outline: 'none',
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <option value="pending">Pending</option>
+                                    <option value="in_progress">In Progress</option>
+                                    <option value="complete">Complete...</option>
+                                    <option value="blocked">Blocked...</option>
+                                    <option value="extension_requested">Request Extension...</option>
+                                  </select>
+                                  {t.status !== 'extension_requested' && t.status !== 'blocked' && t.status !== 'complete' && (
+                                    <button
+                                      title="Request Extension"
+                                      onClick={() => {
+                                        setExtensionTask(t);
+                                        setExtensionReason('');
+                                        setExtensionDate(format(addDays(new Date(), 2), 'yyyy-MM-dd'));
+                                      }}
+                                      style={{
+                                        width: 26,
+                                        height: 26,
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: 5,
+                                        background: 'var(--surface)',
+                                        color: 'var(--ink-2)',
+                                        cursor: 'pointer',
+                                      }}
+                                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--olive)'; (e.currentTarget as HTMLElement).style.color = 'var(--olive)'; }}
+                                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--ink-2)'; }}
+                                    >
+                                      <Clock size={11} />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>

@@ -120,7 +120,9 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
         (taskIds.includes(t.id) || t.isPinned === true) && 
         t.status !== 'complete' && 
         t.status !== 'rejected' && 
-        t.status !== 'cancelled'
+        t.status !== 'cancelled' &&
+        t.status !== 'blocked' &&
+        t.status !== 'extension_requested'
       );
 
       // Prevent state updates if values haven't changed
@@ -179,13 +181,15 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
       const updated = current.filter((x: string) => x !== id);
       localStorage.setItem('pinned_clients', JSON.stringify(updated));
       
-      if (user?.role === 'admin') {
-        await apiFetch(`/api/clients/${id}/unpin`, {
-          method: 'PATCH'
-        });
-      }
+      // Update UI immediately
       updatePinned();
       window.dispatchEvent(new Event('pinned-updated'));
+      
+      if (user?.role === 'admin') {
+        apiFetch(`/api/clients/${id}/unpin`, {
+          method: 'PATCH'
+        }).catch(err => console.error("Failed to unpin client on server:", err));
+      }
     } catch (err) {}
   };
 
@@ -196,14 +200,16 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
       const updated = current.filter((x: string) => x !== task.id);
       localStorage.setItem('pinned_tasks', JSON.stringify(updated));
       
-      if (user?.role === 'admin' && task.isPinned) {
-        await apiFetch(`/api/tasks/${task.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({ isPinned: false }),
-        });
-      }
+      // Update UI immediately
       updatePinned();
       window.dispatchEvent(new Event('pinned-updated'));
+      
+      if (user?.role === 'admin' && task.isPinned) {
+        apiFetch(`/api/tasks/${task.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ isPinned: false }),
+        }).catch(err => console.error("Failed to unpin task on server:", err));
+      }
     } catch (err) {}
   };
 
@@ -300,56 +306,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
             {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
           </button>
 
-          {/* Consistent Client Management Buttons for Admin */}
-          {user?.role === 'admin' && pathname === '/clients' && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
-                onClick={() => {
-                  setExportType('clients');
-                  setShowExportModal(true);
-                }}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-              >
-                Export Clients
-              </button>
-              <button
-                onClick={() => setShowCSVModal(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-              >
-                Upload CSV
-              </button>
-              <button
-                onClick={() => setShowModal(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--olive)', color: '#fff', border: 'none',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
-              >
-                <Plus size={13} /> Add Client
-              </button>
-            </div>
-          )}
+
         </div>
       </header>
 

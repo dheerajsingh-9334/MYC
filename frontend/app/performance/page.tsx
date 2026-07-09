@@ -11,13 +11,20 @@ import { TrendingUp, Users, Target, Clock, ArrowRight, Sparkles } from 'lucide-r
 
 export default function PerformancePage() {
   const [user, setUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'individual' | 'team' | 'clients'>('individual');
+  const [activeTab, setActiveTab] = useState<'team' | 'clients'>('team');
 
   useEffect(() => {
-    setUser(getUser());
+    const localUser = getUser();
+    setUser(localUser);
+    if (localUser && !localUser.teamName) {
+      setActiveTab('clients');
+    }
     apiFetch('/api/auth/me').then(freshUser => {
       localStorage.setItem('user', JSON.stringify(freshUser));
       setUser(freshUser);
+      if (!freshUser.teamName) {
+        setActiveTab('clients');
+      }
     }).catch(err => console.error('Failed to refresh user:', err));
   }, []);
 
@@ -184,18 +191,6 @@ export default function PerformancePage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
           <SectionCard padding="14px 18px">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ padding: 8, borderRadius: 8, background: 'rgba(59, 130, 246, 0.08)', color: '#3B82F6' }}>
-                <Clock size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase' }}>My Avg Completion</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)' }}>{myPerformance.avgHours}</div>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard padding="14px 18px">
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ padding: 8, borderRadius: 8, background: 'rgba(16, 185, 129, 0.08)', color: '#10B981' }}>
                 <Users size={20} />
               </div>
@@ -233,17 +228,6 @@ export default function PerformancePage() {
 
         {/* Tab Selection */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', gap: 24 }}>
-          <button 
-            onClick={() => setActiveTab('individual')}
-            style={{
-              padding: '10px 4px', fontSize: 13.5, fontWeight: activeTab === 'individual' ? 600 : 500,
-              color: activeTab === 'individual' ? 'var(--olive)' : 'var(--muted)',
-              border: 'none', background: 'none', borderBottom: activeTab === 'individual' ? '2px solid var(--olive)' : 'none',
-              cursor: 'pointer', transition: 'all 0.15s'
-            }}
-          >
-            My Performance
-          </button>
           {user?.teamName && (
             <button 
               onClick={() => setActiveTab('team')}
@@ -272,40 +256,6 @@ export default function PerformancePage() {
 
         {/* Tab content */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          
-          {activeTab === 'individual' && (
-            <SectionCard title="My Completed Tasks & Timelines" padding="0">
-              {myPerformance.taskBreakdown.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>
-                  <Sparkles size={36} style={{ color: 'var(--border)', margin: '0 auto 16px', display: 'block' }} />
-                  No completed tasks found for you. Start working on a task to track performance!
-                </div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
-                        <th style={{ padding: '10px 18px', fontWeight: 600, color: 'var(--muted)' }}>Task</th>
-                        <th style={{ padding: '10px 18px', fontWeight: 600, color: 'var(--muted)' }}>Client</th>
-                        <th style={{ padding: '10px 18px', fontWeight: 600, color: 'var(--muted)' }}>Completion Date</th>
-                        <th style={{ padding: '10px 18px', fontWeight: 600, color: 'var(--muted)', textAlign: 'right' }}>Time to Complete</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {myPerformance.taskBreakdown.map((item, idx) => (
-                        <tr key={item.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ padding: '10px 18px', fontWeight: 600, color: 'var(--ink)' }}>{item.title}</td>
-                          <td style={{ padding: '10px 18px', color: 'var(--ink-2)' }}>{item.clientName}</td>
-                          <td style={{ padding: '10px 18px', color: 'var(--soft)' }}>{item.completedAt}</td>
-                          <td style={{ padding: '10px 18px', fontWeight: 700, color: 'var(--olive)', textAlign: 'right' }}>{item.durationStr}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </SectionCard>
-          )}
 
           {activeTab === 'team' && (
             <SectionCard title="Team Efficiency Breakdown" padding="0">

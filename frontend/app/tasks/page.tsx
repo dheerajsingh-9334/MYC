@@ -1108,6 +1108,8 @@ function StaffTaskRow({
     : `Due ${format(new Date(t.dueDate), 'd MMM')}`;
   const whenColor = done ? 'var(--green)' : rej ? '#B0436A' : overdue ? 'var(--red)' : today ? 'var(--amber)' : 'var(--muted)';
 
+  const hidePin = t.status === 'complete' || t.status === 'blocked' || t.status === 'extension_requested' || t.status === 'rejected' || t.status === 'cancelled';
+
   const statusColor: Record<string, string> = {
     pending: 'var(--muted)', in_progress: 'var(--olive)', complete: 'var(--green)',
     blocked: '#6B3FA0', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--muted)',
@@ -1123,23 +1125,29 @@ function StaffTaskRow({
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = rej ? '#FBEEF105' : 'transparent'; }}>
       <td style={{ padding: '10px 18px', verticalAlign: 'middle', minWidth: 240 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            onClick={togglePin}
-            style={{
-              border: 'none',
-              background: 'none',
-              padding: 4,
-              cursor: 'pointer',
-              color: pinned ? 'var(--olive)' : 'var(--border)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'color 0.15s',
-            }}
-            title={pinned ? "Unpin task" : "Pin task"}
-          >
-            <Pin size={13} style={{ fill: pinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
-          </button>
+          {!hidePin ? (
+            <button
+              onClick={togglePin}
+              style={{
+                border: 'none',
+                background: 'none',
+                padding: 4,
+                cursor: 'pointer',
+                color: pinned ? 'var(--olive)' : 'var(--muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--olive)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = pinned ? 'var(--olive)' : 'var(--muted)')}
+              title={pinned ? "Unpin task" : "Pin task"}
+            >
+              <Pin size={16} style={{ fill: pinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+            </button>
+          ) : (
+            <div style={{ width: 24 }} />
+          )}
           {t.priority === 'high' && <span style={{ width: 4, height: 22, borderRadius: 2, background: 'var(--red)' }} />}
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -1217,39 +1225,46 @@ function StaffTaskRow({
       <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center' }}>
         <div style={{ display: 'inline-flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
           {!isAdmin && !done && (
-            <select
-              value={t.status}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (val === 'in_progress') {
-                  onStartTimer?.();
-                } else if (val === 'pending') {
-                  onStatusChange?.(t.id, 'pending');
-                } else if (val === 'complete') {
-                  onComplete();
-                } else if (val === 'blocked') {
-                  onBlock?.();
-                } else if (val === 'extension_requested') {
-                  onExtend?.();
-                }
-              }}
-              style={{
-                padding: '4px 8px',
-                borderRadius: 6,
-                border: '1px solid var(--border)',
-                background: 'var(--surface)',
-                color: 'var(--ink-2)',
-                fontSize: 12,
-                fontWeight: 500,
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
-              <option value="complete">Complete...</option>
-              <option value="extension_requested">Request Extension...</option>
-            </select>
+            <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+              <select
+                value={t.status}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === 'in_progress') {
+                    onStartTimer?.();
+                  } else if (val === 'pending') {
+                    onStatusChange?.(t.id, 'pending');
+                  } else if (val === 'complete') {
+                    onComplete();
+                  } else if (val === 'blocked') {
+                    onBlock?.();
+                  } else if (val === 'extension_requested') {
+                    onExtend?.();
+                  }
+                }}
+                style={{
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--ink-2)',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="complete">Complete...</option>
+                <option value="extension_requested">Request Extension...</option>
+              </select>
+              {t.status !== 'extension_requested' && t.status !== 'blocked' && (
+                <IconBtn title="Request Extension" onClick={() => onExtend?.()}>
+                  <Clock size={11} />
+                </IconBtn>
+              )}
+            </div>
           )}
           {isAdmin && !done && t.status !== 'blocked' && (
             <IconBtn title="Block Task" onClick={() => onBlock?.()}><Ban size={11} /></IconBtn>

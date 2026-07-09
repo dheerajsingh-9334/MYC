@@ -529,7 +529,7 @@ router.patch('/:id/approve-extension', requireAuth, requireRole('admin'), async 
     const updated = await prisma.task.update({
       where: { id: req.params.id },
       data: {
-        status: approved ? 'in_progress' : 'rejected',
+        status: 'in_progress',
         dueDate: newDue,
         rejectionNote: approved ? null : 'Extension request rejected by admin',
         rejectedAt: approved ? null : new Date(),

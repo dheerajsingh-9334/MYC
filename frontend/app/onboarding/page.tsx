@@ -86,6 +86,32 @@ function InviteModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
                   {mutation.isPending ? 'Generating link...' : 'Generate invite link'}
                 </button>
               </div>
+
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: 18, paddingTop: 14 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Generic Magic Link</div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 10 }}>Generate a universal magic link. The client will fill out their name, email, and WhatsApp on the form themselves.</div>
+                <button
+                  type="button"
+                  onClick={() => mutation.mutate({ sentToName: 'Generic Client', sentToEmail: '', sentToWhatsapp: '' })}
+                  disabled={mutation.isPending}
+                  style={{
+                    width: '100%',
+                    padding: '9px',
+                    border: '1.5px dashed var(--olive)',
+                    background: 'var(--olive-50)',
+                    color: 'var(--olive-dark)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-100)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                >
+                  {mutation.isPending ? 'Generating magic link...' : 'Generate Magic Link (Client fills details)'}
+                </button>
+              </div>
             </>
           )}
         </div>

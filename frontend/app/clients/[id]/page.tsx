@@ -177,6 +177,21 @@ export default function ClientDetailPage() {
     },
   });
 
+  const declineExtensionMut = useMutation({
+    mutationFn: (taskId: string) =>
+      apiFetch(`/api/tasks/${taskId}/approve-extension`, {
+        method: 'PATCH',
+        body: JSON.stringify({ approved: false }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['client', id] });
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['notifications'] });
+      qc.invalidateQueries({ queryKey: ['notif-count'] });
+    },
+  });
+
+
   const handleCheck = (taskId: string, currentStatus: string) => {
     if (USE_MOCK) {
       setCheckedTasks(prev => { const s = new Set(prev); if (s.has(taskId)) s.delete(taskId); else s.add(taskId); return s; });
@@ -922,18 +937,34 @@ export default function ClientDetailPage() {
                           <td style={{ ...tdStyle, textAlign: 'right' }}>
                             {!done && blockerTaskId !== task.id && (
                               <div style={{ display: 'inline-flex', gap: 6 }}>
-                                <SmallTaskButton
-                                  label="Complete"
-                                  icon={<Check size={11} />}
-                                  color="var(--green)"
-                                  onClick={(e) => { e.stopPropagation(); handleCheck(task.id, task.status); }}
-                                />
-                                <SmallTaskButton
-                                  label="Blocker"
-                                  icon={<TriangleAlert size={11} />}
-                                  color="#6B3FA0"
-                                  onClick={(e) => { e.stopPropagation(); setBlockerTaskId(task.id); }}
-                                />
+                                {task.status === 'extension_requested' ? (
+                                  <SmallTaskButton
+                                    label="Cancel Request"
+                                    icon={<X size={11} />}
+                                    color="var(--red)"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (confirm("Cancel this extension request?")) {
+                                        declineExtensionMut.mutate(task.id);
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <>
+                                    <SmallTaskButton
+                                      label="Complete"
+                                      icon={<Check size={11} />}
+                                      color="var(--green)"
+                                      onClick={(e) => { e.stopPropagation(); handleCheck(task.id, task.status); }}
+                                    />
+                                    <SmallTaskButton
+                                      label="Blocker"
+                                      icon={<TriangleAlert size={11} />}
+                                      color="#6B3FA0"
+                                      onClick={(e) => { e.stopPropagation(); setBlockerTaskId(task.id); }}
+                                    />
+                                  </>
+                                )}
                               </div>
                             )}
                           </td>
