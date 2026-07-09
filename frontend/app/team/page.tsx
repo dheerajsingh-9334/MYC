@@ -268,7 +268,7 @@ export default function TeamPage() {
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                     <ChevronRight size={14} style={{ color: 'var(--soft)', transform: (expandedTeams.has('Administrators') || !!search.trim()) ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', flexShrink: 0 }} />
                     {(expandedTeams.has('Administrators') || !!search.trim()) ? <FolderOpen size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
-                    <span style={{ fontSize: 16, fontWeight: 600, color: '#856404', background: '#fff3cd', padding: '2px 8px', borderRadius: '4px' }}>Administrators</span>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', background: '#fff3cd', padding: '2px 8px', borderRadius: '4px' }}>Administrators</span>
                     <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                       · {activeAdmins.length} admin{activeAdmins.length !== 1 ? 's' : ''}
                     </span>
@@ -361,7 +361,7 @@ export default function TeamPage() {
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                       <ChevronRight size={14} style={{ color: 'var(--soft)', transform: isOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', flexShrink: 0 }} />
                       {isOpen ? <FolderOpen size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
-                      <span style={{ fontSize: 16, fontWeight: 600, color: '#856404', background: '#fff3cd', padding: '2px 8px', borderRadius: '4px' }}>{teamName}</span>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', background: '#fff3cd', padding: '2px 8px', borderRadius: '4px' }}>{teamName}</span>
                       <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                         {leaderCount > 0 && `· ${leaderCount} lead${leaderCount !== 1 ? 's' : ''}`} · {members.length} member{members.length !== 1 ? 's' : ''}
                       </span>
