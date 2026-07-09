@@ -488,43 +488,12 @@ export default function TasksPage() {
         subtitle={isAdmin ? `Org-wide · ${counts.total} tasks` : `${user?.fullName || 'Team Member'} · ${user?.teamName || ''}`}
         search={search}
         setSearch={setSearch}
-        renderActions={() => isAdmin && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => setShowAddTask(true)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--olive)', border: 'none',
-                color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-dark)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
-            >
-              <Plus size={14} /> Add Task
-            </button>
-            <button
-              onClick={() => setShowCSVModal(true)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-            >
-              Upload CSV
-            </button>
-          </div>
-        )}
       />
       <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
 
         {/* Filter bar */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
 
           {/* Custom Status Dropdown Menu */}
           <div style={{ position: 'relative' }}>
@@ -660,6 +629,39 @@ export default function TasksPage() {
             <option value="medium">Medium priority</option>
             <option value="low">Low priority</option>
           </select>
+          </div>
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                onClick={() => setShowCSVModal(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  color: 'var(--ink-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+              >
+                Upload CSV
+              </button>
+              <button
+                onClick={() => setShowAddTask(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--olive)', color: '#fff', border: 'none',
+                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
+              >
+                <Plus size={14} /> Add Task
+              </button>
+            </div>
+          )}
         </div>
 
         <SectionCard padding={0}>

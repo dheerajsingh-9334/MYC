@@ -4,8 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, getUser } from '@/lib/api';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
-import AddClientModal from '@/components/pipeline/AddClientModal';
-import CSVImportModal from '@/components/ui/CSVImportModal';
 import DashboardHeader from '@/components/ui/DashboardHeader';
 import StatCard from '@/components/ui/StatCard';
 import SectionCard from '@/components/ui/SectionCard';
@@ -39,8 +37,6 @@ export default function ClientsPage() {
       </AppLayout>
     );
   }
-  const [showModal, setShowModal] = useState(false);
-  const [showCSVModal, setShowCSVModal] = useState(false);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
@@ -68,39 +64,6 @@ export default function ClientsPage() {
       window.dispatchEvent(new Event('pinned-updated'));
     } catch (err) {}
   };
-
-  // Export states
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [exportType, setExportType] = useState('clients');
-  const [exportFormat, setExportFormat] = useState('csv');
-  const [expStartDate, setExpStartDate] = useState('');
-  const [expEndDate, setExpEndDate] = useState('');
-  const [expStepId, setExpStepId] = useState('');
-  const [expStatus, setExpStatus] = useState('');
-  const [expTeam, setExpTeam] = useState('');
-  const [expAssignedToId, setExpAssignedToId] = useState('');
-  const [expPriority, setExpPriority] = useState('');
-  const [expCompleted, setExpCompleted] = useState('all');
-  const [expIncludeArchived, setExpIncludeArchived] = useState(false);
-
-  // Queries for export dropdown filters
-  const { data: stepsList = [] } = useQuery({
-    queryKey: ['steps'],
-    queryFn: () => apiFetch('/api/steps'),
-    retry: false,
-  });
-
-  const { data: teamsList = [] } = useQuery({
-    queryKey: ['teams'],
-    queryFn: () => apiFetch('/api/teams'),
-    retry: false,
-  });
-
-  const { data: usersList = [] } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => apiFetch('/api/users'),
-    retry: false,
-  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -286,43 +249,6 @@ export default function ClientsPage() {
         subtitle={`${allClients.filter((c: any) => c.status === 'active').length} active clients · ${allClients.length} total`}
         search={search}
         setSearch={setSearch}
-        showAddClient={isAdmin}
-        onAddClient={() => setShowModal(true)}
-        renderActions={() => isAdmin && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={() => {
-                setExportType('clients');
-                setShowExportModal(true);
-              }}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                color: 'var(--ink-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--soft)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-            >
-              <Download size={14} /> Export Clients
-            </button>
-            <button
-              onClick={() => setShowCSVModal(true)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                color: 'var(--ink-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.borderColor = 'var(--soft)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-            >
-              Upload CSV
-            </button>
-          </div>
-        )}
       />
       <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
@@ -657,174 +583,7 @@ export default function ClientsPage() {
         </SectionCard>
       </div>
 
-      <AddClientModal
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        onSuccess={() => qc.invalidateQueries({ queryKey: ['clients'] })}
-      />
-      <CSVImportModal
-        open={showCSVModal}
-        onClose={() => setShowCSVModal(false)}
-        onSuccess={() => {
-          qc.invalidateQueries({ queryKey: ['clients'] });
-          qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
-        }}
-        endpoint="/api/clients/import"
-        title="Import Clients from CSV"
-        templateLabel="Clients"
-        templateColumns={['client_name', 'current_step_number', 'email', 'whatsapp', 'date_joined']}
-      />
 
-      {/* ── EXPORT MODAL ── */}
-      {showExportModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
-          onClick={e => { if (e.target === e.currentTarget) setShowExportModal(false); }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 700, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' }}>
-            
-            {/* Modal header */}
-            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Export Clients Report</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>Filter and download detailed reports for clients in CSV or PDF.</div>
-              </div>
-              <button onClick={() => setShowExportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Modal body */}
-            <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }}>
-              
-              {/* Select export type */}
-              <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 8 }}>Select Export Format</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-                  {[
-                    { type: 'clients', label: 'Clients List', desc: 'Summary list of onboarding details' },
-                    { type: 'projects', label: 'Projects Portfolio', desc: 'Status, priority, manager, and completion rates' },
-                    { type: 'tasks', label: 'Tasks List', desc: 'Detailed task assignments, due dates, and statuses' },
-                    { type: 'client_full', label: 'Client Full Report', desc: 'Task counts & active steps' }
-                  ].map((item) => (
-                    <button
-                      key={item.type}
-                      onClick={() => setExportType(item.type)}
-                      style={{
-                        textAlign: 'left',
-                        padding: '12px 14px',
-                        borderRadius: 'var(--radius)',
-                        border: `1.5px solid ${exportType === item.type ? 'var(--olive)' : 'var(--border)'}`,
-                        background: exportType === item.type ? 'var(--olive-50)' : 'var(--surface)',
-                        cursor: 'pointer',
-                        transition: 'all 0.15s'
-                      }}
-                    >
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.label}</div>
-                      <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>{item.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Filters Section */}
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 18, marginTop: 18 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Filter Options</div>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Onboarded After</label>
-                    <input type="date" value={expStartDate} onChange={e => setExpStartDate(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Onboarded Before</label>
-                    <input type="date" value={expEndDate} onChange={e => setExpEndDate(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }} />
-                  </div>
-
-                  {/* Step Filter */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Current Step</label>
-                    <select value={expStepId} onChange={e => setExpStepId(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
-                      <option value="">All Steps</option>
-                      {stepsList.map((s: any) => (
-                        <option key={s.id} value={s.id}>Step {s.stepNumber}: {s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Status Filter */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Client Status</label>
-                    <select value={expStatus} onChange={e => setExpStatus(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
-                      <option value="">All Statuses</option>
-                      <option value="active">Active</option>
-                      <option value="completed">Completed</option>
-                      <option value="churned">Churned / Archived</option>
-                    </select>
-                  </div>
-
-                  {/* Include Archived checkbox */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 22, gridColumn: 'span 2' }}>
-                    <input type="checkbox" id="expIncludeArchived" checked={expIncludeArchived} onChange={e => setExpIncludeArchived(e.target.checked)}
-                      style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--olive)' }} />
-                    <label htmlFor="expIncludeArchived" style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ink-2)', cursor: 'pointer' }}>Include Archived / Churned Clients</label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Modal footer */}
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 12, flexShrink: 0, background: 'var(--surface-2)' }}>
-              <button onClick={() => setShowExportModal(false)}
-                style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
-                Cancel
-              </button>
-              <button onClick={() => { setExportFormat('csv'); setTimeout(() => {
-                const params = new URLSearchParams();
-                params.set('format', 'csv');
-                params.set('type', exportType);
-                if (expStartDate) params.set('startDate', expStartDate);
-                if (expEndDate) params.set('endDate', expEndDate);
-                if (expStepId) params.set('stepId', expStepId);
-                if (expStatus) params.set('status', expStatus);
-                if (expIncludeArchived) params.set('includeArchived', 'true');
-                const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
-                if (token) params.set('token', token);
-                const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${exportType}_export_${Date.now()}.csv`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }, 50); }}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
-                <Download size={14} /> Download CSV
-              </button>
-              <button onClick={() => { setExportFormat('pdf'); setTimeout(() => {
-                const params = new URLSearchParams();
-                params.set('format', 'pdf');
-                params.set('type', exportType);
-                if (expStartDate) params.set('startDate', expStartDate);
-                if (expEndDate) params.set('endDate', expEndDate);
-                if (expStepId) params.set('stepId', expStepId);
-                if (expStatus) params.set('status', expStatus);
-                if (expIncludeArchived) params.set('includeArchived', 'true');
-                const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
-                if (token) params.set('token', token);
-                const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
-                window.open(url, '_blank');
-              }, 50); }}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-                <Download size={14} /> Print PDF Report
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
       <style>{`tr:hover .row-stripe { transform: scaleY(1) !important; }`}</style>
     </AppLayout>
   );

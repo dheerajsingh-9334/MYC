@@ -415,81 +415,35 @@ export default function AdminDashboard() {
       <Topbar
         title="Admin Dashboard"
         subtitle="Org-wide view · Tasks, teams, performance"
-        showAddClient={true}
-        onAddClient={() => router.push('/onboarding')}
-        renderActions={() => (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              onClick={() => setShowBroadcastModal(true)}
-              title="Broadcast Announcement"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                height: 32,
-                padding: '0 10px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'rgba(220, 38, 38, 0.08)',
-                border: '1px solid rgba(220, 38, 38, 0.2)',
-                color: 'var(--red)',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
-            >
-              <Megaphone size={12} /> Broadcast
-            </button>
-            <button
-              onClick={() => {
-                setExportType('client_full');
-                setShowExportModal(true);
-              }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 14px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                color: 'var(--ink-2)',
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-            >
-              <Download size={14} /> Export Reports
-            </button>
-            <button
-              onClick={toggleTheme}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 36,
-                height: 36,
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--surface-2)',
-                border: '1px solid var(--border)',
-                color: 'var(--ink-2)',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              title="Toggle theme"
-            >
-              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-          </div>
-        )}
       />
 
       <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        
+        {/* Page Actions */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: -4 }}>
+          <button
+            onClick={() => setShowBroadcastModal(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 32,
+              padding: '0 14px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(220, 38, 38, 0.08)',
+              border: '1px solid rgba(220, 38, 38, 0.2)',
+              color: 'var(--red)',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
+          >
+            <Megaphone size={13} /> Broadcast Announcement
+          </button>
+        </div>
         
         {/* 3 Stat Cards in a row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>

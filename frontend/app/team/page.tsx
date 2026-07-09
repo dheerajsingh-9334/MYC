@@ -230,22 +230,48 @@ export default function TeamPage() {
         subtitle={`${active.length} active member${active.length !== 1 ? 's' : ''}`} 
         search={search}
         setSearch={setSearch}
-        showAddClient={isAdmin}
-        actionLabel="Add Member"
-        onAddClient={() => setShowModal(true)}
-        renderActions={() => (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button onClick={expandAll} style={btnSecondary}>Expand all</button>
-            <button onClick={collapseAll} style={btnSecondary}>Collapse all</button>
-            {isAdmin && (
-              <button onClick={() => setShowCreateTeam(true)} style={{ ...btnSecondary, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                <Plus size={13} /> New Team
-              </button>
-            )}
-          </div>
-        )}
       />
       <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
+
+        {/* Actions bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={expandAll} style={btnSecondary}>Expand all</button>
+            <button onClick={collapseAll} style={btnSecondary}>Collapse all</button>
+          </div>
+          {isAdmin && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                onClick={() => setShowCreateTeam(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  color: 'var(--ink-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+              >
+                <Plus size={13} /> New Team
+              </button>
+              <button
+                onClick={() => setShowModal(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--olive)', color: '#fff', border: 'none',
+                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
+              >
+                <Plus size={13} /> Add Member
+              </button>
+            </div>
+          )}
+        </div>
 
         {/* File-based tree */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
