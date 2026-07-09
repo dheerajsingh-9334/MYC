@@ -1118,12 +1118,9 @@ function StaffTaskRow({
   };
 
   return (
-    <tr style={{
-      borderBottom: '1px solid var(--surface-2)',
-      background: t.isAlerted ? 'rgba(220, 38, 38, 0.02)' : rej ? '#FBEEF105' : 'transparent'
-    }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = t.isAlerted ? 'rgba(220, 38, 38, 0.05)' : 'var(--olive-50)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = t.isAlerted ? 'rgba(220, 38, 38, 0.02)' : rej ? '#FBEEF105' : 'transparent'; }}>
+    <tr style={{ borderBottom: '1px solid var(--surface-2)', background: rej ? '#FBEEF105' : 'transparent' }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = rej ? '#FBEEF105' : 'transparent'; }}>
       <td style={{ padding: '10px 18px', verticalAlign: 'middle', minWidth: 240 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
@@ -1133,7 +1130,7 @@ function StaffTaskRow({
               background: 'none',
               padding: 4,
               cursor: 'pointer',
-              color: pinned ? '#2860A1' : 'var(--border)',
+              color: pinned ? 'var(--olive)' : 'var(--border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1141,7 +1138,7 @@ function StaffTaskRow({
             }}
             title={pinned ? "Unpin task" : "Pin task"}
           >
-            <Pin size={13} style={{ fill: pinned ? '#2860A1' : 'none', transform: 'rotate(45deg)' }} />
+            <Pin size={13} style={{ fill: pinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
           </button>
           {t.priority === 'high' && <span style={{ width: 4, height: 22, borderRadius: 2, background: 'var(--red)' }} />}
           <div style={{ minWidth: 0 }}>
@@ -1149,44 +1146,6 @@ function StaffTaskRow({
               <div style={{ fontSize: 13, fontWeight: 600, color: done ? 'var(--muted)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {t.title}
               </div>
-              {t.isAlerted && (
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 3,
-                  padding: '1px 5px',
-                  borderRadius: 4,
-                  fontSize: 9,
-                  fontWeight: 700,
-                  background: 'rgba(220, 38, 38, 0.1)',
-                  color: 'var(--red)',
-                  border: '1px solid rgba(220, 38, 38, 0.2)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  whiteSpace: 'nowrap'
-                }}>
-                  <AlertCircle size={9} /> Alerted
-                </span>
-              )}
-              {pinned && (
-                <span style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 3,
-                  padding: '1px 5px',
-                  borderRadius: 4,
-                  fontSize: 9,
-                  fontWeight: 700,
-                  background: 'rgba(40, 96, 161, 0.1)',
-                  color: '#2860A1',
-                  border: '1px solid rgba(40, 96, 161, 0.2)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  whiteSpace: 'nowrap'
-                }}>
-                  <Pin size={9} style={{ transform: 'rotate(45deg)' }} /> Pinned
-                </span>
-              )}
             </div>
             {t.step && (
               <div style={{ fontSize: 11, color: 'var(--muted)' }}>Step {String(t.step.stepNumber).padStart(2, '0')} · {t.step.name}</div>

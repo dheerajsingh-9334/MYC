@@ -697,7 +697,7 @@ export default function StaffDashboard() {
         </div>
 
         {/* Bottom Split Layout: 70% Tasks (Left) and 30% Calendar (Right) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '7fr 3fr', gap: 16, alignItems: 'start', flex: 1 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '7fr 3fr', gap: 16, alignItems: 'stretch', flex: 1 }}>
           
           {/* Left 70% Column */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
