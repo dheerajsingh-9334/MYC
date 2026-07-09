@@ -16,7 +16,7 @@ import {
   Search, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown,
   ArrowUpDown, CircleCheck, Clock, TriangleAlert, Eye,
   Check, X, FolderOpen, Link2, Upload, FileText, Plus, ExternalLink, AlertCircle,
-  Play, Pause, Pin,
+  Play, Pause, Pin, Ban,
 } from 'lucide-react';
 
 const AUTO_REFRESH_MS = 30_000;
@@ -1246,14 +1246,16 @@ function StaffTaskRow({
               <option value="pending">Pending</option>
               <option value="in_progress">In Progress</option>
               <option value="complete">Complete...</option>
-              <option value="blocked">Blocked...</option>
               <option value="extension_requested">Request Extension...</option>
             </select>
           )}
-          {isAdmin && !done && (
+          {isAdmin && !done && t.status !== 'blocked' && (
+            <IconBtn title="Block Task" onClick={() => onBlock?.()}><Ban size={11} /></IconBtn>
+          )}
+          {isAdmin && !done && t.status === 'extension_requested' && (
             <IconBtn title="Reject" onClick={onReject}><XCircle size={11} /></IconBtn>
           )}
-          {rej && isAdmin && (
+          {isAdmin && t.status === 'blocked' && (
             <IconBtn title="Reopen" onClick={onReopen}><RotateCcw size={11} /></IconBtn>
           )}
           <IconBtn title="Open client" onClick={() => window.location.assign(`/clients/${t.client?.id}`)}><Eye size={11} /></IconBtn>
