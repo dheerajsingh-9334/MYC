@@ -26,7 +26,7 @@ interface AdminData {
   teams: Array<{ teamName: string; memberCount: number; leadCount: number; activeTasks: number; overdue: number; blocked: number; completedLast7d: number; }>;
   members: Array<{ userId: string; name: string; team: string; role: string; active: number; overdue: number; blocked: number; completedLast7d: number; }>;
   stepRollup: Array<{ stepId: string; stepNumber: number; name: string; owningTeamName: string; activeTasks: number; overdue: number; blocked: number; completedLast7d: number; averageDurationDays?: number; }>;
-  recentCompletions: Array<{ id: string; title: string; completedAt: string; assignee: string; team: string; client: string; step: string; }>;
+  recentCompletions: Array<{ id: string; title: string; completedAt: string; assignee: string; team: string; client: string; step: string; action?: string; }>;
   pendingExtensions?: Array<{ id: string; title: string; dueDate: string; extensionRequestedDate: string; extensionReason: string; assignee: string; team: string; client: string; step: string; }>;
 }
 
@@ -111,6 +111,16 @@ export default function AdminDashboard() {
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-dashboard'] });
+    },
+  });
+
+  const clearNotifsMut = useMutation({
+    mutationFn: () => {
+      if (USE_MOCK) return Promise.resolve();
+      return apiFetch('/api/notifications/clear-all', { method: 'DELETE' });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-notifications'] });
     },
   });
 
@@ -469,22 +479,52 @@ export default function AdminDashboard() {
                       {scrollableActivity.length === 0 ? (
                         <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No recent activities found.</div>
                       ) : (
-                        scrollableActivity.map((c) => (
-                          <div key={c.id} style={{ display: 'flex', gap: 12, padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', alignItems: 'flex-start' }}>
-                            <span style={{ fontSize: 16, marginTop: 16 }}>✅</span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 500 }}>
-                                {c.assignee} completed <strong style={{ color: 'var(--ink-2)' }}>{c.title}</strong>
+                        scrollableActivity.map((c) => {
+                          let icon = '✅';
+                          let messageElement = (
+                            <>
+                              {c.assignee} completed <strong style={{ color: 'var(--ink-2)' }}>{c.title}</strong>
+                            </>
+                          );
+                          if (c.action === 'created') {
+                            icon = '➕';
+                            messageElement = (
+                              <>
+                                {c.assignee} was assigned task <strong style={{ color: 'var(--ink-2)' }}>{c.title}</strong>
+                              </>
+                            );
+                          } else if (c.action === 'in_progress') {
+                            icon = '⚡';
+                            messageElement = (
+                              <>
+                                {c.assignee} started task <strong style={{ color: 'var(--ink-2)' }}>{c.title}</strong>
+                              </>
+                            );
+                          } else if (c.action === 'blocked') {
+                            icon = '🚫';
+                            messageElement = (
+                              <>
+                                Task <strong style={{ color: 'var(--ink-2)' }}>{c.title}</strong> was blocked
+                              </>
+                            );
+                          }
+                          return (
+                            <div key={c.id} style={{ display: 'flex', gap: 12, padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', alignItems: 'flex-start' }}>
+                              <span style={{ fontSize: 15, marginTop: 2 }}>{icon}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 500 }}>
+                                  {messageElement}
+                                </div>
+                                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                                  {c.client} · {c.step}
+                                </div>
                               </div>
-                              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 16 }}>
-                                {c.client} · {c.step}
-                              </div>
+                              <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                                {c.completedAt ? format(new Date(c.completedAt), 'd MMM, HH:mm') : ''}
+                              </span>
                             </div>
-                            <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                              {c.completedAt ? format(new Date(c.completedAt), 'd MMM, HH:mm') : ''}
-                            </span>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -493,9 +533,20 @@ export default function AdminDashboard() {
                 {/* 4. NOTIFICATIONS TAB */}
                 {opTab === 'Notifications' && (
                   <div>
-                    {/* Alert Heading */}
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
-                      Latest alerts for your account
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        Latest alerts for your account
+                      </div>
+                      <button
+                        onClick={() => clearNotifsMut.mutate()}
+                        disabled={clearNotifsMut.isPending || scrollableNotifications.length === 0}
+                        style={{
+                          background: 'none', border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+                          fontSize: 11.5, fontWeight: 600, color: 'var(--ink-2)', cursor: 'pointer'
+                        }}
+                      >
+                        {clearNotifsMut.isPending ? 'Clearing...' : 'Clear All'}
+                      </button>
                     </div>
 
                     {/* Notifications list */}

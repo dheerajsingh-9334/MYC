@@ -90,13 +90,14 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         select: { id: true, name: true, stepNumber: true, owningTeamName: true },
       }),
       prisma.task.findMany({
-        where: { organisationId: orgId, status: 'complete' },
-        orderBy: { completedAt: 'desc' },
-        take: 50,
+        where: { organisationId: orgId },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
         include: {
           assignedTo: { select: { fullName: true } },
           client: { select: { brandName: true, fullName: true } },
           step: { select: { name: true, owningTeamName: true } },
+          completedBy: { select: { fullName: true } },
         },
       }),
       prisma.client.findMany({
@@ -283,6 +284,66 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       };
     });
 
+    const logs: any[] = [];
+    (recentCompletions as any[]).forEach((t: any) => {
+      logs.push({
+        id: `${t.id}-created`,
+        title: t.title,
+        completedAt: t.createdAt,
+        assignee: t.assignedTo?.fullName || 'Unassigned',
+        team: t.step?.owningTeamName || '(Unassigned)',
+        client: t.client?.brandName || t.client?.fullName || 'General',
+        step: t.step?.name || 'Task Created',
+        action: 'created',
+        message: `${t.assignedTo?.fullName || 'Unassigned'} was assigned task "${t.title}"`
+      });
+
+      if (t.inProgressAt) {
+        logs.push({
+          id: `${t.id}-inprogress`,
+          title: t.title,
+          completedAt: t.inProgressAt,
+          assignee: t.assignedTo?.fullName || 'Unassigned',
+          team: t.step?.owningTeamName || '(Unassigned)',
+          client: t.client?.brandName || t.client?.fullName || 'General',
+          step: t.step?.name || 'Task Started',
+          action: 'in_progress',
+          message: `${t.assignedTo?.fullName || 'Unassigned'} started task "${t.title}"`
+        });
+      }
+
+      if (t.completedAt) {
+        logs.push({
+          id: `${t.id}-completed`,
+          title: t.title,
+          completedAt: t.completedAt,
+          assignee: t.completedBy?.fullName || t.assignedTo?.fullName || 'Unassigned',
+          team: t.step?.owningTeamName || '(Unassigned)',
+          client: t.client?.brandName || t.client?.fullName || 'General',
+          step: t.step?.name || 'Task Completed',
+          action: 'completed',
+          message: `${t.completedBy?.fullName || t.assignedTo?.fullName || 'Unassigned'} completed task "${t.title}"`
+        });
+      }
+
+      if (t.status === 'blocked') {
+        logs.push({
+          id: `${t.id}-blocked`,
+          title: t.title,
+          completedAt: t.createdAt,
+          assignee: t.assignedTo?.fullName || 'Unassigned',
+          team: t.step?.owningTeamName || '(Unassigned)',
+          client: t.client?.brandName || t.client?.fullName || 'General',
+          step: t.step?.name || 'Task Blocked',
+          action: 'blocked',
+          message: `Task "${t.title}" was blocked`
+        });
+      }
+    });
+
+    logs.sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
+    const finalRecentCompletions = logs.slice(0, 50);
+
     res.json({
       orgStats: {
         totalClients,
@@ -301,15 +362,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       teams,
       members,
       stepRollup,
-      recentCompletions: recentCompletions.map((t) => ({
-        id: t.id,
-        title: t.title,
-        completedAt: t.completedAt,
-        assignee: t.assignedTo?.fullName,
-        team: t.step?.owningTeamName || '(Unassigned)',
-        client: t.client?.brandName || t.client?.fullName,
-        step: t.step?.name || 'Task Complete',
-      })),
+      recentCompletions: finalRecentCompletions,
       pendingExtensions: extensionTasks.map((t) => ({
         id: t.id,
         title: t.title,

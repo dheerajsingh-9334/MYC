@@ -382,6 +382,9 @@ export default function StandupPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {Object.entries(groupedItems).map(([groupKey, groupItems]) => {
               const initials = groupKey.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+              const firstItem = groupItems[0];
+              const clientId = firstItem?.clientId;
+              const clientPinned = firstItem?.clientPinned;
               return (
                 <div key={groupKey} style={{ display: 'flex', flexDirection: 'column' }}>
                   {/* Group Header */}
@@ -415,6 +418,42 @@ export default function StandupPage() {
                     <span style={badgeStyle(isPerClient ? '#EBF3FB' : 'var(--olive-50)', isPerClient ? '#2860A1' : 'var(--olive-dark)', `${groupItems.length} alert${groupItems.length > 1 ? 's' : ''}`)}>
                       {groupItems.length} Alert{groupItems.length > 1 ? 's' : ''}
                     </span>
+                    {isPerClient && clientId && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePinClient(clientId, localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned);
+                        }}
+                        style={{
+                          marginLeft: 'auto',
+                          padding: '4px 8px',
+                          borderRadius: 4,
+                          fontSize: 11,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          background: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#2860A1' : 'var(--surface)',
+                          color: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#fff' : 'var(--ink)',
+                          border: `1px solid ${(localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#2860A1' : 'var(--border)'}`,
+                          transition: 'all 0.12s'
+                        }}
+                        onMouseEnter={e => {
+                          const isPinned = (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned);
+                          if (!isPinned) {
+                            e.currentTarget.style.background = 'var(--surface-3)';
+                            e.currentTarget.style.borderColor = 'var(--soft)';
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          const isPinned = (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned);
+                          if (!isPinned) {
+                            e.currentTarget.style.background = 'var(--surface)';
+                            e.currentTarget.style.borderColor = 'var(--border)';
+                          }
+                        }}
+                      >
+                        {(localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? 'Pinned Client' : 'Pin Client'}
+                      </button>
+                    )}
                   </div>
 
                   {/* Group Table */}
@@ -509,34 +548,6 @@ export default function StandupPage() {
                                   >
                                     {isHighlighted ? 'Alerted' : 'Alert'}
                                   </button>
-                                  {item.clientId && (
-                                     <button
-                                       onClick={() => handlePinClient(item.clientId, localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned)}
-                                       style={{
-                                         padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                                         background: (localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned) ? '#2860A1' : 'var(--surface)',
-                                         color: (localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned) ? '#fff' : 'var(--ink)',
-                                         border: `1px solid ${(localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned) ? '#2860A1' : 'var(--border)'}`,
-                                         transition: 'all 0.12s'
-                                       }}
-                                       onMouseEnter={e => {
-                                         const isPinned = (localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned);
-                                         if (!isPinned) {
-                                           e.currentTarget.style.background = 'var(--surface-2)';
-                                           e.currentTarget.style.borderColor = 'var(--soft)';
-                                         }
-                                       }}
-                                       onMouseLeave={e => {
-                                         const isPinned = (localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned);
-                                         if (!isPinned) {
-                                           e.currentTarget.style.background = 'var(--surface)';
-                                           e.currentTarget.style.borderColor = 'var(--border)';
-                                         }
-                                       }}
-                                     >
-                                       {(localClientPinned[item.clientId] !== undefined ? localClientPinned[item.clientId] : !!item.clientPinned) ? 'Pinned Client' : 'Pin Client'}
-                                     </button>
-                                   )}
                                   <button
                                     onClick={() => handleIgnore(item.id)}
                                     style={{

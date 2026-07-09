@@ -697,7 +697,7 @@ export default function StaffDashboard() {
         </div>
 
         {/* Bottom Split Layout: 70% Tasks (Left) and 30% Calendar (Right) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '7fr 3fr', gap: 16, alignItems: 'stretch', flex: 1 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '7fr 3fr', gap: 16, alignItems: 'start', flex: 1 }}>
           
           {/* Left 70% Column */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
@@ -1089,7 +1089,7 @@ export default function StaffDashboard() {
                       No team members found.
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, minHeight: 220, overflowY: 'auto', paddingRight: 4 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto', paddingRight: 4 }}>
                       {filteredTeamMembers.map((m: any) => {
                         const activeTasksCount = teamTasks.filter((t: any) => t.assignedToId === m.id && t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length;
                         const overdueTasksCount = teamTasks.filter((t: any) => {
