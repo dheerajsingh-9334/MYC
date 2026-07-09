@@ -690,8 +690,8 @@ export default function TasksPage() {
                       <Th onClick={() => toggleSort('team')} active={sortKey === 'team'} dir={sortDir}>Team</Th>
                       <Th onClick={() => toggleSort('status')} active={sortKey === 'status'} dir={sortDir}>Status</Th>
                       <Th onClick={() => toggleSort('dueDate')} active={sortKey === 'dueDate'} dir={sortDir}>When (due)</Th>
-                      <Th>Actions</Th>
-                      <Th>Vault</Th>
+                      <Th align="center">Actions</Th>
+                      <Th align="center">Vault</Th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1118,9 +1118,12 @@ function StaffTaskRow({
   };
 
   return (
-    <tr style={{ borderBottom: '1px solid var(--surface-2)', background: rej ? '#FBEEF105' : 'transparent' }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = rej ? '#FBEEF105' : 'transparent'; }}>
+    <tr style={{
+      borderBottom: '1px solid var(--surface-2)',
+      background: t.isAlerted ? 'rgba(220, 38, 38, 0.02)' : rej ? '#FBEEF105' : 'transparent'
+    }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = t.isAlerted ? 'rgba(220, 38, 38, 0.05)' : 'var(--olive-50)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = t.isAlerted ? 'rgba(220, 38, 38, 0.02)' : rej ? '#FBEEF105' : 'transparent'; }}>
       <td style={{ padding: '10px 18px', verticalAlign: 'middle', minWidth: 240 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
@@ -1130,7 +1133,7 @@ function StaffTaskRow({
               background: 'none',
               padding: 4,
               cursor: 'pointer',
-              color: pinned ? 'var(--olive)' : 'var(--border)',
+              color: pinned ? '#2860A1' : 'var(--border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1138,12 +1141,52 @@ function StaffTaskRow({
             }}
             title={pinned ? "Unpin task" : "Pin task"}
           >
-            <Pin size={13} style={{ fill: pinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+            <Pin size={13} style={{ fill: pinned ? '#2860A1' : 'none', transform: 'rotate(45deg)' }} />
           </button>
           {t.priority === 'high' && <span style={{ width: 4, height: 22, borderRadius: 2, background: 'var(--red)' }} />}
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: done ? 'var(--muted)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t.title}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: done ? 'var(--muted)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {t.title}
+              </div>
+              {t.isAlerted && (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  padding: '1px 5px',
+                  borderRadius: 4,
+                  fontSize: 9,
+                  fontWeight: 700,
+                  background: 'rgba(220, 38, 38, 0.1)',
+                  color: 'var(--red)',
+                  border: '1px solid rgba(220, 38, 38, 0.2)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  <AlertCircle size={9} /> Alerted
+                </span>
+              )}
+              {pinned && (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  padding: '1px 5px',
+                  borderRadius: 4,
+                  fontSize: 9,
+                  fontWeight: 700,
+                  background: 'rgba(40, 96, 161, 0.1)',
+                  color: '#2860A1',
+                  border: '1px solid rgba(40, 96, 161, 0.2)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  <Pin size={9} style={{ transform: 'rotate(45deg)' }} /> Pinned
+                </span>
+              )}
             </div>
             {t.step && (
               <div style={{ fontSize: 11, color: 'var(--muted)' }}>Step {String(t.step.stepNumber).padStart(2, '0')} · {t.step.name}</div>
@@ -1212,8 +1255,8 @@ function StaffTaskRow({
         {!done && !rej && (overdue ? <TriangleAlert size={11} style={{ display: 'inline', marginRight: 4 }} /> : today ? <Clock size={11} style={{ display: 'inline', marginRight: 4 }} /> : null)}
         {whenLabel}
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle' }}>
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
           {!isAdmin && !done && (
             <select
               value={t.status}
@@ -1261,10 +1304,12 @@ function StaffTaskRow({
           <IconBtn title="Open client" onClick={() => window.location.assign(`/clients/${t.client?.id}`)}><Eye size={11} /></IconBtn>
         </div>
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle' }}>
-        <IconBtn title="Documents" onClick={onOpenVault}>
-          <FolderOpen size={11} />
-        </IconBtn>
+      <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', justifyContent: 'center', width: '100%' }}>
+          <IconBtn title="Documents" onClick={onOpenVault}>
+            <FolderOpen size={11} />
+          </IconBtn>
+        </div>
       </td>
     </tr>
   );
@@ -1346,15 +1391,15 @@ function TaskTimer({
   );
 }
 
-function Th({ children, onClick, active, dir }: { children: React.ReactNode; onClick?: () => void; active?: boolean; dir?: 'asc' | 'desc' }) {
+function Th({ children, onClick, active, dir, align = 'left' }: { children: React.ReactNode; onClick?: () => void; active?: boolean; dir?: 'asc' | 'desc'; align?: 'left' | 'center' | 'right' }) {
   return (
     <th onClick={onClick}
       style={{
-        textAlign: 'left', fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase',
+        textAlign: align, fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase',
         color: active ? 'var(--olive)' : 'var(--muted)', padding: '10px 18px', borderBottom: '1px solid var(--border)',
         cursor: onClick ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap',
       }}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: align === 'center' ? 'center' : 'flex-start', width: align === 'center' ? '100%' : 'auto' }}>
         {children}
         {active && <ArrowUpDown size={10} style={{ transform: dir === 'desc' ? 'rotate(180deg)' : 'none' }} />}
       </span>

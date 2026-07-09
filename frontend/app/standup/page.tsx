@@ -16,7 +16,8 @@ import {
   Users,
   GitBranch,
   AlertCircle,
-  Pin
+  Pin,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -425,22 +426,31 @@ export default function StandupPage() {
                           handlePinClient(clientId, localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned);
                         }}
                         style={{
-                          marginLeft: 8,
-                          padding: '4px 8px',
-                          borderRadius: 4,
+                          marginLeft: 12,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '6px 12px',
+                          borderRadius: 6,
                           fontSize: 11,
-                          fontWeight: 600,
+                          fontWeight: 700,
                           cursor: 'pointer',
-                          background: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#2860A1' : 'var(--surface)',
-                          color: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#fff' : 'var(--ink)',
-                          border: `1px solid ${(localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#2860A1' : 'var(--border)'}`,
-                          transition: 'all 0.12s'
+                          background: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) 
+                            ? 'linear-gradient(135deg, #1e40af, #2860A1)' 
+                            : 'var(--surface)',
+                          color: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#fff' : 'var(--ink-2)',
+                          border: `1px solid ${(localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#1e40af' : 'var(--border)'}`,
+                          boxShadow: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '0 2px 4px rgba(40,96,161,0.2)' : 'none',
+                          transition: 'all 0.2s',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
                         }}
                         onMouseEnter={e => {
                           const isPinned = (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned);
                           if (!isPinned) {
-                            e.currentTarget.style.background = 'var(--surface-3)';
-                            e.currentTarget.style.borderColor = 'var(--soft)';
+                            e.currentTarget.style.background = 'rgba(40, 96, 161, 0.05)';
+                            e.currentTarget.style.borderColor = '#2860A1';
+                            e.currentTarget.style.color = '#2860A1';
                           }
                         }}
                         onMouseLeave={e => {
@@ -448,9 +458,11 @@ export default function StandupPage() {
                           if (!isPinned) {
                             e.currentTarget.style.background = 'var(--surface)';
                             e.currentTarget.style.borderColor = 'var(--border)';
+                            e.currentTarget.style.color = 'var(--ink-2)';
                           }
                         }}
                       >
+                        <Pin size={11} style={{ fill: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#fff' : 'none', transform: 'rotate(45deg)', flexShrink: 0 }} />
                         {(localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? 'Pinned Client' : 'Pin Client'}
                       </button>
                     )}
@@ -470,7 +482,7 @@ export default function StandupPage() {
                           </th>
                           <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '25%' }}>CURRENT STEP & TIMING</th>
                           <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '10%' }}>ALERT TYPE</th>
-                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'right', width: '10%' }}>ACTIONS</th>
+                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center', width: '20%' }}>ACTIONS</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -522,43 +534,69 @@ export default function StandupPage() {
                                   {s.tag(item)}
                                 </div>
                               </td>
-                              <td style={{ padding: '10px 18px', verticalAlign: 'top', textAlign: 'right' }}>
-                                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center' }}>
+                                <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'center', width: '100%' }} onClick={e => e.stopPropagation()}>
                                   <button
                                     onClick={() => handleHighlight(item.id)}
                                     style={{
-                                      padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                                      background: isHighlighted ? 'var(--amber)' : 'var(--surface)',
-                                      color: isHighlighted ? '#fff' : 'var(--ink)',
-                                      border: `1px solid ${isHighlighted ? 'var(--amber)' : 'var(--border)'}`,
-                                      transition: 'all 0.12s'
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      padding: '6px 12px',
+                                      borderRadius: 6,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      background: isHighlighted 
+                                        ? 'linear-gradient(135deg, var(--red), #dc2626)' 
+                                        : 'var(--surface)',
+                                      color: isHighlighted ? '#fff' : 'var(--ink-2)',
+                                      border: `1px solid ${isHighlighted ? '#dc2626' : 'var(--border)'}`,
+                                      boxShadow: isHighlighted ? '0 2px 4px rgba(220,38,38,0.2)' : 'none',
+                                      transition: 'all 0.2s',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.5px'
                                     }}
                                     onMouseEnter={e => {
                                       if (!isHighlighted) {
-                                        e.currentTarget.style.background = 'var(--surface-2)';
-                                        e.currentTarget.style.borderColor = 'var(--soft)';
+                                        e.currentTarget.style.background = 'rgba(220, 38, 38, 0.05)';
+                                        e.currentTarget.style.borderColor = 'var(--red)';
+                                        e.currentTarget.style.color = 'var(--red)';
                                       }
                                     }}
                                     onMouseLeave={e => {
                                       if (!isHighlighted) {
                                         e.currentTarget.style.background = 'var(--surface)';
                                         e.currentTarget.style.borderColor = 'var(--border)';
+                                        e.currentTarget.style.color = 'var(--ink-2)';
                                       }
                                     }}
                                   >
+                                    <AlertCircle size={11} />
                                     {isHighlighted ? 'Alerted' : 'Alert'}
                                   </button>
                                   <button
                                     onClick={() => handleIgnore(item.id)}
                                     style={{
-                                      padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 4,
-                                      fontSize: 11, fontWeight: 500, color: 'var(--ink-2)', background: 'var(--surface)',
-                                      cursor: 'pointer', transition: 'all 0.12s'
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                      padding: '6px 12px',
+                                      border: '1px solid var(--border)',
+                                      borderRadius: 6,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      color: 'var(--ink-2)',
+                                      background: 'var(--surface)',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.5px'
                                     }}
                                     onMouseEnter={e => {
-                                      e.currentTarget.style.background = 'var(--red-bg)';
-                                      e.currentTarget.style.color = 'var(--red)';
+                                      e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)';
                                       e.currentTarget.style.borderColor = 'var(--red)';
+                                      e.currentTarget.style.color = 'var(--red)';
                                     }}
                                     onMouseLeave={e => {
                                       e.currentTarget.style.background = 'var(--surface)';
@@ -566,7 +604,8 @@ export default function StandupPage() {
                                       e.currentTarget.style.borderColor = 'var(--border)';
                                     }}
                                   >
-                                    Ignore
+                                    <Trash2 size={11} />
+                                    Dismiss
                                   </button>
                                 </div>
                               </td>
