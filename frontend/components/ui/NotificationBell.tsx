@@ -14,6 +14,8 @@ const TYPE_ICONS: Record<string, string> = {
   step_advanced:         '🎉',
   extension_request:     '⏰',
   client_status_changed: '🔄',
+  notif_alert:           '🚨',
+  highlight_broadcast:   '⭐',
 };
 
 const TYPE_BG: Record<string, string> = {
@@ -24,6 +26,8 @@ const TYPE_BG: Record<string, string> = {
   step_advanced:         '#f0f4ff',
   extension_request:     '#fffbf0',
   client_status_changed: '#f5f0ff',
+  notif_alert:           '#fff0f0',
+  highlight_broadcast:   '#fffde6',
 };
 
 export default function NotificationBell() {

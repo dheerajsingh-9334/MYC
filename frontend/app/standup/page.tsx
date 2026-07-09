@@ -49,7 +49,7 @@ export default function StandupPage() {
   const [teamFilter, setTeamFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
   
-  const [highlightedItems, setHighlightedItems] = useState<Set<string>>(new Set());
+  const [localHighlighted, setLocalHighlighted] = useState<Record<string, boolean>>({});
   const [ignoredItems, setIgnoredItems] = useState<Set<string>>(new Set());
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
@@ -66,10 +66,6 @@ export default function StandupPage() {
 
   // Load persistence from localStorage and user role
   useEffect(() => {
-    const savedHighlights = localStorage.getItem('standup_highlighted');
-    if (savedHighlights) {
-      setHighlightedItems(new Set(JSON.parse(savedHighlights)));
-    }
     const savedIgnored = localStorage.getItem('standup_ignored');
     if (savedIgnored) {
       setIgnoredItems(new Set(JSON.parse(savedIgnored)));
@@ -117,6 +113,9 @@ export default function StandupPage() {
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['standup'] });
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      window.dispatchEvent(new Event('pinned-updated'));
     }
   });
 
@@ -147,6 +146,8 @@ export default function StandupPage() {
         assigneeTeam,
         dueDate: it.task?.dueDate,
         createdAt: it.task?.createdAt,
+        isAlerted: it.task?.isAlerted,
+        isPinned: it.task?.isPinned,
       };
     });
   }, [liveData]);
@@ -191,16 +192,26 @@ export default function StandupPage() {
   }, [items]);
 
   const handleHighlight = async (id: string) => {
-    const next = new Set(highlightedItems);
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
-      next.add(id);
-      // Only call the API when highlighting (not unhighlighting)
+    const currentItem = items.find((it: any) => it.id === id);
+    const currentStatus = localHighlighted[id] !== undefined 
+      ? localHighlighted[id] 
+      : (currentItem?.isAlerted || currentItem?.isPinned || false);
+    
+    const nextStatus = !currentStatus;
+    setLocalHighlighted(prev => ({
+      ...prev,
+      [id]: nextStatus
+    }));
+
+    try {
       await highlightMut.mutateAsync(id);
+    } catch (err) {
+      // Revert if error
+      setLocalHighlighted(prev => ({
+        ...prev,
+        [id]: currentStatus
+      }));
     }
-    setHighlightedItems(next);
-    localStorage.setItem('standup_highlighted', JSON.stringify(Array.from(next)));
   };
 
   const handleIgnore = (id: string) => {
@@ -404,7 +415,7 @@ export default function StandupPage() {
                         {groupItems.map((item: any) => {
                           const s = TYPE_STYLES[item.alertType] || TYPE_STYLES.due_today;
                           const { Icon } = s;
-                          const isHighlighted = highlightedItems.has(item.id);
+                           const isHighlighted = localHighlighted[item.id] !== undefined ? localHighlighted[item.id] : (item.isAlerted || item.isPinned || false);
                           return (
                             <tr
                               key={item.id}

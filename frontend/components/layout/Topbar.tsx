@@ -112,7 +112,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
       const clientsList = USE_MOCK ? MOCK_CLIENTS : allClients;
       const tasksList = USE_MOCK ? [] : allTasks;
 
-      const activePinnedClients = clientsList.filter((c: any) => clientIds.includes(c.id) && c.status !== 'completed');
+      const activePinnedClients = clientsList.filter((c: any) => (clientIds.includes(c.id) || c.isPinned === true) && c.status !== 'completed');
       const activePinnedTasks = tasksList.filter((t: any) => 
         (taskIds.includes(t.id) || t.isPinned === true) && 
         t.status !== 'complete' && 
@@ -169,12 +169,18 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
     }
   };
 
-  const unpinClient = (e: React.MouseEvent, id: string) => {
+  const unpinClient = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     try {
       const current = JSON.parse(localStorage.getItem('pinned_clients') || '[]');
       const updated = current.filter((x: string) => x !== id);
       localStorage.setItem('pinned_clients', JSON.stringify(updated));
+      
+      if (user?.role === 'admin') {
+        await apiFetch(`/api/clients/${id}/unpin`, {
+          method: 'PATCH'
+        });
+      }
       updatePinned();
       window.dispatchEvent(new Event('pinned-updated'));
     } catch (err) {}
@@ -292,7 +298,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
           </button>
 
           {/* Consistent Client Management Buttons for Admin */}
-          {user?.role === 'admin' && (
+          {user?.role === 'admin' && pathname === '/clients' && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
                 onClick={() => {

@@ -939,8 +939,8 @@ export default function AdminDashboard() {
                   style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5 }}
                 >
                   <option value="">-- Choose Team --</option>
-                  {(teamsList as any[]).map(t => (
-                    <option key={t.id} value={t.name}>{t.name}</option>
+                  {(teamsList as string[]).map(t => (
+                    <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
               </div>

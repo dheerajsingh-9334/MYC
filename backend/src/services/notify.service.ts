@@ -19,7 +19,8 @@ type NotifType =
   | 'step_advanced'
   | 'extension_request'
   | 'extension_decision'
-  | 'client_status_changed';
+  | 'client_status_changed'
+  | 'notif_alert';
 
 interface NotifPayload {
   organisationId: string;
@@ -508,6 +509,79 @@ export async function notifyClientAdded(opts: {
       message: msg,
       referenceId: clientId,
       referenceType: 'client',
+    });
+  }
+
+  await createMany(payloads);
+}
+
+/**
+ * EVENT: Task alerted by admin or leader.
+ * Notifies:
+ *   • The task's assignee                   → notif_alert
+ *   • The team_leaders of the owning team   → notif_alert
+ *   • All admins                            → notif_alert
+ */
+export async function notifyTaskAlerted(opts: {
+  organisationId: string;
+  taskTitle: string;
+  clientName: string;
+  alertedBy: string;
+  assigneeId: string | null;
+  teamName: string | null;
+  taskId: string;
+  isAlerted: boolean;
+}) {
+  const { organisationId, taskTitle, clientName, alertedBy, assigneeId, teamName, taskId, isAlerted } = opts;
+  const action = isAlerted ? 'alerted' : 'unalerted';
+  const emoji = isAlerted ? '⚠️' : '🟢';
+  const msg = `${emoji} Task "${taskTitle}" for ${clientName} has been ${action} by ${alertedBy}.`;
+
+  const payloads: NotifPayload[] = [];
+  const seen = new Set<string>();
+
+  // Assignee
+  if (assigneeId) {
+    seen.add(assigneeId);
+    payloads.push({
+      organisationId,
+      userId: assigneeId,
+      type: 'notif_alert',
+      message: msg,
+      referenceId: taskId,
+      referenceType: 'task',
+    });
+  }
+
+  // Team leaders if there is a team
+  if (teamName) {
+    const leads = await getTeamLeaders(organisationId, teamName);
+    for (const l of leads) {
+      if (seen.has(l.id)) continue;
+      seen.add(l.id);
+      payloads.push({
+        organisationId,
+        userId: l.id,
+        type: 'notif_alert',
+        message: msg,
+        referenceId: taskId,
+        referenceType: 'task',
+      });
+    }
+  }
+
+  // Admins
+  const admins = await getAdmins(organisationId);
+  for (const a of admins) {
+    if (seen.has(a.id)) continue;
+    seen.add(a.id);
+    payloads.push({
+      organisationId,
+      userId: a.id,
+      type: 'notif_alert',
+      message: msg,
+      referenceId: taskId,
+      referenceType: 'task',
     });
   }
 

@@ -290,6 +290,7 @@ enum NotificationType {
   client_status_changed
   admin_broadcast
   highlight_broadcast
+  notif_alert
 }
 
 model Document {

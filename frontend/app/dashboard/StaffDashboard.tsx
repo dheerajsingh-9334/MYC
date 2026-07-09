@@ -275,6 +275,10 @@ export default function StaffDashboard() {
     }
 
     active.sort((a, b) => {
+      const aPinned = a.isPinned || a.isAlerted;
+      const bPinned = b.isPinned || b.isAlerted;
+      if (aPinned !== bPinned) return aPinned ? -1 : 1;
+
       if (a._daysLate !== b._daysLate) return b._daysLate - a._daysLate;
       if (a._isDueToday !== b._isDueToday) return a._isDueToday ? -1 : 1;
       return a._daysAhead - b._daysAhead;

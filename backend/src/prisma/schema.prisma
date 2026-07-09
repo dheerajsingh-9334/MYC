@@ -260,6 +260,7 @@ enum NotificationType {
   extension_decision
   client_status_changed
   admin_broadcast
+  notif_alert
 }
 
 model Document {

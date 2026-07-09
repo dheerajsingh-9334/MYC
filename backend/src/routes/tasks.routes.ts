@@ -9,6 +9,7 @@ import {
   notifyExtensionDecision,
   notifyTaskAssigned,
   notifyTaskCompleted,
+  notifyTaskAlerted,
 } from '../services/notify.service';
 
 const router = Router();
@@ -789,12 +790,39 @@ router.patch('/:id/unpin', requireAuth, requireAdminOrLeader, async (req: Reques
 // PATCH /api/tasks/:id/alert
 router.patch('/:id/alert', requireAuth, requireAdminOrLeader, async (req: Request, res: Response) => {
   try {
-    await prisma.task.updateMany({
+    const task = await prisma.task.findFirst({
       where: { id: req.params.id, organisationId: req.user.orgId },
+      include: { client: true, step: true }
+    });
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    await prisma.task.update({
+      where: { id: req.params.id },
       data: { isAlerted: true },
     });
+
+    const actor = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { fullName: true }
+    });
+
+    await notifyTaskAlerted({
+      organisationId: req.user.orgId,
+      taskTitle: task.title,
+      clientName: task.client.brandName || task.client.fullName,
+      alertedBy: actor?.fullName || 'Manager',
+      assigneeId: task.assignedToId,
+      teamName: task.step?.owningTeamName || null,
+      taskId: task.id,
+      isAlerted: true,
+    });
+
     res.json({ success: true });
   } catch (err) {
+    console.error('[task alert] error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -802,12 +830,39 @@ router.patch('/:id/alert', requireAuth, requireAdminOrLeader, async (req: Reques
 // PATCH /api/tasks/:id/unalert
 router.patch('/:id/unalert', requireAuth, requireAdminOrLeader, async (req: Request, res: Response) => {
   try {
-    await prisma.task.updateMany({
+    const task = await prisma.task.findFirst({
       where: { id: req.params.id, organisationId: req.user.orgId },
+      include: { client: true, step: true }
+    });
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    await prisma.task.update({
+      where: { id: req.params.id },
       data: { isAlerted: false },
     });
+
+    const actor = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      select: { fullName: true }
+    });
+
+    await notifyTaskAlerted({
+      organisationId: req.user.orgId,
+      taskTitle: task.title,
+      clientName: task.client.brandName || task.client.fullName,
+      alertedBy: actor?.fullName || 'Manager',
+      assigneeId: task.assignedToId,
+      teamName: task.step?.owningTeamName || null,
+      taskId: task.id,
+      isAlerted: false,
+    });
+
     res.json({ success: true });
   } catch (err) {
+    console.error('[task unalert] error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

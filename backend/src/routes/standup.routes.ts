@@ -73,6 +73,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
               createdAt: task.createdAt,
               blockerNote: task.blockerNote,
               assignedTo: task.assignedTo,
+              isPinned: task.isPinned,
+              isAlerted: task.isAlerted,
             },
             alertType,
             daysLate,
@@ -121,30 +123,63 @@ router.post('/highlight', requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    const { sendHighlightEmail } = await import('../services/email.service');
-    
-    // Send email to member
-    if (member.email) {
-      await sendHighlightEmail(member.email, member.fullName, task.title, task.client.brandName || task.client.fullName, 'member');
-    }
-    // Send email to leader
-    if (leader && leader.email) {
-      await sendHighlightEmail(leader.email, leader.fullName, task.title, task.client.brandName || task.client.fullName, 'leader');
-    }
+    const shouldAlert = !task.isAlerted;
 
-    // Create broadcast notification
-    await prisma.notification.create({
-      data: {
-        organisationId: req.user.orgId,
-        userId: req.user.userId, // We'll just assign it to the admin who triggered it, or broadcast it globally
-        type: 'highlight_broadcast',
-        message: `Task Highlighted: ${task.title} for ${task.client.brandName || task.client.fullName}`,
-        referenceId: task.id,
-        referenceType: 'task',
+    if (shouldAlert) {
+      await prisma.task.update({
+        where: { id: taskId },
+        data: { isPinned: true, isAlerted: true }
+      });
+      await prisma.client.update({
+        where: { id: task.clientId },
+        data: { isPinned: true }
+      });
+
+      const { sendHighlightEmail } = await import('../services/email.service');
+      
+      // Send email to member
+      if (member.email) {
+        await sendHighlightEmail(member.email, member.fullName, task.title, task.client.brandName || task.client.fullName, 'member');
       }
-    });
+      // Send email to leader
+      if (leader && leader.email) {
+        await sendHighlightEmail(leader.email, leader.fullName, task.title, task.client.brandName || task.client.fullName, 'leader');
+      }
 
-    res.json({ success: true });
+      // Create broadcast notification
+      await prisma.notification.create({
+        data: {
+          organisationId: req.user.orgId,
+          userId: req.user.userId, // We'll just assign it to the admin who triggered it, or broadcast it globally
+          type: 'highlight_broadcast',
+          message: `Task Highlighted: ${task.title} for ${task.client.brandName || task.client.fullName}`,
+          referenceId: task.id,
+          referenceType: 'task',
+        }
+      });
+    } else {
+      await prisma.task.update({
+        where: { id: taskId },
+        data: { isPinned: false, isAlerted: false }
+      });
+
+      // Check if client has other pinned tasks
+      const otherPinnedTasks = await prisma.task.findFirst({
+        where: {
+          clientId: task.clientId,
+          isPinned: true,
+          id: { not: taskId }
+        }
+      });
+      if (!otherPinnedTasks) {
+        await prisma.client.update({
+          where: { id: task.clientId },
+          data: { isPinned: false }
+        });
+      }
+    }
+
+    res.json({ success: true, isAlerted: shouldAlert });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
