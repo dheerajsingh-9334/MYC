@@ -267,8 +267,8 @@ export default function TeamPage() {
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                     <ChevronRight size={14} style={{ color: 'var(--soft)', transform: (expandedTeams.has('Administrators') || !!search.trim()) ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', flexShrink: 0 }} />
-                    {(expandedTeams.has('Administrators') || !!search.trim()) ? <FolderOpen size={16} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={16} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
-                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Administrators</span>
+                    {(expandedTeams.has('Administrators') || !!search.trim()) ? <FolderOpen size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
+                    <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>Administrators</span>
                     <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                       · {activeAdmins.length} admin{activeAdmins.length !== 1 ? 's' : ''}
                     </span>
@@ -360,8 +360,8 @@ export default function TeamPage() {
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                       <ChevronRight size={14} style={{ color: 'var(--soft)', transform: isOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', flexShrink: 0 }} />
-                      {isOpen ? <FolderOpen size={16} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={16} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
-                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{teamName}</span>
+                      {isOpen ? <FolderOpen size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
+                      <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{teamName}</span>
                       <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                         {leaderCount > 0 && `· ${leaderCount} lead${leaderCount !== 1 ? 's' : ''}`} · {members.length} member{members.length !== 1 ? 's' : ''}
                       </span>
