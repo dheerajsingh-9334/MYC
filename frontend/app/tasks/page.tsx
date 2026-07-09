@@ -486,53 +486,46 @@ export default function TasksPage() {
       <Topbar
         title={isAdmin ? 'All Tasks' : 'My Tasks'}
         subtitle={isAdmin ? `Org-wide · ${counts.total} tasks` : `${user?.fullName || 'Team Member'} · ${user?.teamName || ''}`}
+        search={search}
+        setSearch={setSearch}
+        renderActions={() => isAdmin && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setShowAddTask(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--olive)', border: 'none',
+                color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-dark)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
+            >
+              <Plus size={14} /> Add Task
+            </button>
+            <button
+              onClick={() => setShowCSVModal(true)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+            >
+              Upload CSV
+            </button>
+          </div>
+        )}
       />
       <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
-        <DashboardHeader
-          title={isAdmin ? "Task Management" : "My Tasks"}
-          subtitle="Manage tasks across clients and team members"
-        >
-          {isAdmin && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => setShowAddTask(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--olive)', border: 'none',
-                  color: '#fff', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-dark)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
-              >
-                <Plus size={14} /> Add Task
-              </button>
-              <button
-                onClick={() => setShowCSVModal(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-              >
-                Upload CSV
-              </button>
-            </div>
-          )}
-        </DashboardHeader>
 
         {/* Filter bar */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ position: 'relative', width: 150 }}>
-            <Search size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..."
-              style={{ width: '100%', padding: '8px 12px 8px 30px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', outline: 'none' }} />
-          </div>
+
           {/* Custom Status Dropdown Menu */}
           <div style={{ position: 'relative' }}>
             <button

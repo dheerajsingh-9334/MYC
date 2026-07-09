@@ -13,12 +13,18 @@ const EMPTY_ARRAY: any[] = [];
 interface TopbarProps {
   title: string;
   subtitle?: string;
+  onAddClient?: () => void;
+  showAddClient?: boolean;
+  actionLabel?: string;
+  renderActions?: () => React.ReactNode;
+  search?: string;
+  setSearch?: (val: string) => void;
 }
 
-export default function Topbar({ title, subtitle }: TopbarProps) {
+export default function Topbar({ title, subtitle, onAddClient, showAddClient, actionLabel, renderActions, search, setSearch }: TopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [search, setSearch] = useState('');
+  const [localSearch, setLocalSearch] = useState('');
   const [user, setUser] = useState<any>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
@@ -189,13 +195,13 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* Search - decreased size! */}
-          <div style={{ position: 'relative', width: 150 }}>
+          <div style={{ position: 'relative', width: 200 }}>
             <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
             <input
               type="text"
               placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={search !== undefined ? search : localSearch}
+              onChange={(e) => setSearch ? setSearch(e.target.value) : setLocalSearch(e.target.value)}
               style={{
                 width: '100%',
                 padding: '6px 10px 6px 30px',
@@ -257,6 +263,23 @@ export default function Topbar({ title, subtitle }: TopbarProps) {
             >
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
+          {renderActions && renderActions()}
+          {showAddClient && (
+            <button
+              onClick={onAddClient}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
+                background: 'var(--olive)', color: '#fff', border: 'none',
+                fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
+            >
+              <Plus size={14} /> {actionLabel || 'Add Client'}
+            </button>
+          )}
         </div>
       </header>
 

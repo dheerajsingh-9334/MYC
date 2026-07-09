@@ -270,29 +270,27 @@ export default function AdminDashboard() {
       <Topbar
         title="Notifications & Activity"
         subtitle="Manage alerts, pending requests, and recent team activity"
+        renderActions={user.role === 'admin' ? () => (
+          <button
+            onClick={() => {
+              setExportType('client_full');
+              setShowExportModal(true);
+            }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+          >
+            <Download size={14} /> Export Reports
+          </button>
+        ) : undefined}
       />
       <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <DashboardHeader title="" subtitle="">
-          {user.role === 'admin' && (
-            <button
-              onClick={() => {
-                setExportType('client_full');
-                setShowExportModal(true);
-              }}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-                background: 'var(--surface)', border: '1px solid var(--border)',
-                color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-            >
-              <Download size={14} /> Export Reports
-            </button>
-          )}
-        </DashboardHeader>
         {/* ── Main Dashboard Body ── */}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', flex: 1 }}>
           

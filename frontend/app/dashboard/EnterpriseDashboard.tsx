@@ -3,7 +3,6 @@ import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
-import DashboardHeader from '@/components/ui/DashboardHeader';
 import SectionCard from '@/components/ui/SectionCard';
 import { apiFetch, getUser } from '@/lib/api';
 import { USE_MOCK, MOCK_TASKS, MOCK_CLIENTS } from '@/lib/mockData';
@@ -271,12 +270,7 @@ export default function EnterpriseDashboard() {
       <Topbar
         title="Enterprise Dashboard"
         subtitle={`Real-time client pipeline, task statuses, and risk factors`}
-      />
-
-      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
-        <DashboardHeader
-          title="Overview"
-        >
+        renderActions={() => (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {user?.role === 'admin' && (
               <button
@@ -300,7 +294,10 @@ export default function EnterpriseDashboard() {
               </button>
             )}
           </div>
-        </DashboardHeader>
+        )}
+      />
+
+      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
         
         {/* Daily Standup Brief Summary Bar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
