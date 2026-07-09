@@ -303,8 +303,8 @@ export default function TeamPage() {
                     onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                     <ChevronRight size={14} style={{ color: 'var(--soft)', transform: (expandedTeams.has('Administrators') || !!search.trim()) ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', flexShrink: 0 }} />
-                    {(expandedTeams.has('Administrators') || !!search.trim()) ? <FolderOpen size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
-                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', background: '#fff3cd', padding: '2px 8px', borderRadius: '4px' }}>Administrators</span>
+                    {(expandedTeams.has('Administrators') || !!search.trim()) ? <FolderOpen size={20} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={20} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Administrators</span>
                     <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                       · {activeAdmins.length} admin{activeAdmins.length !== 1 ? 's' : ''}
                     </span>
@@ -312,7 +312,14 @@ export default function TeamPage() {
 
                   {/* Members list inside the folder */}
                   {(expandedTeams.has('Administrators') || !!search.trim()) && (
-                    <div style={{ overflowX: 'auto', borderTop: '1px solid var(--border)' }}>
+                    <div style={{
+                      paddingLeft: 24,
+                      borderLeft: '1px dashed var(--border)',
+                      marginLeft: 26,
+                      marginTop: 4,
+                      marginBottom: 12,
+                      overflowX: 'auto'
+                    }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                         <thead>
                           <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
@@ -419,8 +426,8 @@ export default function TeamPage() {
                       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                       <ChevronRight size={14} style={{ color: 'var(--soft)', transform: isOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', flexShrink: 0 }} />
-                      {isOpen ? <FolderOpen size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={22} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
-                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', background: '#fff3cd', padding: '2px 8px', borderRadius: '4px' }}>{teamName}</span>
+                      {isOpen ? <FolderOpen size={20} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={20} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
+                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{teamName}</span>
                       <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                         {leaderCount > 0 && `· ${leaderCount} lead${leaderCount !== 1 ? 's' : ''}`} · {members.length} member{members.length !== 1 ? 's' : ''}
                       </span>
@@ -433,7 +440,14 @@ export default function TeamPage() {
 
                     {/* Members list inside the folder */}
                     {isOpen && (
-                      <div style={{ overflowX: 'auto', borderTop: '1px solid var(--border)' }}>
+                      <div style={{
+                        paddingLeft: 24,
+                        borderLeft: '1px dashed var(--border)',
+                        marginLeft: 26,
+                        marginTop: 4,
+                        marginBottom: 12,
+                        overflowX: 'auto'
+                      }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                           <thead>
                             <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
@@ -547,16 +561,24 @@ export default function TeamPage() {
                     <Folder size={14} style={{ color: 'var(--muted)' }} />
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', letterSpacing: '0.3px', textTransform: 'uppercase' }}>Deactivated ({inactive.length})</span>
                   </div>
-                  {inactive.map((m) => (
-                    <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 16px 6px 36px', opacity: 0.55 }}>
-                      <div style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--surface-2)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 10 }}>
-                        {getInitials(m.fullName)}
+                  <div style={{
+                    paddingLeft: 24,
+                    borderLeft: '1px dashed var(--border)',
+                    marginLeft: 26,
+                    marginTop: 4,
+                    marginBottom: 12
+                  }}>
+                    {inactive.map((m) => (
+                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0', opacity: 0.55 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--surface-2)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 10 }}>
+                          {getInitials(m.fullName)}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{m.fullName} · {m.teamName || '—'}</div>
+                        </div>
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{m.fullName} · {m.teamName || '—'}</div>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

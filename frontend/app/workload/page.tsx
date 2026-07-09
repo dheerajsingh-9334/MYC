@@ -127,7 +127,10 @@ export default function AdminDashboard() {
     enabled: !USE_MOCK,
     retry: false,
   });
-  const teamsList = useMemo(() => USE_MOCK ? TEAMS : liveTeams, [liveTeams]);
+  const teamsList = useMemo(() => {
+    const raw = USE_MOCK ? TEAMS : liveTeams;
+    return raw.map((t: any) => typeof t === 'string' ? { id: t, name: t } : t);
+  }, [liveTeams]);
 
   const { data: liveUsers = [] } = useQuery({
     queryKey: ['users'],
@@ -1174,8 +1177,8 @@ export default function AdminDashboard() {
                         <select value={expTeam} onChange={e => setExpTeam(e.target.value)}
                           style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
                           <option value="">All Teams</option>
-                          {teamsList.map((t: string) => (
-                            <option key={t} value={t}>{t}</option>
+                          {teamsList.map((t: any) => (
+                            <option key={t.id || t.name} value={t.name}>{t.name}</option>
                           ))}
                         </select>
                       </div>
