@@ -117,7 +117,7 @@ export default function TeamTab({ tasks }: { tasks: any[] }) {
         <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--blue)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20 }}>💼</div>
         <div>
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Team member</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginTop: 16 }}>
             Each team member only sees their own tasks. Their actions directly trigger the pipeline engine — marking a task done can auto-advance a client to the next step.
           </div>
         </div>

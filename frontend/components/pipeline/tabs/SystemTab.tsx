@@ -8,7 +8,7 @@ export default function SystemTab({ steps }: { steps: any[] }) {
         <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#555', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20 }}>⚡</div>
         <div>
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>System / pipeline engine</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginTop: 16 }}>
             The invisible fourth "role." Handles all routing, assignment, advancement, and alerting. No human action required for any of these.
           </div>
         </div>
@@ -99,7 +99,7 @@ export default function SystemTab({ steps }: { steps: any[] }) {
             </div>
             <div style={{ paddingBottom: 8 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', paddingTop: 6 }}>Trigger {trigger.num} — {trigger.title}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{trigger.meta}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 16 }}>{trigger.meta}</div>
               {trigger.content}
             </div>
           </div>

@@ -57,7 +57,7 @@ export default function SectionCard({
               </div>
             )}
             {subtitle && (
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>
                 {subtitle}
               </div>
             )}

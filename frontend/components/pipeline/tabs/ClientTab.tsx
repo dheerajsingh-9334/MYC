@@ -10,7 +10,7 @@ export default function ClientTab() {
         <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#6B3FA0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20 }}>👤</div>
         <div>
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Client (coach)</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginTop: 16 }}>
             Phase 1: client only interacts via the self-service onboarding form (no login). Client actions are the most common source of blockers.
           </div>
         </div>
@@ -58,7 +58,7 @@ export default function ClientTab() {
             </div>
             <div style={{ paddingBottom: 8 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', paddingTop: 6 }}>{step.title}</div>
-              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{step.desc}</div>
+              <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 16 }}>{step.desc}</div>
               {step.extra}
             </div>
           </div>

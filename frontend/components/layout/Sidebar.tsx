@@ -5,7 +5,7 @@ import { clearTokens, getUser } from '@/lib/api';
 import {
   LayoutDashboard, Sun, CheckSquare, Users, Settings,
   TrendingUp, LogOut, GitBranch, Shield, UserCheck,
-  FolderLock, Activity, BarChart3,
+  FolderLock, Activity, BarChart3, Bell,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { USE_MOCK } from '@/lib/mockData';
@@ -21,17 +21,17 @@ const MOCK_USER = { fullName: 'Ambesh Kumar', role: 'admin', teamName: null };
  */
 const navItems = [
   // Workspace section
-  { label: 'Dashboard',     icon: LayoutDashboard, href: '/admin',           section: 'workspace', roles: ['admin'] },
-  { label: 'Dashboard',     icon: LayoutDashboard, href: '/dashboard',       section: 'workspace', roles: ['team_leader', 'team_member'] },
-  { label: 'Standup Brief', icon: Sun,              href: '/standup',         section: 'workspace', roles: ['admin', 'team_leader'] },
-  { label: 'Tasks',         icon: CheckSquare,      href: '/tasks',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
-  { label: 'Clients',       icon: GitBranch,        href: '/clients',         section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
-  { label: 'Vault',         icon: FolderLock,       href: '/vault',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
+  { label: 'Dashboard',       icon: LayoutDashboard,  href: '/dashboard',       section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
+  { label: 'Standup Brief',   icon: Sun,              href: '/standup',         section: 'workspace', roles: ['admin'] },
+  { label: 'Tasks',           icon: CheckSquare,      href: '/tasks',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
+  { label: 'Clients',         icon: GitBranch,        href: '/clients',         section: 'workspace', roles: ['admin'] },
+  { label: 'Vault',           icon: FolderLock,       href: '/vault',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
+  { label: 'Workload',        icon: Activity,         href: '/workload',        section: 'workspace', roles: ['admin', 'team_leader'] },
   // Manage section
-  { label: 'Reports',       icon: BarChart3,        href: '/reports',         section: 'manage',    roles: ['admin', 'team_leader'] },
-  { label: 'Team',          icon: Users,            href: '/team',            section: 'manage',    roles: ['admin', 'team_leader'] },
-  { label: 'Performance',   icon: TrendingUp,       href: '/performance',     section: 'manage',    roles: ['admin'] },
-  { label: 'Step Config',   icon: Settings,         href: '/settings/steps',  section: 'manage',    roles: ['admin'] },
+  { label: 'Reports',         icon: BarChart3,        href: '/reports',         section: 'manage',    roles: ['admin', 'team_leader'] },
+  { label: 'Team',            icon: Users,            href: '/team',            section: 'manage',    roles: ['admin'] },
+  { label: 'Performance',     icon: TrendingUp,       href: '/performance',     section: 'manage',    roles: ['admin'] },
+  { label: 'Step Config',     icon: Settings,         href: '/settings/steps',  section: 'manage',    roles: ['admin'] },
 ];
 
 const ROLE_BADGE: Record<string, { label: string; color: string; bg: string }> = {
@@ -47,7 +47,12 @@ export default function Sidebar() {
   const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
-    if (!USE_MOCK) setUser(getUser());
+    if (!USE_MOCK) {
+      const loadUser = () => setUser(getUser());
+      loadUser();
+      window.addEventListener('user-updated', loadUser);
+      return () => window.removeEventListener('user-updated', loadUser);
+    }
   }, []);
 
   const handleLogout = () => {
@@ -65,21 +70,25 @@ export default function Sidebar() {
   const workspaceItems = visibleItems('workspace');
   const manageItems = visibleItems('manage');
 
-  const NavLink = ({ item }: { item: typeof navItems[0] }) => {
+  const NavLink = ({ item, index }: { item: typeof navItems[0]; index: number }) => {
     const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href + '/'));
     return (
       <Link href={item.href}
+        className={`sidebar-link ${active ? 'active' : ''}`}
         style={{
           display: 'flex', alignItems: 'center', gap: 12,
-          padding: '9px 12px', borderRadius: 'var(--radius-sm)',
-          color: active ? '#fff' : 'var(--ink-2)',
-          background: active ? 'var(--olive)' : 'transparent',
-          fontSize: 13.5, fontWeight: 500, textDecoration: 'none',
-          transition: 'all 0.15s', position: 'relative',
+          padding: '9px 12px 9px 16px',
+          borderRadius: '0 8px 8px 0',
+          color: active ? 'var(--olive)' : 'var(--ink-2)',
+          background: active ? 'var(--olive-50)' : 'transparent',
+          fontSize: 13.5,
+          fontWeight: active ? 600 : 500,
+          textDecoration: 'none',
+          position: 'relative',
+          borderLeft: active ? '3px solid var(--olive)' : '3px solid transparent',
         }}
-        onMouseEnter={(e) => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; (e.currentTarget as HTMLElement).style.color = 'var(--olive)'; } }}
-        onMouseLeave={(e) => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'var(--ink-2)'; } }}>
-        <item.icon size={16} style={{ flexShrink: 0 }} />
+      >
+        <item.icon size={16} className="sidebar-icon" style={{ flexShrink: 0, transition: 'transform 0.2s ease' }} />
         <span style={{ flex: 1 }}>{item.label}</span>
       </Link>
     );
@@ -88,11 +97,20 @@ export default function Sidebar() {
   return (
     <aside style={{
       background: 'var(--surface)', borderRight: '1px solid var(--border)',
-      padding: '20px 0', position: 'sticky', top: 0, height: '100vh',
+      padding: '0 0 20px 0', position: 'sticky', top: 0, height: '100vh',
       display: 'flex', flexDirection: 'column', width: '240px', flexShrink: 0,
     }}>
       {/* Brand */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '4px 20px 24px', borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+        padding: '0 20px',
+        height: '56px',
+        borderBottom: '1px solid var(--border)',
+        marginBottom: 16,
+        boxSizing: 'border-box',
+      }}>
         <div style={{ width: 36, height: 36, background: 'var(--olive)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: 'Instrument Serif, serif', letterSpacing: '0.5px' }}>M</div>
         <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 19, color: 'var(--ink)', letterSpacing: '0.3px' }}>
           My<span style={{ color: 'var(--olive)', fontStyle: 'italic' }}>C</span>Ops
@@ -114,16 +132,16 @@ export default function Sidebar() {
 
       {/* Workspace Nav */}
       <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', color: 'var(--soft)', padding: '0 20px 6px', textTransform: 'uppercase' }}>Workspace</div>
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 12px' }}>
-        {workspaceItems.map((item) => <NavLink key={item.href} item={item} />)}
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 12px' }}>
+        {workspaceItems.map((item, idx) => <NavLink key={item.href} item={item} index={idx} />)}
       </nav>
 
       {/* Manage Nav */}
       {manageItems.length > 0 && (
         <>
           <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', color: 'var(--soft)', padding: '20px 20px 6px', textTransform: 'uppercase' }}>Manage</div>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 12px' }}>
-            {manageItems.map((item) => <NavLink key={item.href} item={item} />)}
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 12px' }}>
+            {manageItems.map((item, idx) => <NavLink key={item.href} item={item} index={workspaceItems.length + idx} />)}
           </nav>
         </>
       )}
@@ -166,7 +184,7 @@ export default function Sidebar() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.fullName || 'Guest'}</div>
-            <div style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 2, padding: '1px 6px', borderRadius: 6, background: roleBadge.bg, color: roleBadge.color, fontWeight: 600 }}>
+            <div style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 16, padding: '1px 6px', borderRadius: 6, background: roleBadge.bg, color: roleBadge.color, fontWeight: 600 }}>
               {roleBadge.label}
             </div>
           </div>

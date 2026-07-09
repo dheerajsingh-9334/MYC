@@ -213,7 +213,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
                 </div>
                 <div>
                   <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{fullName || 'Your Name'}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{profile?.email}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>{profile?.email}</div>
                 </div>
               </div>
 

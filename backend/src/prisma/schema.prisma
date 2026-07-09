@@ -187,6 +187,9 @@ model Task {
   rejectionNote          String?
   rejectedAt             DateTime?
   rejectedById           String?
+  isPinned               Boolean    @default(false)
+  isAlerted              Boolean    @default(false)
+  inProgressAt           DateTime?
   createdAt              DateTime   @default(now())
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
@@ -256,6 +259,7 @@ enum NotificationType {
   extension_request
   extension_decision
   client_status_changed
+  admin_broadcast
 }
 
 model Document {

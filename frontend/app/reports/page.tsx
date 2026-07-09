@@ -518,7 +518,7 @@ export default function ReportsPage() {
                       color: '#ffffff',
                       border: 'none',
                       borderRadius: 6,
-                      padding: '10px 16px',
+                      padding: '6px 12px',
                       fontSize: 13.5,
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -704,7 +704,7 @@ export default function ReportsPage() {
 
                         <div style={{ background: 'var(--surface-2)', padding: 10, borderRadius: 6 }}>
                           <div style={{ fontSize: 11, color: 'var(--muted)' }}>Manager Audit Feedback</div>
-                          <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{previewData.managerFeedback} / 5.0 Rating</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, marginTop: 16 }}>{previewData.managerFeedback} / 5.0 Rating</div>
                         </div>
                       </div>
                     )}
@@ -764,7 +764,7 @@ export default function ReportsPage() {
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 6,
-                    padding: '8px 16px',
+                    padding: '12px 16px',
                     background: 'var(--olive)',
                     color: '#ffffff',
                     border: 'none',

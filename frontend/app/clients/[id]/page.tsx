@@ -5,6 +5,7 @@ import { apiFetch, getUser } from '@/lib/api';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft, X, Check, TriangleAlert, CircleCheck, Clock, Search, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import { USE_MOCK, MOCK_CLIENTS, MOCK_STEPS, MOCK_CLIENT_DETAIL } from '@/lib/mockData';
 import { useFormDraft } from '@/lib/useFormDraft';
@@ -486,7 +487,7 @@ export default function ClientDetailPage() {
   const statusConfig: Record<string, { bg: string; color: string; dot: string; label: string }> = {
     on_track:  { bg: 'var(--green-bg)', color: 'var(--green)', dot: 'var(--green)', label: 'On track' },
     due_today: { bg: 'var(--amber-bg)', color: 'var(--amber)', dot: 'var(--amber)', label: 'Due today' },
-    overdue:   { bg: 'var(--red-bg)',   color: 'var(--red)',   dot: 'var(--red)',   label: `${daysInStep - sla} day${daysInStep - sla > 1 ? 's' : ''} late` },
+    overdue:   { bg: 'var(--red-bg)',   color: 'var(--red)',   dot: 'var(--red)',   label: `${Math.max(0, daysInStep - sla)} day${Math.max(0, daysInStep - sla) !== 1 ? 's' : ''} late` },
     blocked:   { bg: '#F0E8FA', color: '#6B3FA0', dot: '#6B3FA0', label: 'Blocked' },
   };
   const sc = statusConfig[client.computedStatus] || statusConfig.on_track;
@@ -519,16 +520,17 @@ export default function ClientDetailPage() {
       <div style={{ padding: '16px 20px', flex: 1 }}>
 
         {/* Back */}
-        <button onClick={() => router.push('/dashboard')} style={{
+        <Link href="/clients" style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 20,
           padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
           fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)',
           transition: 'all 0.15s',
+          textDecoration: 'none',
         }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
           <ArrowLeft size={13} /> Back to Pipeline
-        </button>
+        </Link>
 
         {/* ── CLIENT HEADER ─────────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
@@ -1475,17 +1477,17 @@ const selectStyle: React.CSSProperties = {
 };
 
 const thStyle: React.CSSProperties = {
-  padding: '12px 20px',
+  padding: '10px 18px',
   fontSize: 11.5,
-  fontWeight: 700,
+  fontWeight: 600,
   textTransform: 'uppercase',
-  letterSpacing: '0.5px',
+  letterSpacing: '0.4px',
   color: 'var(--muted)',
   borderBottom: '1px solid var(--border)',
 };
 
 const tdStyle: React.CSSProperties = {
-  padding: '14px 20px',
+  padding: '10px 18px',
   verticalAlign: 'middle',
 };
 

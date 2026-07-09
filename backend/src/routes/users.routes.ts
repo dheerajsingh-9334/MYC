@@ -1,9 +1,30 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import multer from 'multer';
 import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
+import { uploadToCloudinary } from '../services/cloudinary.service';
+import { sendPasswordChangedEmail } from '../services/email.service';
 
 const router = Router();
+const upload = multer({
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max
+});
+
+// POST /api/users/upload-avatar — Upload user avatar to Cloudinary
+router.post('/upload-avatar', requireAuth, upload.single('avatar'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+    const secureUrl = await uploadToCloudinary(req.file.buffer, 'avatars');
+    res.json({ url: secureUrl });
+  } catch (err: any) {
+    console.error('[users.upload-avatar] error:', err);
+    res.status(500).json({ error: err.message || 'Failed to upload avatar' });
+  }
+});
 
 // GET /api/users/me — Get logged-in user profile & stats
 router.get('/me', requireAuth, async (req: Request, res: Response) => {
@@ -98,6 +119,12 @@ router.patch('/me', requireAuth, async (req: Request, res: Response) => {
         avatarUrl: true,
       }
     });
+
+    if (password) {
+      sendPasswordChangedEmail(updated.email, updated.fullName).catch((err) => {
+        console.error(`Error sending password changed email to ${updated.email}:`, err);
+      });
+    }
 
     res.json(updated);
   } catch (err) {

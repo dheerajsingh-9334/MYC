@@ -1,198 +1,135 @@
-'use client';
-import React, { useState } from 'react';
+import React from 'react';
 
-// ── BarChart ────────────────────────────────────────────────────────────
-// Simple horizontal-bar chart. Each bar = a category (e.g. team) and its
-// numeric value (e.g. active tasks). Max value auto-scales.
-export function BarChart({
-  data, valueLabel = '', accent = 'var(--olive)',
-}: {
-  data: Array<{ label: string; value: number; subLabel?: string; accent?: string }>;
-  valueLabel?: string;
-  accent?: string;
-}) {
-  const max = Math.max(1, ...data.map((d) => d.value));
+export function SVGLineChart({ labels, datasets }: { labels: string[]; datasets: { label: string; data: number[]; color: string; dashed?: boolean }[] }) {
+  const allData = datasets.flatMap(d => d.data);
+  const maxVal = Math.max(...allData) || 10;
+  const width = 450;
+  const height = 160;
+  const paddingX = 40;
+  const paddingY = 25;
+  const pointsCount = labels.length;
+  const stepX = (width - paddingX * 2) / (pointsCount - 1 || 1);
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {data.map((d) => {
-        const pct = (d.value / max) * 100;
-        const barColor = d.accent || accent;
-        return (
-          <div key={d.label} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, alignItems: 'center' }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                <span style={{ fontSize: 12.5, color: 'var(--ink-2)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {d.label}
-                </span>
-                {d.subLabel && (
-                  <span style={{ fontSize: 11, color: 'var(--muted)', flexShrink: 0, marginLeft: 8 }}>{d.subLabel}</span>
-                )}
-              </div>
-              <div style={{ height: 8, background: 'var(--surface-2)', borderRadius: 4, overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${pct}%`, background: barColor, borderRadius: 4, transition: 'width 0.3s' }} />
-              </div>
-            </div>
-            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: 'var(--ink)', minWidth: 32, textAlign: 'right' }}>
-              {d.value}
-            </span>
-          </div>
-        );
-      })}
-      {valueLabel && (
-        <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 4 }}>
-          {valueLabel}
-        </div>
-      )}
-    </div>
-  );
-}
+    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ overflow: 'visible', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.03))' }}>
+        <defs>
+          {datasets.map((ds, idx) => (
+            <linearGradient key={`grad-${idx}`} id={`fill-${idx}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={ds.color} stopOpacity="0.4" />
+              <stop offset="100%" stopColor={ds.color} stopOpacity="0.0" />
+            </linearGradient>
+          ))}
+          <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+          </filter>
+        </defs>
 
-// ── DonutChart ──────────────────────────────────────────────────────────
-// SVG donut. Renders N slices whose arc lengths are proportional to value.
-// Hovering a slice or legend row shows a tooltip with the segment's count and %.
-export function DonutChart({
-  data, size = 140, thickness = 18, centerLabel, centerValue,
-}: {
-  data: Array<{ label: string; value: number; color: string }>;
-  size?: number;
-  thickness?: number;
-  centerLabel?: string;
-  centerValue?: string | number;
-}) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const total = data.reduce((s, d) => s + d.value, 0);
-  const r = (size - thickness) / 2;
-  const c = 2 * Math.PI * r;
-  const cx = size / 2;
-  const cy = size / 2;
-  let offset = 0;
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 18, position: 'relative' }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
-        {/* background ring */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface-2)" strokeWidth={thickness} />
-        {/* slices */}
-        {total > 0 && data.map((d, i) => {
-          const len = (d.value / total) * c;
-          const isHovered = hoverIdx === i;
-          const el = (
-            <circle
-              key={i}
-              cx={cx}
-              cy={cy}
-              r={r}
-              fill="none"
-              stroke={d.color}
-              strokeWidth={isHovered ? thickness + 4 : thickness}
-              strokeDasharray={`${len} ${c - len}`}
-              strokeDashoffset={-offset}
-              transform={`rotate(-90 ${cx} ${cy})`}
-              strokeLinecap="butt"
-              style={{ cursor: 'pointer', transition: 'stroke-width 0.15s' }}
-              onMouseEnter={() => setHoverIdx(i)}
-              onMouseLeave={() => setHoverIdx((cur) => (cur === i ? null : cur))}
-            >
-              <title>{`${d.label}: ${d.value} (${total > 0 ? Math.round((d.value / total) * 100) : 0}%)`}</title>
-            </circle>
-          );
-          offset += len;
-          return el;
-        })}
-        {total > 0 && hoverIdx !== null && data[hoverIdx] && (
-          <text x={cx} y={cy - 4} textAnchor="middle" style={{ fontSize: 11, fill: 'var(--muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-            {data[hoverIdx].label}
-          </text>
-        )}
-        {total > 0 && hoverIdx !== null && data[hoverIdx] && (
-          <text x={cx} y={cy + 16} textAnchor="middle" style={{ fontSize: 22, fill: 'var(--ink)', fontFamily: 'Instrument Serif, serif' }}>
-            {data[hoverIdx].value}
-          </text>
-        )}
-      </svg>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {centerValue !== undefined && (
-          <div style={{ marginBottom: 4 }}>
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 26, color: 'var(--ink)', lineHeight: 1 }}>{centerValue}</div>
-            {centerLabel && <div style={{ fontSize: 11, color: 'var(--muted)' }}>{centerLabel}</div>}
-          </div>
-        )}
-        {data.map((d, i) => {
-          const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
-          const isHovered = hoverIdx === i;
+        {/* Gridlines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
+          const y = paddingY + (height - paddingY * 2) * (1 - ratio);
+          const gridVal = Math.round(maxVal * ratio);
           return (
-            <div
-              key={d.label}
-              onMouseEnter={() => setHoverIdx(i)}
-              onMouseLeave={() => setHoverIdx(null)}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                fontSize: 12, padding: '3px 6px', marginLeft: -6, marginRight: -6,
-                borderRadius: 4, cursor: 'pointer',
-                background: isHovered ? 'var(--surface-2)' : 'transparent',
-                transition: 'background 0.15s',
-              }}
-              title={`${d.label}: ${d.value} (${pct}%)`}
-            >
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 8, height: 8, borderRadius: 2, background: d.color }} />
-                <span style={{ color: 'var(--ink-2)' }}>{d.label}</span>
-              </span>
-              <span style={{ fontWeight: 600, color: 'var(--ink)', fontFamily: 'JetBrains Mono, monospace' }}>
-                {d.value}<span style={{ color: 'var(--muted)', fontWeight: 400 }}> · {pct}%</span>
-              </span>
-            </div>
+            <g key={idx}>
+              <line x1={paddingX} y1={y} x2={width - paddingX} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
+              <text x={paddingX - 12} y={y + 3} fontSize="10" fontWeight="500" textAnchor="end" fill="var(--soft)" style={{ fontVariantNumeric: 'tabular-nums' }}>{gridVal}</text>
+            </g>
           );
         })}
+
+        {/* X Axis Labels */}
+        {labels.map((label, idx) => {
+          const x = paddingX + idx * stepX;
+          const labelShort = label.split('-').slice(1).join('/');
+          return (
+            <text key={idx} x={x} y={height - 2} fontSize="10" fontWeight="600" textAnchor="middle" fill="var(--soft)">{labelShort}</text>
+          );
+        })}
+
+        {/* Lines, Fills, Dots */}
+        {datasets.map((ds, dsIdx) => {
+          const points = ds.data.map((val, idx) => {
+            const x = paddingX + idx * stepX;
+            const y = paddingY + (height - paddingY * 2) * (1 - val / maxVal);
+            return `${x},${y}`;
+          }).join(' ');
+          const fillPoints = ds.dashed ? '' : `${paddingX},${height - paddingY} ` + points + ` ${paddingX + (pointsCount - 1) * stepX},${height - paddingY}`;
+          return (
+            <g key={dsIdx} style={{ transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+              {!ds.dashed && fillPoints && (
+                <polygon fill={`url(#fill-${dsIdx})`} points={fillPoints} />
+              )}
+              <polyline 
+                fill="none" 
+                stroke={ds.color} 
+                strokeWidth={ds.dashed ? "2" : "3.5"} 
+                strokeDasharray={ds.dashed ? "5 5" : undefined} 
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                points={points} 
+                filter={!ds.dashed ? "url(#glow)" : undefined}
+              />
+              {ds.data.map((val, idx) => {
+                const x = paddingX + idx * stepX;
+                const y = paddingY + (height - paddingY * 2) * (1 - val / maxVal);
+                return (
+                  <circle 
+                    key={idx} cx={x} cy={y} r={ds.dashed ? "3" : "5"} 
+                    fill="#fff" stroke={ds.color} strokeWidth={ds.dashed ? "1.5" : "3"} 
+                    style={{ transition: 'r 0.2s cubic-bezier(0.4, 0, 0.2, 1)', cursor: 'pointer' }}
+                    onMouseEnter={(e) => { e.currentTarget.setAttribute('r', ds.dashed ? '5' : '7'); }}
+                    onMouseLeave={(e) => { e.currentTarget.setAttribute('r', ds.dashed ? '3' : '5'); }}
+                  />
+                );
+              })}
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ display: 'flex', gap: 24, marginTop: 18 }}>
+        {datasets.map((ds, idx) => (
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, padding: '6px 14px', background: 'var(--surface-2)', borderRadius: 999, border: '1px solid var(--border)' }}>
+            <span style={{ width: 14, height: 3, borderRadius: 2, background: ds.color, opacity: ds.dashed ? 0.6 : 1 }} />
+            <span style={{ color: 'var(--ink)' }}>{ds.label}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-// ── LineChart ───────────────────────────────────────────────────────────
-// Lightweight line + dots chart with optional secondary fill area.
-// Pass `points` as numbers; we auto-scale the Y axis.
-export function LineChart({
-  points, labels, height = 140, color = 'var(--olive)', fill = 'var(--olive-50)',
-}: {
-  points: number[];
-  labels?: string[];
-  height?: number;
-  color?: string;
-  fill?: string;
-}) {
-  if (points.length === 0) {
-    return <div style={{ color: 'var(--muted)', fontSize: 12, textAlign: 'center', padding: 40 }}>No data yet.</div>;
-  }
-  const width = 100; // % — viewBox handles scaling
-  const pad = 8;
-  const max = Math.max(1, ...points);
-  const min = Math.min(0, ...points);
-  const range = max - min || 1;
-  const stepX = points.length > 1 ? (width - pad * 2) / (points.length - 1) : 0;
-  const coords = points.map((p, i) => {
-    const x = pad + i * stepX;
-    const y = pad + ((max - p) / range) * (height - pad * 2);
-    return { x, y };
-  });
-  const pathLine = coords.map((c, i) => (i === 0 ? `M${c.x} ${c.y}` : `L${c.x} ${c.y}`)).join(' ');
-  const pathArea = `${pathLine} L${coords[coords.length - 1].x} ${height - pad} L${coords[0].x} ${height - pad} Z`;
-
+export function SVGFunnelChart({ steps }: { steps: { name: string; clientCount: number; avgDuration: number }[] }) {
+  const maxClients = Math.max(...steps.map(s => s.clientCount)) || 1;
   return (
-    <div style={{ width: '100%' }}>
-      <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" style={{ width: '100%', height }}>
-        <path d={pathArea} fill={fill} />
-        <path d={pathLine} fill="none" stroke={color} strokeWidth={1.2} vectorEffect="non-scaling-stroke" />
-        {coords.map((c, i) => (
-          <circle key={i} cx={c.x} cy={c.y} r={1.4} fill={color} />
-        ))}
-      </svg>
-      {labels && labels.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10, color: 'var(--muted)' }}>
-          {labels.map((l, i) => (
-            <span key={i}>{l}</span>
-          ))}
-        </div>
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14, width: '100%', marginTop: 16 }}>
+      {steps.map((step, idx) => {
+        const pct = (step.clientCount / maxClients) * 100;
+        return (
+          <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 16 }} className="funnel-row">
+            <div style={{ width: 110, fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {step.name}
+            </div>
+            <div style={{ flex: 1, height: 28, background: 'var(--surface-2)', borderRadius: 8, position: 'relative', overflow: 'hidden', border: '1px solid var(--border)' }}>
+              <div 
+                style={{ 
+                  height: '100%', 
+                  width: `${pct}%`, 
+                  background: 'linear-gradient(90deg, var(--olive-light) 0%, var(--olive) 100%)', 
+                  borderRadius: 8, 
+                  transition: 'width 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: '0 2px 8px rgba(95, 111, 82, 0.4)'
+                }} 
+              />
+              <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, fontWeight: 700, color: pct > 15 ? '#fff' : 'var(--ink)', textShadow: pct > 15 ? '0 1px 2px rgba(0,0,0,0.3)' : 'none' }}>
+                {step.clientCount} active
+              </span>
+            </div>
+            <div style={{ width: 75, fontSize: 12, fontWeight: 600, color: 'var(--muted)', textAlign: 'right' }}>
+              Avg {step.avgDuration}d
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

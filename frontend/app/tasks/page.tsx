@@ -13,10 +13,10 @@ import {
 } from 'date-fns';
 import { USE_MOCK, MOCK_TASKS } from '@/lib/mockData';
 import {
-  Search, XCircle, RotateCcw, ChevronLeft, ChevronRight,
+  Search, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown,
   ArrowUpDown, CircleCheck, Clock, TriangleAlert, Eye,
   Check, X, FolderOpen, Link2, Upload, FileText, Plus, ExternalLink, AlertCircle,
-  Play, Pause,
+  Play, Pause, Pin,
 } from 'lucide-react';
 
 const AUTO_REFRESH_MS = 30_000;
@@ -35,6 +35,9 @@ export default function TasksPage() {
   const [teamFilter, setTeamFilter] = useState<string>('');
   const [clientFilter, setClientFilter] = useState<string>('');
   const [chipFilter, setChipFilter] = useState<ChipKind>('');
+  const [priorityFilter, setPriorityFilter] = useState<string>('');
+  const [assigneeFilter, setAssigneeFilter] = useState<string>('');
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -188,10 +191,24 @@ export default function TasksPage() {
     return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
   }, [tasks]);
 
+  const assigneeOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    tasks.forEach((t) => {
+      if (t.assignedTo?.id && t.assignedTo?.fullName) {
+        map.set(t.assignedTo.id, t.assignedTo.fullName);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [tasks]);
+
   const filtered = useMemo(() => {
     let list = tasks;
     if (teamFilter) list = list.filter((t) => t.step?.owningTeamName === teamFilter || t.assignedTo?.teamName === teamFilter);
     if (clientFilter) list = list.filter((t) => t.client?.id === clientFilter);
+    if (priorityFilter) list = list.filter((t) => t.priority === priorityFilter);
+    if (assigneeFilter) list = list.filter((t) => (t.assignedToId || t.assignedTo?.id) === assigneeFilter);
 
     // Chip filter — virtual predicates on top of status + due date
     if (chipFilter === 'overdue') {
@@ -228,13 +245,13 @@ export default function TasksPage() {
       return 0;
     };
     return [...list].sort(cmp);
-  }, [tasks, search, chipFilter, teamFilter, clientFilter, sortKey, sortDir]);
+  }, [tasks, search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir]);
 
   const scrollableTasks = useMemo(() => {
     return filtered.slice(0, taskLimit);
   }, [filtered, taskLimit]);
 
-  useEffect(() => { setTaskLimit(15); }, [search, chipFilter, teamFilter, clientFilter, sortKey, sortDir]);
+  useEffect(() => { setTaskLimit(15); }, [search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir]);
 
   const handleTaskScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
@@ -502,42 +519,126 @@ export default function TasksPage() {
           </div>
         )}
       />
-      <div style={{ padding: '16px 20px', flex: 1 }}>
-
-        {/* Status chips */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-          {chips.map((c) => {
-            const active = chipFilter === c.key;
-            return (
-              <button key={c.label} onClick={() => setChipFilter(c.key)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '7px 13px', borderRadius: 999,
-                  border: `1px solid ${active ? (c.color || 'var(--olive)') : 'var(--border)'}`,
-                  background: active ? (c.color || 'var(--olive)') : 'var(--surface)',
-                  color: active ? '#fff' : 'var(--ink-2)',
-                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                  transition: 'all 0.15s',
-                }}>
-                {c.label}
-                <span style={{
-                  background: active ? 'rgba(255,255,255,0.25)' : 'var(--surface-2)',
-                  color: active ? '#fff' : (c.color || 'var(--muted)'),
-                  fontSize: 10.5, fontWeight: 700, padding: '1px 7px', borderRadius: 10,
-                }}>
-                  {c.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
 
         {/* Filter bar */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
+          <div style={{ position: 'relative', width: 150 }}>
             <Search size={12} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search task, client, or assignee…"
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..."
               style={{ width: '100%', padding: '8px 12px 8px 30px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', outline: 'none' }} />
+          </div>
+          {/* Custom Status Dropdown Menu */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+              style={{
+                ...selectStyle,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                userSelect: 'none',
+                minWidth: 155,
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {chips.find(c => c.key === chipFilter)?.color && (
+                  <span style={{
+                    width: 7, height: 7, borderRadius: '50%',
+                    background: chips.find(c => c.key === chipFilter)?.color, display: 'inline-block'
+                  }} />
+                )}
+                {chips.find(c => c.key === chipFilter)?.label || 'All'}
+              </span>
+              <ChevronDown size={13} style={{ opacity: 0.7 }} />
+            </button>
+            
+            {isStatusDropdownOpen && (
+              <>
+                <div
+                  onClick={() => setIsStatusDropdownOpen(false)}
+                  style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 998,
+                  }}
+                />
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: 4,
+                  width: 220,
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 999,
+                  padding: '4px 0',
+                }}>
+                  {chips.map((c) => {
+                    const isSelected = c.key === chipFilter;
+                    return (
+                      <button
+                        key={c.label}
+                        onClick={() => {
+                          setChipFilter(c.key);
+                          setIsStatusDropdownOpen(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          background: isSelected ? 'var(--olive-50)' : 'transparent',
+                          color: isSelected ? 'var(--olive-dark)' : 'var(--ink)',
+                          border: 'none',
+                          fontSize: 12.5,
+                          fontWeight: isSelected ? 600 : 500,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          textAlign: 'left',
+                          transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={e => {
+                          if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)';
+                        }}
+                        onMouseLeave={e => {
+                          if (!isSelected) e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {c.color ? (
+                            <span style={{
+                              width: 7, height: 7, borderRadius: '50%',
+                              background: c.color, display: 'inline-block'
+                            }} />
+                          ) : (
+                            <span style={{
+                              width: 7, height: 7, borderRadius: '50%',
+                              background: 'var(--muted)', display: 'inline-block'
+                            }} />
+                          )}
+                          {c.label}
+                        </span>
+                        <span style={{
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          color: isSelected ? 'var(--olive)' : 'var(--muted)',
+                          background: isSelected ? 'rgba(0,0,0,0.04)' : 'var(--surface-2)',
+                          padding: '1px 6px',
+                          borderRadius: 999,
+                        }}>
+                          {c.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
           {isAdmin && (
             <select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} style={selectStyle}>
@@ -551,6 +652,16 @@ export default function TasksPage() {
             options={clientOptions}
             placeholder="All clients"
           />
+          <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} style={selectStyle}>
+            <option value="">All assignees</option>
+            {assigneeOptions.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select>
+          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} style={selectStyle}>
+            <option value="">All priorities</option>
+            <option value="high">High priority</option>
+            <option value="medium">Medium priority</option>
+            <option value="low">Low priority</option>
+          </select>
         </div>
 
         <SectionCard padding={0}>
@@ -626,7 +737,7 @@ export default function TasksPage() {
                 <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {vaultTask.title}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>
                   {vaultTask.client?.brandName || vaultTask.client?.fullName} · Step {vaultTask.step?.stepNumber} — {vaultTask.step?.name}
                 </div>
               </div>
@@ -959,6 +1070,31 @@ function StaffTaskRow({
   onStopTimer?: () => void;
   onStatusChange?: (id: string, status: string) => void;
 }) {
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    try {
+      const current = JSON.parse(localStorage.getItem('pinned_tasks') || '[]');
+      setPinned(current.includes(t.id));
+    } catch (e) {}
+  }, [t.id]);
+
+  const togglePin = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const current = JSON.parse(localStorage.getItem('pinned_tasks') || '[]');
+      let updated;
+      if (current.includes(t.id)) {
+        updated = current.filter((x: string) => x !== t.id);
+        setPinned(false);
+      } else {
+        updated = [...current, t.id];
+        setPinned(true);
+      }
+      localStorage.setItem('pinned_tasks', JSON.stringify(updated));
+      window.dispatchEvent(new Event('pinned-updated'));
+    } catch (err) {}
+  };
+
   const done = t.status === 'complete';
   const rej = t.status === 'rejected' || t.status === 'cancelled';
   const overdue = !done && !rej && isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate));
@@ -987,6 +1123,23 @@ function StaffTaskRow({
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = rej ? '#FBEEF105' : 'transparent'; }}>
       <td style={{ padding: '10px 18px', verticalAlign: 'middle', minWidth: 240 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={togglePin}
+            style={{
+              border: 'none',
+              background: 'none',
+              padding: 4,
+              cursor: 'pointer',
+              color: pinned ? 'var(--olive)' : 'var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'color 0.15s',
+            }}
+            title={pinned ? "Unpin task" : "Pin task"}
+          >
+            <Pin size={13} style={{ fill: pinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+          </button>
           {t.priority === 'high' && <span style={{ width: 4, height: 22, borderRadius: 2, background: 'var(--red)' }} />}
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: done ? 'var(--muted)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

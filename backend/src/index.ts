@@ -25,7 +25,7 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: true,
   credentials: true,
 }));
 app.use(express.json());
@@ -77,7 +77,7 @@ async function verifyDatabaseConnection(): Promise<boolean> {
 }
 
 // Start server
-app.listen(PORT, async () => {
+app.listen(Number(PORT), '0.0.0.0', async () => {
   console.log(`\n🚀 MyC Ops API running at http://localhost:${PORT}`);
   await verifyDatabaseConnection();
   startCronJobs();

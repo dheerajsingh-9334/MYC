@@ -49,7 +49,7 @@ export function StepRow({ number, name, meta, dotStyle = 'upcoming', isLast, chi
         {!isLast && <div style={{ width: 1.5, flex: 1, background: dotStyle === 'done' ? 'var(--green)' : 'var(--border)', minHeight: 16 }} />}
       </div>
       <div style={{ paddingBottom: 20 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', paddingTop: 7, marginBottom: 2 }}>{name}</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', paddingTop: 7, marginBottom: 16 }}>{name}</div>
         <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 6 }}>{meta}</div>
         {children}
       </div>

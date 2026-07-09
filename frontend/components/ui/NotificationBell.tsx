@@ -87,8 +87,8 @@ export default function NotificationBell() {
           background: open ? 'var(--olive-50)' : 'none',
           border: 'none',
           cursor: 'pointer',
-          width: 36,
-          height: 36,
+          width: 32,
+          height: 32,
           borderRadius: 8,
           display: 'flex',
           alignItems: 'center',
@@ -105,8 +105,8 @@ export default function NotificationBell() {
           <span
             style={{
               position: 'absolute',
-              top: 3,
-              right: 3,
+              top: 1,
+              right: 1,
               minWidth: 17,
               height: 17,
               borderRadius: 9,

@@ -140,7 +140,7 @@ function ApplicationRow({ app, onAction }: { app: any; onAction: () => void }) {
         onClick={() => setExpanded(!expanded)}>
         <div>
           <div style={{ fontWeight: 600, fontSize: 14.5, color: 'var(--ink)' }}>{app.fullName}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{app.email || 'No email'} · {app.whatsappNumber || 'No WhatsApp'}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>{app.email || 'No email'} · {app.whatsappNumber || 'No WhatsApp'}</div>
         </div>
         <div style={{ fontSize: 12.5, color: 'var(--ink-2)' }}>{app.niche || '—'}</div>
         <div style={{ fontSize: 11.5, color: 'var(--muted)' }}>{format(new Date(app.createdAt), 'd MMM · HH:mm')}</div>
@@ -252,7 +252,7 @@ export default function OnboardingQueuePage() {
   return (
     <AppLayout>
       <Topbar title="Onboarding Queue" subtitle={pendingCount > 0 ? `${pendingCount} pending review` : 'All reviewed'} />
-      <div style={{ padding: '16px 20px', flex: 1 }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24 }}>

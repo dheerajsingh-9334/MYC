@@ -1,18 +1,20 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { apiFetch, getUser } from '@/lib/api';
-import { USE_MOCK } from '@/lib/mockData';
+import { USE_MOCK, MOCK_CLIENTS, MOCK_TASKS } from '@/lib/mockData';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity, ArrowRight, BarChart3, Search, Bell, Check, X, Download, Play } from 'lucide-react';
+import {
+  Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity,
+  ArrowRight, BarChart3, Search, Bell, Check, X, Download, Play,
+  Sun, Moon, Shield, CheckCircle, Hourglass, Ban, Sparkles, Megaphone
+} from 'lucide-react';
 import { format } from 'date-fns';
-import DashboardHeader from '@/components/ui/DashboardHeader';
-import StatCard from '@/components/ui/StatCard';
 import SectionCard from '@/components/ui/SectionCard';
-import { deriveSparkline } from '@/lib/sparkline';
+
+const AUTO_REFRESH_MS = 15000;
 
 interface AdminData {
   orgStats: {
@@ -47,12 +49,93 @@ const EMPTY_DATA: AdminData = {
 export default function AdminDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [activeDashboardTab, setActiveDashboardTab] = useState<'operations' | 'team'>('operations');
+
   useEffect(() => {
     setUser(getUser());
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      if (savedTheme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
   }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    localStorage.setItem('theme', nextTheme);
+    if (nextTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
   const qc = useQueryClient();
   const [memberSearch, setMemberSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState<string>('');
+
+  // Broadcast States
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [broadcastTarget, setBroadcastTarget] = useState<'all' | 'team' | 'user'>('all');
+  const [broadcastTeam, setBroadcastTeam] = useState('');
+  const [broadcastUser, setBroadcastUser] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastError, setBroadcastError] = useState('');
+  const [broadcastSuccess, setBroadcastSuccess] = useState('');
+
+  const handleSendBroadcast = async () => {
+    if (!broadcastMessage.trim()) {
+      setBroadcastError('Please enter a message.');
+      return;
+    }
+    if (broadcastTarget === 'team' && !broadcastTeam) {
+      setBroadcastError('Please select a team.');
+      return;
+    }
+    if (broadcastTarget === 'user' && !broadcastUser) {
+      setBroadcastError('Please select a user.');
+      return;
+    }
+
+    setBroadcastSending(true);
+    setBroadcastError('');
+    setBroadcastSuccess('');
+    try {
+      const body: any = {
+        message: broadcastMessage.trim(),
+        target: broadcastTarget,
+      };
+      if (broadcastTarget === 'team') {
+        body.teamName = broadcastTeam;
+      } else if (broadcastTarget === 'user') {
+        body.userId = broadcastUser;
+      }
+
+      await apiFetch('/api/notifications/admin-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      setBroadcastSuccess('Broadcast announcement sent successfully!');
+      setBroadcastMessage('');
+      setTimeout(() => {
+        setShowBroadcastModal(false);
+        setBroadcastSuccess('');
+      }, 1500);
+    } catch (e: any) {
+      setBroadcastError(e.message || 'Failed to send broadcast announcement.');
+    } finally {
+      setBroadcastSending(false);
+    }
+  };
 
   // Export Modal States
   const [showExportModal, setShowExportModal] = useState(false);
@@ -91,6 +174,14 @@ export default function AdminDashboard() {
   const { data: clientsList = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: () => apiFetch('/api/clients'),
+    refetchInterval: AUTO_REFRESH_MS,
+    retry: false,
+  });
+
+  const { data: tasksList = [] } = useQuery<any[]>({
+    queryKey: ['tasks'],
+    queryFn: () => apiFetch('/api/tasks'),
+    refetchInterval: AUTO_REFRESH_MS,
     retry: false,
   });
 
@@ -101,9 +192,18 @@ export default function AdminDashboard() {
     }
   }, [user, router]);
 
-  const { data: liveData, isLoading: isDashboardLoading } = useQuery({
+  const { data: liveData } = useQuery({
     queryKey: ['admin-dashboard'],
     queryFn: () => apiFetch('/api/dashboard/admin'),
+    enabled: user?.role === 'admin',
+    refetchInterval: AUTO_REFRESH_MS,
+    retry: false,
+  });
+
+  const { data: standupData } = useQuery<any>({
+    queryKey: ['standup'],
+    queryFn: () => apiFetch('/api/standup'),
+    refetchInterval: AUTO_REFRESH_MS,
     enabled: user?.role === 'admin',
     retry: false,
   });
@@ -122,37 +222,186 @@ export default function AdminDashboard() {
 
   const data: AdminData = liveData || EMPTY_DATA;
 
+  const allClients = USE_MOCK ? MOCK_CLIENTS : clientsList;
+  const allTasks = USE_MOCK ? MOCK_TASKS : (tasksList || []);
+
+  const totalClientsCount = allClients.length;
+  const launchedClientsCount = allClients.filter((c: any) => c.status === 'completed' || (c.currentStep?.stepNumber && c.currentStep.stepNumber >= 9)).length;
+
+  const avgCompletionTimeStr = useMemo(() => {
+    const completed = allClients.filter((c: any) => c.status === 'completed');
+    if (completed.length === 0) {
+      return data.orgStats.avgCompletionTimeDays !== undefined ? `${data.orgStats.avgCompletionTimeDays} Days` : '32 Days';
+    }
+    const totalDays = completed.reduce((sum: number, c: any) => sum + (c.completionDurationDays || 0), 0);
+    return `${Math.round(totalDays / completed.length)} Days`;
+  }, [allClients, data.orgStats.avgCompletionTimeDays]);
+
+  const overdueClientsCount = allClients.filter((c: any) => c.computedStatus === 'overdue').length;
+  const pendingRequestsCount = allTasks.filter((t: any) => t.status === 'extension_requested' || t.status === 'blocked').length;
+
+  const standupItems = useMemo(() => {
+    if (USE_MOCK || !standupData?.items) {
+      return [
+        { alertType: 'overdue' },
+        { alertType: 'overdue' },
+        { alertType: 'blocked' },
+        { alertType: 'due_today' },
+      ];
+    }
+    return standupData.items;
+  }, [standupData]);
+
+  const standupStats = useMemo(() => {
+    const total = standupItems.length;
+    const overdue = standupItems.filter((i: any) => i.alertType === 'overdue').length;
+    const blocked = standupItems.filter((i: any) => i.alertType === 'blocked').length;
+    const dueToday = standupItems.filter((i: any) => i.alertType === 'due_today').length;
+    return { total, overdue, blocked, dueToday };
+  }, [standupItems]);
+
+  const getHumanReadableTiming = (client: any) => {
+    const daysInStep = client.daysInStep ?? 0;
+    const slaDays = client.currentStep?.slaDays ?? 0;
+    const daysLate = daysInStep - slaDays;
+
+    if (client.computedStatus === 'overdue') {
+      if (daysLate > 0) {
+        return `${daysLate} day${daysLate !== 1 ? 's' : ''} late`;
+      } else {
+        const remaining = slaDays - daysInStep;
+        if (remaining > 0) {
+          return `Due in ${remaining} day${remaining !== 1 ? 's' : ''}`;
+        } else {
+          return `Due today`;
+        }
+      }
+    } else if (client.computedStatus === 'blocked') {
+      return 'Blocked';
+    } else if (client.computedStatus === 'due_today') {
+      return 'Due today';
+    } else {
+      const remaining = slaDays - daysInStep;
+      if (remaining > 0) {
+        return `Due in ${remaining} day${remaining !== 1 ? 's' : ''}`;
+      } else if (remaining === 0) {
+        return `Due today`;
+      } else {
+        return 'On track';
+      }
+    }
+  };
+
+  const getClientStatusStyles = (client: any) => {
+    const daysInStep = client.daysInStep ?? 0;
+    const slaDays = client.currentStep?.slaDays ?? 0;
+    const daysLate = daysInStep - slaDays;
+
+    if (client.computedStatus === 'overdue') {
+      if (daysLate > 3) {
+        return {
+          bg: 'var(--red-bg)',
+          color: 'var(--red)',
+          label: getHumanReadableTiming(client),
+        };
+      } else {
+        return {
+          bg: 'var(--amber-bg)',
+          color: 'var(--amber)',
+          label: getHumanReadableTiming(client),
+        };
+      }
+    } else if (client.computedStatus === 'blocked') {
+      return {
+        bg: 'var(--amber-bg)',
+        color: 'var(--amber)',
+        label: 'Blocked',
+      };
+    } else if (client.computedStatus === 'due_today') {
+      return {
+        bg: 'var(--amber-bg)',
+        color: 'var(--amber)',
+        label: 'Due today',
+      };
+    } else {
+      return {
+        bg: 'var(--green-bg)',
+        color: 'var(--green)',
+        label: 'On track',
+      };
+    }
+  };
+
+  // Attention Panel Items
+  const attentionItems = useMemo(() => {
+    const overdueClients = allClients.filter((c: any) => c.computedStatus === 'overdue');
+    let criticalMsg = "No critical client delays detected.";
+    let criticalLink = "/clients?filter=overdue";
+    if (overdueClients.length > 0) {
+      const sorted = [...overdueClients].sort((a: any, b: any) => {
+        const aLate = (a.daysInStep || 0) - (a.currentStep?.slaDays || 0);
+        const bLate = (b.daysInStep || 0) - (b.currentStep?.slaDays || 0);
+        return bLate - aLate;
+      });
+      const topClient = sorted[0];
+      const timingLabel = getHumanReadableTiming(topClient);
+      criticalMsg = `${topClient.brandName || topClient.fullName} is ${timingLabel} on step "${topClient.currentStep?.name || 'Unknown'}".`;
+      criticalLink = `/clients?filter=overdue`;
+    }
+
+    const blockedClients = allClients.filter((c: any) => c.computedStatus === 'blocked');
+    let warningMsg = "No blocked tasks or client onboarding holds.";
+    let warningLink = "/standup?filter=blocked";
+    if (blockedClients.length > 0) {
+      warningMsg = `${blockedClients.length} client pipeline${blockedClients.length > 1 ? 's are' : ' is'} blocked by unresolved issues.`;
+      warningLink = `/standup?filter=blocked`;
+    } else {
+      const dueToday = allClients.filter((c: any) => c.computedStatus === 'due_today');
+      if (dueToday.length > 0) {
+        warningMsg = `${dueToday.length} client task${dueToday.length > 1 ? 's are' : ' is'} due today.`;
+        warningLink = `/standup?filter=due_today`;
+      }
+    }
+
+    const pendingExtensions = allTasks.filter((t: any) => t.status === 'extension_requested');
+    let infoMsg = "No pending extension requests.";
+    let infoLink = "/standup";
+    if (pendingExtensions.length > 0) {
+      infoMsg = `${pendingExtensions.length} task extension request${pendingExtensions.length > 1 ? 's' : ''} awaiting approval.`;
+      infoLink = `/standup`; 
+    }
+
+    return {
+      critical: { message: criticalMsg, link: criticalLink, hasItems: overdueClients.length > 0 },
+      warning: { message: warningMsg, link: warningLink, hasItems: blockedClients.length > 0 || allClients.filter((c: any) => c.computedStatus === 'due_today').length > 0 },
+      info: { message: infoMsg, link: infoLink, hasItems: pendingExtensions.length > 0 },
+    };
+  }, [allClients, allTasks]);
+
+  // Sorted Client Risk list
+  const sortedClientsForRisk = useMemo(() => {
+    const list = [...allClients];
+    return list.sort((a: any, b: any) => {
+      const aLate = a.computedStatus === 'overdue' ? Math.max(0, (a.daysInStep || 0) - (a.currentStep?.slaDays || 0)) : 0;
+      const bLate = b.computedStatus === 'overdue' ? Math.max(0, (b.daysInStep || 0) - (b.currentStep?.slaDays || 0)) : 0;
+      if (aLate !== bLate) return bLate - aLate;
+      const statusOrder: Record<string, number> = { overdue: 0, blocked: 1, due_today: 2, on_track: 3 };
+      return (statusOrder[a.computedStatus] ?? 4) - (statusOrder[b.computedStatus] ?? 4);
+    });
+  }, [allClients]);
+
   const filteredMembers = useMemo(() => {
     let ms = data.members;
-    if (teamFilter) ms = ms.filter((m) => m.team === teamFilter);
+    if (teamFilter) ms = ms.filter((m: any) => m.team === teamFilter);
     if (memberSearch.trim()) {
       const q = memberSearch.toLowerCase();
-      ms = ms.filter((m) => m.name.toLowerCase().includes(q) || m.team.toLowerCase().includes(q));
+      ms = ms.filter((m: any) => m.name.toLowerCase().includes(q) || m.team.toLowerCase().includes(q));
     }
     return ms;
   }, [data.members, memberSearch, teamFilter]);
 
-  // Operations Overview tabbed details state and infinite scroll limits
-  const [opTab, setOpTab] = useState<'Workload' | 'Pending Requests' | 'Recent Activity' | 'Notifications'>('Workload');
-  const [workloadSearch, setWorkloadSearch] = useState('');
-  const [activitySearch, setActivitySearch] = useState('');
-
-  const [workloadLimit, setWorkloadLimit] = useState(15);
-  const [pendingLimit, setPendingLimit] = useState(15);
-  const [activityLimit, setActivityLimit] = useState(15);
-  const [notificationsLimit, setNotificationsLimit] = useState(15);
-  const [membersLimit, setMembersLimit] = useState(15);
-
-  const teamOptions = useMemo(() => {
-    const set = new Set<string>();
-    data.members.forEach((m) => {
-      if (m.team) set.add(m.team);
-    });
-    return Array.from(set).sort();
-  }, [data.members]);
-
   // Fetch notifications
-  const { data: liveNotifs, isLoading: isNotifsLoading } = useQuery<any[]>({
+  const { data: liveNotifs } = useQuery<any[]>({
     queryKey: ['admin-notifications'],
     queryFn: () => apiFetch('/api/notifications'),
     enabled: user?.role === 'admin',
@@ -160,118 +409,6 @@ export default function AdminDashboard() {
   });
 
   const notifications = liveNotifs || [];
-
-  // Workload computations
-  const filteredWorkload = useMemo(() => {
-    let list = data.teams.filter((t) => {
-      const name = t.teamName.toLowerCase().trim();
-      return name !== 'admin' && name !== 'administrators' && name !== '(unassigned)';
-    });
-    if (workloadSearch.trim()) {
-      const q = workloadSearch.toLowerCase();
-      list = list.filter((t) => t.teamName.toLowerCase().includes(q));
-    }
-    return list;
-  }, [data.teams, workloadSearch]);
-
-  const scrollableWorkload = useMemo(() => {
-    return filteredWorkload.slice(0, workloadLimit);
-  }, [filteredWorkload, workloadLimit]);
-
-  // Recent Activity computations
-  const filteredActivity = useMemo(() => {
-    let list = data.recentCompletions;
-    if (activitySearch.trim()) {
-      const q = activitySearch.toLowerCase();
-      list = list.filter(
-        (c) =>
-          c.title.toLowerCase().includes(q) ||
-          c.assignee.toLowerCase().includes(q) ||
-          c.client.toLowerCase().includes(q) ||
-          (c.team && c.team.toLowerCase().includes(q))
-      );
-    }
-    return list;
-  }, [data.recentCompletions, activitySearch]);
-
-  const scrollableActivity = useMemo(() => {
-    return filteredActivity.slice(0, activityLimit);
-  }, [filteredActivity, activityLimit]);
-
-  // Notifications computations
-  const scrollableNotifications = useMemo(() => {
-    return notifications.slice(0, notificationsLimit);
-  }, [notifications, notificationsLimit]);
-
-  // Pending Requests computations
-  const pendingExtensionsList = data.pendingExtensions || [];
-  const scrollableExtensions = useMemo(() => {
-    return pendingExtensionsList.slice(0, pendingLimit);
-  }, [pendingExtensionsList, pendingLimit]);
-
-  // Team Members infinite scroll computation
-  const scrollableMembers = useMemo(() => {
-    return filteredMembers.slice(0, membersLimit);
-  }, [filteredMembers, membersLimit]);
-
-  // Infinite Scroll Event Handlers
-  const handleOpScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollTop + clientHeight >= scrollHeight - 20) {
-      if (opTab === 'Workload') {
-        setWorkloadLimit(prev => Math.min(prev + 10, filteredWorkload.length));
-      } else if (opTab === 'Pending Requests') {
-        setPendingLimit(prev => Math.min(prev + 10, pendingExtensionsList.length));
-      } else if (opTab === 'Recent Activity') {
-        setActivityLimit(prev => Math.min(prev + 10, filteredActivity.length));
-      } else if (opTab === 'Notifications') {
-        setNotificationsLimit(prev => Math.min(prev + 10, notifications.length));
-      }
-    }
-  };
-
-  const handleMembersScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollTop + clientHeight >= scrollHeight - 20) {
-      setMembersLimit(prev => Math.min(prev + 10, filteredMembers.length));
-    }
-  };
-
-  if (!user || user.role !== 'admin' || isDashboardLoading || isNotifsLoading) {
-    return (
-      <AppLayout>
-        <Topbar
-          title="Admin Dashboard"
-          subtitle="Org-wide view · Tasks, teams, performance"
-        />
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: 'calc(100vh - 120px)',
-          gap: 12,
-          color: 'var(--muted)',
-        }}>
-          <div style={{
-            width: 24,
-            height: 24,
-            borderRadius: '50%',
-            border: '2px solid var(--border)',
-            borderTopColor: 'var(--olive)',
-            animation: 'spin 1s linear infinite',
-          }} />
-          <span style={{ fontSize: 13, fontWeight: 500 }}>Loading admin data...</span>
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
-        </div>
-      </AppLayout>
-    );
-  }
 
   return (
     <AppLayout>
@@ -281,567 +418,263 @@ export default function AdminDashboard() {
         showAddClient={true}
         onAddClient={() => router.push('/onboarding')}
         renderActions={() => (
-          <button
-            onClick={() => {
-              setExportType('client_full');
-              setShowExportModal(true);
-            }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', borderRadius: 'var(--radius-sm)',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              color: 'var(--ink-2)', fontSize: 13, fontWeight: 500, cursor: 'pointer',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-          >
-            <Download size={14} /> Export Reports
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={() => setShowBroadcastModal(true)}
+              title="Broadcast Announcement"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                height: 32,
+                padding: '0 10px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'rgba(220, 38, 38, 0.08)',
+                border: '1px solid rgba(220, 38, 38, 0.2)',
+                color: 'var(--red)',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
+            >
+              <Megaphone size={12} /> Broadcast
+            </button>
+            <button
+              onClick={() => {
+                setExportType('client_full');
+                setShowExportModal(true);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 14px',
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                color: 'var(--ink-2)',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+            >
+              <Download size={14} /> Export Reports
+            </button>
+            <button
+              onClick={toggleTheme}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 36,
+                height: 36,
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                color: 'var(--ink-2)',
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+              title="Toggle theme"
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+          </div>
         )}
       />
-      <div style={{ padding: '16px 20px', flex: 1 }}>
 
-        {/* Stat cards — top row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 22 }}>
-          <StatCard
-            label="Total Clients"
-            value={data.orgStats.totalClients}
-            accent="var(--ink)"
-            trend="View all clients"
-            trendType="neutral"
-            icon={Users}
-            onClick={() => router.push('/clients?filter=all')}
-          />
-          <StatCard
-            label="Active Clients"
-            value={data.orgStats.activeClients}
-            accent="var(--olive)"
-            trend="In active pipeline"
-            trendType="up"
-            icon={UserPlus}
-            onClick={() => router.push('/clients?filter=active')}
-          />
-          <StatCard
-            label="Avg. Completion Time"
-            value={data.orgStats.avgCompletionTimeDays !== undefined ? `${data.orgStats.avgCompletionTimeDays} Days` : '—'}
-            accent="var(--green)"
-            trend="Average duration to complete"
-            trendType="neutral"
-            icon={CircleCheck}
-            onClick={() => router.push('/clients?filter=completed')}
-          />
-          <StatCard
-            label="Overdue Tasks"
-            value={data.orgStats.overdueTasks}
-            accent="var(--red)"
-            trend="Require attention"
-            trendType="warn"
-            icon={TriangleAlert}
-            onClick={() => router.push('/tasks?filter=overdue')}
-          />
-          <StatCard
-            label="Pending Extensions"
-            value={data.orgStats.extensionTasks}
-            accent="var(--blue)"
-            trend="Extension requests"
-            trendType="neutral"
-            icon={Clock}
-            onClick={() => router.push('/tasks?filter=extension_requested')}
-          />
-          <StatCard
-            label="In Progress Tasks"
-            value={data.orgStats.inProgressTasks || 0}
-            accent="var(--olive)"
-            trend="Currently active tasks"
-            trendType="neutral"
-            icon={Play}
-            onClick={() => router.push('/tasks?filter=in_progress')}
-          />
-        </div>
-
-
-        {/* ── Main Dashboard Body ── */}
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-          
-          {/* Left Column: Operations Details */}
-          <div style={{ flex: '3 1 600px', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 190px)', minHeight: 550 }}>
-            <SectionCard
-              title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Activity size={15} style={{ color: 'var(--olive)' }} /> Operations Details</span>}
-              subtitle="Workload, pending requests, and notification feeds"
-              padding="0"
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
-            >
-              {/* Tab selector */}
-              <div style={{ display: 'flex', gap: 16, borderBottom: '1px solid var(--border)', padding: '0 24px', background: 'var(--surface-2)', overflowX: 'auto' }}>
-                {['Workload', 'Pending Requests', 'Recent Activity', 'Notifications'].map((t) => {
-                  const isActive = opTab === t;
-                  return (
-                    <button
-                      key={t}
-                      onClick={() => { setOpTab(t as any); }}
-                      style={{
-                        padding: '12px 4px',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: isActive ? 'var(--olive)' : 'var(--muted)',
-                        borderBottom: `2px solid ${isActive ? 'var(--olive)' : 'transparent'}`,
-                        fontSize: 13,
-                        fontWeight: isActive ? 600 : 500,
-                        transition: 'all 0.15s',
-                        marginBottom: -1,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Tab Contents */}
-              <div
-                onScroll={handleOpScroll}
-                style={{
-                  padding: '16px 20px',
-                  flex: 1,
-                  minHeight: 0,
-                  overflowY: 'auto',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)',
-                  margin: '16px 20px 20px',
-                  background: 'var(--surface-2)',
-                }}
-              >
-                
-                {/* 1. WORKLOAD TAB */}
-                {opTab === 'Workload' && (
-                  <div>
-                    {/* Filter / Search */}
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                      <div style={{ position: 'relative', flex: 1 }}>
-                        <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-                        <input
-                          value={workloadSearch}
-                          onChange={(e) => { setWorkloadSearch(e.target.value); setWorkloadLimit(15); }}
-                          placeholder="Search teams..."
-                          style={{
-                            width: '100%',
-                            padding: '8px 12px 8px 30px',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: 12.5,
-                            background: 'var(--surface)',
-                            color: 'var(--ink)',
-                            outline: 'none',
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* List */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {scrollableWorkload.length === 0 ? (
-                        <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No teams match search.</div>
-                      ) : (
-                        scrollableWorkload.map((t) => {
-                          const max = Math.max(...data.teams.map(x => x.activeTasks), 1);
-                          const pct = (t.activeTasks / max) * 100;
-                          const avgTasksPerMember = t.activeTasks / Math.max(t.memberCount, 1);
-                          const overloaded = t.overdue > 2 || avgTasksPerMember > 3;
-                          const loadStatus = overloaded 
-                            ? { label: 'High Load', bg: '#FBEEF1', color: 'var(--red)', dot: 'var(--red)' } 
-                            : t.activeTasks > 0 
-                              ? { label: 'Normal', bg: 'var(--olive-50)', color: 'var(--olive)', dot: 'var(--olive)' } 
-                              : { label: 'Idle', bg: 'var(--surface-2)', color: 'var(--muted)', dot: 'var(--soft)' };
-
-                          return (
-                            <div
-                              key={t.teamName}
-                              onClick={() => router.push(`/team?team=${encodeURIComponent(t.teamName)}`)}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 12,
-                                padding: '12px 14px',
-                                border: '1px solid var(--border)',
-                                borderRadius: 'var(--radius-sm)',
-                                background: 'var(--surface)',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.borderColor = 'var(--olive)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                                e.currentTarget.style.background = 'var(--olive-50)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.borderColor = 'var(--border)';
-                                e.currentTarget.style.boxShadow = 'none';
-                                e.currentTarget.style.background = 'var(--surface)';
-                              }}
-                            >
-                              <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-                                  <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{t.teamName}</span>
-                                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>
-                                    · {t.memberCount} member{t.memberCount !== 1 ? 's' : ''}
-                                  </span>
-                                  <span style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 4,
-                                    padding: '2px 6px',
-                                    borderRadius: 4,
-                                    fontSize: 10,
-                                    fontWeight: 600,
-                                    background: loadStatus.bg,
-                                    color: loadStatus.color,
-                                    marginLeft: 'auto',
-                                  }}>
-                                    <span style={{ width: 4, height: 4, borderRadius: '50%', background: loadStatus.dot }} />
-                                    {loadStatus.label}
-                                  </span>
-                                </div>
-                                <div style={{ height: 6, background: 'var(--surface-2)', borderRadius: 3, overflow: 'hidden' }}>
-                                  <div style={{ height: '100%', width: `${pct}%`, background: overloaded ? 'var(--amber)' : 'var(--olive)', borderRadius: 3 }} />
-                                </div>
-                              </div>
-                              <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
-                                <span style={{ textAlign: 'center', minWidth: 40 }}>
-                                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{t.activeTasks}</div>
-                                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Active</div>
-                                </span>
-                                <span style={{ textAlign: 'center', minWidth: 40 }}>
-                                  <div style={{ fontSize: 14, fontWeight: 600, color: t.overdue > 0 ? 'var(--red)' : 'var(--muted)' }}>{t.overdue}</div>
-                                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Late</div>
-                                </span>
-                                <span style={{ textAlign: 'center', minWidth: 40 }}>
-                                  <div style={{ fontSize: 14, fontWeight: 600, color: t.blocked > 0 ? '#6B3FA0' : 'var(--muted)' }}>{t.blocked}</div>
-                                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Blocked</div>
-                                </span>
-                                <span style={{ textAlign: 'center', minWidth: 40 }}>
-                                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--green)' }}>{t.completedLast7d}</div>
-                                  <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Done</div>
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. PENDING REQUESTS TAB */}
-                {opTab === 'Pending Requests' && (
-                  <div>
-                    {/* Heading */}
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
-                      Pending Task Extension Requests ({pendingExtensionsList.length})
-                    </div>
-
-                    {/* List */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                      {scrollableExtensions.length === 0 ? (
-                        <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No pending extension requests.</div>
-                      ) : (
-                        scrollableExtensions.map((ext) => (
-                          <div key={ext.id} style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-                              <div>
-                                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{ext.title}</div>
-                                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
-                                  Client: <strong style={{ color: 'var(--ink-2)' }}>{ext.client}</strong> · Step: {ext.step}
-                                </div>
-                              </div>
-                              <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--surface-2)', padding: '2px 8px', borderRadius: 4, fontWeight: 500 }}>
-                                {ext.team}
-                              </span>
-                            </div>
-
-                            {/* Date details */}
-                            <div style={{ display: 'flex', gap: 16, background: 'var(--surface-2)', padding: '8px 12px', borderRadius: 6, fontSize: 12 }}>
-                              <div>
-                                <span style={{ color: 'var(--muted)' }}>Current Due:</span>{' '}
-                                <strong style={{ color: 'var(--ink-2)' }}>{format(new Date(ext.dueDate), 'd MMM yyyy')}</strong>
-                              </div>
-                              <div style={{ borderLeft: '1px solid var(--border)' }} />
-                              <div>
-                                <span style={{ color: 'var(--muted)' }}>Requested Due:</span>{' '}
-                                <strong style={{ color: 'var(--blue)' }}>{format(new Date(ext.extensionRequestedDate), 'd MMM yyyy')}</strong>
-                              </div>
-                            </div>
-
-                            {/* Reason */}
-                            {ext.extensionReason && (
-                              <div style={{ fontSize: 12.5, color: 'var(--ink-2)', fontStyle: 'italic', background: 'var(--red-bg)', padding: '8px 12px', borderRadius: 6, borderLeft: '3px solid var(--red)' }}>
-                                &ldquo;{ext.extensionReason}&rdquo;
-                              </div>
-                            )}
-
-                            {/* Bottom line: Assignee + Actions */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                                Requested by: <strong style={{ color: 'var(--ink-2)' }}>{ext.assignee}</strong>
-                              </div>
-                              <div style={{ display: 'flex', gap: 8 }}>
-                                <button
-                                  onClick={() => approveExtensionMut.mutate({ id: ext.id, approved: false })}
-                                  disabled={approveExtensionMut.isPending}
-                                  style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                    padding: '6px 12px', borderRadius: 'var(--radius-sm)',
-                                    background: '#FBEEF1', border: '1px solid #F3D0D7',
-                                    color: 'var(--red)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                                    transition: 'all 0.15s',
-                                  }}
-                                  onMouseEnter={e => { e.currentTarget.style.background = '#F9DFE2'; }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = '#FBEEF1'; }}
-                                >
-                                  <X size={12} /> Reject
-                                </button>
-                                <button
-                                  onClick={() => approveExtensionMut.mutate({ id: ext.id, approved: true })}
-                                  disabled={approveExtensionMut.isPending}
-                                  style={{
-                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                    padding: '6px 12px', borderRadius: 'var(--radius-sm)',
-                                    background: 'var(--green-bg)', border: '1px solid #CDEBD9',
-                                    color: 'var(--green)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                                    transition: 'all 0.15s',
-                                  }}
-                                  onMouseEnter={e => { e.currentTarget.style.background = '#D7F1E1'; }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--green-bg)'; }}
-                                >
-                                  <Check size={12} /> Approve
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* 3. RECENT ACTIVITY TAB */}
-                {opTab === 'Recent Activity' && (
-                  <div>
-                    {/* Filter / Search */}
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                      <div style={{ position: 'relative', flex: 1 }}>
-                        <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-                        <input
-                          value={activitySearch}
-                          onChange={(e) => { setActivitySearch(e.target.value); setActivityLimit(15); }}
-                          placeholder="Search completions..."
-                          style={{
-                            width: '100%',
-                            padding: '8px 12px 8px 30px',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: 12.5,
-                            background: 'var(--surface)',
-                            color: 'var(--ink)',
-                            outline: 'none',
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Activity Feed */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {scrollableActivity.length === 0 ? (
-                        <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No recent activities found.</div>
-                      ) : (
-                        scrollableActivity.map((c) => (
-                          <div key={c.id} style={{ display: 'flex', gap: 12, padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', alignItems: 'flex-start' }}>
-                            <span style={{ fontSize: 16, marginTop: 2 }}>✅</span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 500 }}>
-                                {c.assignee} completed <strong style={{ color: 'var(--ink-2)' }}>{c.title}</strong>
-                              </div>
-                              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                                {c.client} · {c.step}
-                              </div>
-                            </div>
-                            <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                              {c.completedAt ? format(new Date(c.completedAt), 'd MMM, HH:mm') : ''}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* 4. NOTIFICATIONS TAB */}
-                {opTab === 'Notifications' && (
-                  <div>
-                    {/* Alert Heading */}
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
-                      Latest alerts for your account
-                    </div>
-
-                    {/* Notifications list */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {scrollableNotifications.length === 0 ? (
-                        <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No alerts right now.</div>
-                      ) : (
-                        scrollableNotifications.map((n) => (
-                          <div key={n.id} style={{ display: 'grid', gridTemplateColumns: '8px 1fr auto', gap: 12, alignItems: 'start', padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', background: n.isRead ? 'var(--surface)' : 'var(--olive-50)' }}>
-                            <span style={{ width: 8, height: 8, borderRadius: 999, background: n.isRead ? 'var(--border-strong)' : 'var(--olive)', marginTop: 5 }} />
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{n.title || n.message}</div>
-                              {n.body && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{n.body}</div>}
-                            </div>
-                            <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
-                              {n.createdAt ? format(new Date(n.createdAt), 'd MMM, HH:mm') : ''}
-                            </span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </SectionCard>
+      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+        
+        {/* 3 Stat Cards in a row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          {/* Card 1: Total Clients */}
+          <div style={{
+            ...statCardStyle('var(--olive)'),
+            background: 'var(--olive-50)',
+            borderColor: 'var(--olive)',
+          }}>
+            <div style={{ ...statCardHeaderStyle, color: 'var(--olive)' }}>
+              <Users size={14} style={{ color: 'var(--olive)' }} />
+              <span style={{ fontWeight: 800 }}>Total Clients</span>
+            </div>
+            <div style={statCardValueContainerStyle}>
+              <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{totalClientsCount}</span>
+              <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Registered</span>
+            </div>
           </div>
 
-          {/* Right Column: Team Member Load */}
-          <div style={{ flex: '2 1 400px', display: 'flex', flexDirection: 'column', height: 'calc(100vh - 190px)', minHeight: 550 }}>
-            <SectionCard
-              title={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><Users size={15} style={{ color: 'var(--olive)' }} /> Team Members</span>}
-              subtitle="Workload distribution and performance metrics"
-              padding="0"
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
-            >
-              {/* Search / Filter for members */}
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: 150 }}>
-                  <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-                  <input
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                    placeholder="Search members..."
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px 8px 30px',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: 12.5,
-                      background: 'var(--surface)',
-                      color: 'var(--ink)',
-                      outline: 'none',
-                    }}
-                  />
-                </div>
-                <select
-                  value={teamFilter}
-                  onChange={(e) => setTeamFilter(e.target.value)}
-                  style={{
-                    padding: '8px 10px',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: 12.5,
-                    background: 'var(--surface)',
-                    color: 'var(--ink)',
-                    outline: 'none',
-                    minWidth: 120,
-                  }}
-                >
-                  <option value="">All teams</option>
-                  {teamOptions.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Member list */}
-              <div
-                onScroll={handleMembersScroll}
-                style={{
-                  padding: '16px 20px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 12,
-                  flex: 1,
-                  minHeight: 0,
-                  overflowY: 'auto',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)',
-                  margin: '16px 20px 20px',
-                  background: 'var(--surface-2)',
-                }}
-              >
-                {scrollableMembers.length === 0 ? (
-                  <div style={{ textAlign: 'center', color: 'var(--muted)', padding: '20px 0', fontSize: 13 }}>No members match filters.</div>
-                ) : (
-                  scrollableMembers.map((m) => {
-                    const initials = m.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
-                    return (
-                      <div
-                        key={m.userId}
-                        onClick={() => router.push(`/tasks?search=${encodeURIComponent(m.name)}`)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '10px 12px',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          background: 'var(--surface)',
-                          transition: 'all 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = 'var(--olive)';
-                          e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = 'var(--border)';
-                          e.currentTarget.style.boxShadow = 'none';
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                          <div style={{
-                            width: 32, height: 32, borderRadius: '50%',
-                            background: 'linear-gradient(135deg, var(--olive), var(--olive-light))',
-                            color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 12, fontWeight: 700, flexShrink: 0
-                          }}>
-                            {initials}
-                          </div>
-                          <div style={{ minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{m.name}</div>
-                            <div style={{ fontSize: 11, color: 'var(--muted)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{m.team} · {m.role === 'team_leader' ? 'Leader' : 'Member'}</div>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
-                          <span style={{ textAlign: 'center', minWidth: 35 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{m.active}</div>
-                            <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Active</div>
-                          </span>
-                          <span style={{ textAlign: 'center', minWidth: 35 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: m.overdue > 0 ? 'var(--red)' : 'var(--muted)' }}>{m.overdue}</div>
-                            <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Late</div>
-                          </span>
-                          <span style={{ textAlign: 'center', minWidth: 35 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--green)' }}>{m.completedLast7d}</div>
-                            <div style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase' }}>Done</div>
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </SectionCard>
+          {/* Card 2: Launched Clients */}
+          <div style={{
+            ...statCardStyle('var(--green)'),
+            background: 'var(--green-bg)',
+            borderColor: 'var(--green)',
+          }}>
+            <div style={{ ...statCardHeaderStyle, color: 'var(--green)' }}>
+              <CheckCircle size={14} style={{ color: 'var(--green)' }} />
+              <span style={{ fontWeight: 800 }}>Launched Clients</span>
+            </div>
+            <div style={statCardValueContainerStyle}>
+              <span style={{ ...statCardValueStyle, color: 'var(--green)' }}>{launchedClientsCount}</span>
+              <span style={{ ...statCardSubtitleStyle, color: 'var(--green)', opacity: 0.8 }}>Completed Step 9</span>
+            </div>
           </div>
 
+          {/* Card 3: Overdue - Clickable & Red Highlighted */}
+          <div
+            onClick={() => router.push('/clients?filter=overdue')}
+            style={{
+              ...statCardStyle('var(--red)'),
+              background: 'var(--red-bg)',
+              borderColor: 'var(--red)',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ ...statCardHeaderStyle, color: 'var(--red)' }}>
+              <TriangleAlert size={14} style={{ color: 'var(--red)' }} />
+              <span style={{ fontWeight: 800 }}>Overdue</span>
+            </div>
+            <div style={statCardValueContainerStyle}>
+              <span style={{ ...statCardValueStyle, color: 'var(--red)' }}>{overdueClientsCount}</span>
+              <span style={{ ...statCardSubtitleStyle, color: 'var(--red)', opacity: 0.8 }}>Needs attention</span>
+            </div>
+          </div>
         </div>
+
+        {/* Needs Attention Today Panel */}
+        <div style={{
+          border: '1.5px solid var(--amber)',
+          borderLeft: '5px solid var(--amber)',
+          borderRadius: 'var(--radius)',
+          background: 'var(--surface-2)',
+          padding: '16px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <TriangleAlert size={16} style={{ color: 'var(--amber)' }} />
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Needs Attention Today</span>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>— Immediate actions required to maintain service level agreements</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Critical Row */}
+            <div style={attentionRowStyle}>
+              <span style={badgeStyle('var(--red-bg)', 'var(--red)', 'CRITICAL')}>CRITICAL</span>
+              <span style={attentionMessageStyle}>{attentionItems.critical.message}</span>
+              <button
+                onClick={() => router.push(attentionItems.critical.link)}
+                style={attentionButtonStyle('var(--red)', 'var(--red-bg)')}
+              >
+                {attentionItems.critical.hasItems ? 'Resolve' : 'View'}
+              </button>
+            </div>
+
+            {/* Warning Row */}
+            <div style={attentionRowStyle}>
+              <span style={badgeStyle('var(--amber-bg)', 'var(--amber)', 'WARNING')}>WARNING</span>
+              <span style={attentionMessageStyle}>{attentionItems.warning.message}</span>
+              <button
+                onClick={() => router.push(attentionItems.warning.link)}
+                style={attentionButtonStyle('var(--amber)', 'var(--amber-bg)')}
+              >
+                {attentionItems.warning.hasItems ? 'Resolve' : 'View'}
+              </button>
+            </div>
+
+            {/* Info Row */}
+            <div style={attentionRowStyle}>
+              <span style={badgeStyle('var(--blue-bg)', 'var(--blue)', 'INFO')}>INFO</span>
+              <span style={attentionMessageStyle}>{attentionItems.info.message}</span>
+              <button
+                onClick={() => router.push(attentionItems.info.link)}
+                style={attentionButtonStyle('var(--blue)', 'var(--blue-bg)')}
+              >
+                {attentionItems.info.hasItems ? 'Resolve' : 'View'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Client Risk Section (Full Width) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minHeight: 400 }}>
+          {/* Client Risk */}
+          <SectionCard
+            title={
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <Activity size={15} style={{ color: 'var(--olive)' }} />
+                Client Risk Analysis
+              </span>
+            }
+            subtitle="Clients sorted by highest overdue duration"
+            padding="0"
+            style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+          >
+            <div style={{ flex: 1, overflowY: 'auto', maxHeight: 450, padding: 0 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', color: 'var(--muted)', textAlign: 'left' }}>
+                    <th style={{ padding: '10px 18px', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)' }}>Client / Brand</th>
+                    <th style={{ padding: '10px 18px', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)' }}>Current Step</th>
+                    <th style={{ padding: '10px 18px', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)', textAlign: 'right' }}>Delay Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedClientsForRisk.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} style={{ padding: '20px 18px', textAlign: 'center', color: 'var(--muted)' }}>
+                        No active clients.
+                      </td>
+                    </tr>
+                  ) : (
+                    sortedClientsForRisk.map((client: any) => {
+                      const sc = getClientStatusStyles(client);
+                      return (
+                        <tr
+                          key={client.id}
+                          onClick={() => router.push(`/clients/${client.id}`)}
+                          style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.12s' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <td style={{ padding: '10px 18px', fontWeight: 600, color: 'var(--ink)' }}>
+                            {client.brandName || client.fullName}
+                          </td>
+                          <td style={{ padding: '10px 18px', color: 'var(--ink-2)' }}>
+                            {client.currentStep?.name || 'Unassigned'}
+                          </td>
+                          <td style={{ padding: '10px 18px', textAlign: 'right' }}>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '2px 8px',
+                              borderRadius: 999,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              background: sc.bg,
+                              color: sc.color
+                            }}>
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc.color }} />
+                              {sc.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </SectionCard>
+        </div>
+
         {/* ── EXPORT MODAL ── */}
         {showExportModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
@@ -1103,7 +936,246 @@ export default function AdminDashboard() {
           </div>
         )}
 
+      {showBroadcastModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowBroadcastModal(false); }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.2)', overflow: 'hidden', padding: 24, gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
+                <Megaphone size={18} style={{ color: 'var(--olive)' }} />
+                <span>Send Broadcast Announcement</span>
+              </div>
+              <button onClick={() => setShowBroadcastModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={18} /></button>
+            </div>
+
+            {broadcastError && (
+              <div style={{ background: '#FDF2F2', border: '1px solid #FDE8E8', borderRadius: 6, padding: '10px 14px', color: '#9B1C1C', fontSize: 13, fontWeight: 500 }}>
+                {broadcastError}
+              </div>
+            )}
+
+            {broadcastSuccess && (
+              <div style={{ background: 'var(--green-bg)', border: '1px solid var(--green-100)', borderRadius: 6, padding: '10px 14px', color: 'var(--green)', fontSize: 13, fontWeight: 500 }}>
+                {broadcastSuccess}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Target Audience</label>
+              <select
+                value={broadcastTarget}
+                onChange={(e: any) => {
+                  setBroadcastTarget(e.target.value);
+                  setBroadcastError('');
+                }}
+                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5 }}
+              >
+                <option value="all">Broadcast to All Users</option>
+                <option value="team">Specific Team</option>
+                <option value="user">Specific User</option>
+              </select>
+            </div>
+
+            {broadcastTarget === 'team' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Select Team</label>
+                <select
+                  value={broadcastTeam}
+                  onChange={(e) => setBroadcastTeam(e.target.value)}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5 }}
+                >
+                  <option value="">-- Choose Team --</option>
+                  {(teamsList as any[]).map(t => (
+                    <option key={t.id} value={t.name}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {broadcastTarget === 'user' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Select User</label>
+                <select
+                  value={broadcastUser}
+                  onChange={(e) => setBroadcastUser(e.target.value)}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5 }}
+                >
+                  <option value="">-- Choose User --</option>
+                  {(usersList as any[]).filter((u: any) => u.isActive !== false).map(u => (
+                    <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Announcement Message</label>
+              <textarea
+                placeholder="Type your broadcast announcement here..."
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                rows={4}
+                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5, resize: 'none' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button
+                onClick={() => setShowBroadcastModal(false)}
+                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendBroadcast}
+                disabled={broadcastSending}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'var(--olive)',
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  opacity: broadcastSending ? 0.7 : 1
+                }}
+              >
+                {broadcastSending ? 'Sending...' : 'Send Announcement'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       </div>
     </AppLayout>
   );
 }
+
+// ── Inline Styles ────────────────────────────────────────────────────────
+
+const statCardStyle = (accent: string): React.CSSProperties => ({
+  position: 'relative',
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
+  padding: '16px 20px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 12,
+  minHeight: 110,
+  overflow: 'hidden',
+  boxShadow: 'var(--shadow-sm)',
+  transition: 'border-color 0.15s, transform 0.15s',
+});
+
+const statCardHeaderStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  fontSize: 11.5,
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.4px',
+  color: 'var(--muted)',
+};
+
+const statCardValueContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: 6,
+  marginTop: 'auto',
+};
+
+const statCardValueStyle: React.CSSProperties = {
+  fontFamily: 'Instrument Serif, serif',
+  fontSize: 36,
+  lineHeight: 1,
+  color: 'var(--ink)',
+};
+
+const statCardSubtitleStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: 'var(--muted)',
+};
+
+const attentionRowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  padding: '8px 12px',
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
+  borderRadius: 6,
+};
+
+const badgeStyle = (bg: string, color: string, label: string): React.CSSProperties => ({
+  fontFamily: 'JetBrains Mono, monospace',
+  fontSize: 10,
+  fontWeight: 700,
+  padding: '2px 8px',
+  borderRadius: 4,
+  background: bg,
+  color: color,
+  minWidth: label.length <= 3 ? 24 : 'auto',
+  textAlign: 'center',
+});
+
+const attentionMessageStyle: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 600,
+  color: 'var(--ink-2)',
+  flex: 1,
+};
+
+const attentionButtonStyle = (color: string, bg: string): React.CSSProperties => ({
+  padding: '4px 10px',
+  fontSize: 11,
+  fontWeight: 700,
+  color: color,
+  background: bg,
+  border: `1.5px solid ${color}`,
+  borderRadius: 4,
+  cursor: 'pointer',
+  transition: 'all 0.12s',
+});
+
+const notificationRowStyle = (isLast: boolean): React.CSSProperties => ({
+  padding: '12px 16px',
+  borderBottom: isLast ? 'none' : '1px solid var(--border)',
+  background: 'var(--surface)',
+});
+
+const summaryCardStyle = (accent: string): React.CSSProperties => ({
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
+  padding: '12px 16px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+  boxShadow: 'var(--shadow-sm)',
+  transition: 'border-color 0.15s, transform 0.15s',
+});
+
+const summaryLabelStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  fontSize: 11,
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.4px',
+  color: 'var(--muted)',
+};
+
+const summaryValueStyle: React.CSSProperties = {
+  fontFamily: 'Instrument Serif, serif',
+  fontSize: 28,
+  lineHeight: 1,
+  color: 'var(--ink)',
+};

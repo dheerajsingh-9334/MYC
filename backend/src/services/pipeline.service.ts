@@ -123,12 +123,18 @@ export async function advanceClientToStep(
   // Create tasks from template
   const tasks = [];
 
+  const teamLeader = teamMembers.find(m => m.role === 'team_leader');
+
   for (let i = 0; i < toStep.taskTemplates.length; i++) {
     const template = toStep.taskTemplates[i];
-    // Pick least loaded member
-    taskCounts.sort((a, b) => a.count - b.count);
-    const assignee = taskCounts[i % taskCounts.length].member;
-    taskCounts[i % taskCounts.length].count++;
+    
+    // Pick assignee: team leader first, otherwise least loaded member
+    let assignee = teamLeader;
+    if (!assignee) {
+      taskCounts.sort((a, b) => a.count - b.count);
+      assignee = taskCounts[i % taskCounts.length].member;
+      taskCounts[i % taskCounts.length].count++;
+    }
 
     const dueDate = new Date(now);
     dueDate.setDate(dueDate.getDate() + template.relativeDueDay);

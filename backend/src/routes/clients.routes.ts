@@ -77,6 +77,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
         dateJoined: c.dateJoined,
         taskCount: c.tasks.length,
         completionDurationDays,
+        isPinned: c.isPinned,
       };
     });
 
@@ -126,7 +127,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
       include: {
         currentStep: true,
         tasks: {
-          include: { assignedTo: true },
+          include: { assignedTo: true, documents: true },
           orderBy: { dueDate: 'asc' },
         },
         stepHistory: {
@@ -147,7 +148,22 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
       (Date.now() - new Date(client.stepEnteredAt).getTime()) / (1000 * 60 * 60 * 24)
     );
 
-    res.json({ ...client, computedStatus, daysInStep });
+    // Fetch uploaders for documents to show who uploaded them and their team
+    let documentsWithUploader: any[] = [];
+    if (client.documents && client.documents.length > 0) {
+      const uploaderIds = Array.from(new Set(client.documents.map(d => d.uploadedById)));
+      const uploaders = await prisma.user.findMany({
+        where: { id: { in: uploaderIds } },
+        select: { id: true, fullName: true, email: true, teamName: true, avatarUrl: true },
+      });
+      const uploaderMap = new Map(uploaders.map(u => [u.id, u]));
+      documentsWithUploader = client.documents.map(d => ({
+        ...d,
+        uploadedBy: uploaderMap.get(d.uploadedById) || { fullName: 'System', teamName: 'Unassigned' }
+      }));
+    }
+
+    res.json({ ...client, documents: documentsWithUploader, computedStatus, daysInStep });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -452,6 +468,32 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
     res.json({ imported: importedClients.length, errors });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/clients/:id/pin
+router.patch('/:id/pin', requireAuth, async (req: Request, res: Response) => {
+  try {
+    await prisma.client.updateMany({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+      data: { isPinned: true },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/clients/:id/unpin
+router.patch('/:id/unpin', requireAuth, async (req: Request, res: Response) => {
+  try {
+    await prisma.client.updateMany({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+      data: { isPinned: false },
+    });
+    res.json({ success: true });
+  } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });

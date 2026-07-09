@@ -13,14 +13,28 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    const isLeader = req.user.role === 'team_leader';
+    const leaderTeam = req.user.teamName;
+
     // Get all active clients with their tasks
     const clients = await prisma.client.findMany({
       where: { organisationId: req.user.orgId, status: 'active' },
       include: {
         currentStep: true,
         tasks: {
-          where: { status: { notIn: ['complete', 'cancelled'] } },
-          include: { assignedTo: { select: { fullName: true, teamName: true } } },
+          where: {
+            status: { notIn: ['complete', 'cancelled'] },
+            ...(isLeader && leaderTeam ? {
+              OR: [
+                { assignedTo: { teamName: leaderTeam } },
+                { step: { owningTeamName: leaderTeam } }
+              ]
+            } : {})
+          },
+          include: {
+            assignedTo: { select: { fullName: true, teamName: true } },
+            step: true,
+          },
         },
       },
     });
@@ -56,6 +70,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
               title: task.title,
               status: task.status,
               dueDate: task.dueDate,
+              createdAt: task.createdAt,
               blockerNote: task.blockerNote,
               assignedTo: task.assignedTo,
             },
@@ -81,6 +96,59 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 router.get('/stats', requireAuth, async (_req: Request, res: Response) => {
   // handled in dashboard route
   res.json({});
+});
+
+// POST /api/standup/highlight
+router.post('/highlight', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { taskId } = req.body;
+    if (!taskId) { res.status(400).json({ error: 'taskId required' }); return; }
+
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      include: { assignedTo: true, client: true }
+    });
+    if (!task) { res.status(404).json({ error: 'Task not found' }); return; }
+
+    const member = task.assignedTo;
+    if (!member) { res.status(400).json({ error: 'Task is not assigned to anyone' }); return; }
+
+    // Find the team leader
+    let leader = null;
+    if (member.teamName) {
+      leader = await prisma.user.findFirst({
+        where: { organisationId: req.user.orgId, teamName: member.teamName, role: 'team_leader' }
+      });
+    }
+
+    const { sendHighlightEmail } = await import('../services/email.service');
+    
+    // Send email to member
+    if (member.email) {
+      await sendHighlightEmail(member.email, member.fullName, task.title, task.client.brandName || task.client.fullName, 'member');
+    }
+    // Send email to leader
+    if (leader && leader.email) {
+      await sendHighlightEmail(leader.email, leader.fullName, task.title, task.client.brandName || task.client.fullName, 'leader');
+    }
+
+    // Create broadcast notification
+    await prisma.notification.create({
+      data: {
+        organisationId: req.user.orgId,
+        userId: req.user.userId, // We'll just assign it to the admin who triggered it, or broadcast it globally
+        type: 'highlight_broadcast',
+        message: `Task Highlighted: ${task.title} for ${task.client.brandName || task.client.fullName}`,
+        referenceId: task.id,
+        referenceType: 'task',
+      }
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 export default router;

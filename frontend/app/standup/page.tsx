@@ -1,27 +1,37 @@
 'use client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getUser } from '@/lib/api';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
-import DashboardHeader from '@/components/ui/DashboardHeader';
+import SectionCard from '@/components/ui/SectionCard';
 import {
-  Sparkles, TriangleAlert, Ban, Clock, ArrowRight, ChevronLeft, ChevronRight, Search
+  Sparkles,
+  TriangleAlert,
+  Ban,
+  Clock,
+  ArrowRight,
+  Search,
+  CheckCircle,
+  Users,
+  GitBranch,
+  AlertCircle,
+  Pin
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { USE_MOCK } from '@/lib/mockData';
 
 const TEAMS = ['Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 'Account Manager', 'Content Team'];
-
 const AUTO_REFRESH_MS = 30_000;
 
 const TYPE_STYLES: Record<string, { color: string; bg: string; Icon: any; label: string; tag: (i: any) => string }> = {
   overdue: {
     color: 'var(--red)', bg: 'var(--red-bg)', Icon: TriangleAlert, label: 'OVERDUE',
-    tag: (i) => `+${i.daysLate} day${i.daysLate !== 1 ? 's' : ''}`,
+    tag: (i) => `${i.daysLate} day${i.daysLate !== 1 ? 's' : ''} late`,
   },
   blocked: {
-    color: '#6B3FA0', bg: '#F0E8FA', Icon: Ban, label: 'BLOCKER RAISED',
+    color: '#6B3FA0', bg: '#F0E8FA', Icon: Ban, label: 'BLOCKER',
     tag: () => 'Blocked',
   },
   due_today: {
@@ -32,10 +42,65 @@ const TYPE_STYLES: Record<string, { color: string; bg: string; Icon: any; label:
 
 export default function StandupPage() {
   const router = useRouter();
+  const qc = useQueryClient();
+
   const [search, setSearch] = useState('');
   const [alertTypeFilter, setAlertTypeFilter] = useState('');
   const [teamFilter, setTeamFilter] = useState('');
-  const [limit, setLimit] = useState(10);
+  const [clientFilter, setClientFilter] = useState('');
+  
+  const [highlightedItems, setHighlightedItems] = useState<Set<string>>(new Set());
+  const [ignoredItems, setIgnoredItems] = useState<Set<string>>(new Set());
+  const [user, setUser] = useState<any>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && user && user.role && user.role !== 'admin') {
+      router.push('/dashboard');
+    }
+  }, [mounted, user, router]);
+
+  // Load persistence from localStorage and user role
+  useEffect(() => {
+    const savedHighlights = localStorage.getItem('standup_highlighted');
+    if (savedHighlights) {
+      setHighlightedItems(new Set(JSON.parse(savedHighlights)));
+    }
+    const savedIgnored = localStorage.getItem('standup_ignored');
+    if (savedIgnored) {
+      setIgnoredItems(new Set(JSON.parse(savedIgnored)));
+    }
+
+    const currUser = getUser();
+    if (currUser) {
+      setUser(currUser);
+      if (currUser.role === 'team_leader' && currUser.teamName) {
+        setTeamFilter(currUser.teamName);
+      }
+    }
+
+    if (!USE_MOCK) {
+      apiFetch('/api/auth/me').then(freshUser => {
+        localStorage.setItem('user', JSON.stringify(freshUser));
+        setUser(freshUser);
+        if (freshUser.role === 'team_leader' && freshUser.teamName) {
+          setTeamFilter(freshUser.teamName);
+        }
+      }).catch(err => console.error('Failed to refresh user in standup page:', err));
+    }
+  }, []);
+
+  if (mounted && user?.role && user.role !== 'admin') {
+    return (
+      <AppLayout>
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Redirecting...</div>
+      </AppLayout>
+    );
+  }
 
   const { data: liveData, isLoading: liveLoading } = useQuery({
     queryKey: ['standup'],
@@ -45,31 +110,46 @@ export default function StandupPage() {
     retry: false,
   });
 
-  const items = (liveData?.items || []).map((it: any) => {
-    const isOverdue = it.alertType === 'overdue';
-    const isBlocked = it.alertType === 'blocked';
-    const daysLate = it.daysLate || 0;
-    const assignee = it.task?.assignedTo?.fullName;
-    const assigneeTeam = it.task?.assignedTo?.teamName;
-    const clientName = it.client?.brandName || it.client?.fullName || '—';
-    const stepLabel = it.step ? `Step ${String(it.step.stepNumber).padStart(2, '0')} — ${it.step.name}` : '';
-    const title = it.task?.title || '—';
-    let detail = '';
-    if (isBlocked && it.task?.blockerNote) {
-      detail = `Blocker raised by <b>${assignee || 'team member'}</b>: <em>"${it.task.blockerNote}"</em>`;
-    } else if (assignee) {
-      detail = `Assigned to <b>${assignee}${assigneeTeam ? ` (${assigneeTeam})` : ''}</b>.${it.task?.dueDate ? ` Due ${format(new Date(it.task.dueDate), 'd MMM')}.` : ''}`;
-    } else {
-      detail = 'Unassigned';
+  const highlightMut = useMutation({
+    mutationFn: (taskId: string) => apiFetch('/api/standup/highlight', {
+      method: 'POST',
+      body: JSON.stringify({ taskId }),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['standup'] });
     }
-    return {
-      id: it.task?.id || `${it.client?.id}-${it.task?.id || ''}`,
-      clientId: it.client?.id,
-      alertType: it.alertType,
-      clientName, stepLabel, title, detail, daysLate,
-      assigneeTeam,
-    };
   });
+
+  const items = useMemo(() => {
+    return (liveData?.items || []).map((it: any) => {
+      const isOverdue = it.alertType === 'overdue';
+      const isBlocked = it.alertType === 'blocked';
+      const daysLate = it.daysLate || 0;
+      const assignee = it.task?.assignedTo?.fullName;
+      const assigneeTeam = it.task?.assignedTo?.teamName || it.step?.owningTeamName;
+      const clientName = it.client?.brandName || it.client?.fullName || '—';
+      const stepLabel = it.step ? `Step ${String(it.step.stepNumber).padStart(2, '0')} — ${it.step.name}` : '';
+      const title = it.task?.title || '—';
+      let detail = '';
+      if (isBlocked && it.task?.blockerNote) {
+        detail = `Blocker raised by <b>${assignee || 'team member'}</b>: <em>"${it.task.blockerNote}"</em>`;
+      } else if (assignee) {
+        detail = `Assigned to <b>${assignee}${assigneeTeam ? ` (${assigneeTeam})` : ''}</b>.${it.task?.dueDate ? ` Due ${format(new Date(it.task.dueDate), 'd MMM')}.` : ''}`;
+      } else {
+        detail = 'Unassigned';
+      }
+      return {
+        id: it.task?.id || `${it.client?.id}-${it.task?.id || ''}`,
+        clientId: it.client?.id,
+        alertType: it.alertType,
+        clientName, stepLabel, title, detail, daysLate,
+        assignee: assignee || 'Unassigned',
+        assigneeTeam,
+        dueDate: it.task?.dueDate,
+        createdAt: it.task?.createdAt,
+      };
+    });
+  }, [liveData]);
 
   const filteredItems = useMemo(() => {
     return items.filter((item: any) => {
@@ -82,40 +162,110 @@ export default function StandupPage() {
 
       const alertTypeMatch = !alertTypeFilter || item.alertType === alertTypeFilter;
       const teamMatch = !teamFilter || item.assigneeTeam === teamFilter;
+      const clientMatch = !clientFilter || item.clientName === clientFilter;
+      const notIgnored = !ignoredItems.has(item.id);
 
-      return searchMatch && alertTypeMatch && teamMatch;
+      return searchMatch && alertTypeMatch && teamMatch && clientMatch && notIgnored;
     });
-  }, [items, search, alertTypeFilter, teamFilter]);
+  }, [items, search, alertTypeFilter, teamFilter, clientFilter, ignoredItems]);
 
-  const scrollableItems = useMemo(() => {
-    return filteredItems.slice(0, limit);
-  }, [filteredItems, limit]);
+  const isPerClient = user?.role === 'admin';
 
-  useEffect(() => {
-    setLimit(10);
-  }, [search, alertTypeFilter, teamFilter]);
+  // Group standup items (by client for admin, by assignee for team leader/others)
+  const groupedItems = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    filteredItems.forEach((item: any) => {
+      const key = isPerClient ? item.clientName : item.assignee;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(item);
+    });
+    return groups;
+  }, [filteredItems, isPerClient]);
 
-  const handleStandupScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollTop + clientHeight >= scrollHeight - 20) {
-      setLimit(prev => Math.min(prev + 10, filteredItems.length));
+  const uniqueClients = useMemo(() => {
+    const set = new Set<string>();
+    items.forEach((it: any) => {
+      if (it.clientName && it.clientName !== '—') set.add(it.clientName);
+    });
+    return Array.from(set).sort();
+  }, [items]);
+
+  const handleHighlight = async (id: string) => {
+    const next = new Set(highlightedItems);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+      // Only call the API when highlighting (not unhighlighting)
+      await highlightMut.mutateAsync(id);
     }
+    setHighlightedItems(next);
+    localStorage.setItem('standup_highlighted', JSON.stringify(Array.from(next)));
   };
 
+  const handleIgnore = (id: string) => {
+    const next = new Set(ignoredItems);
+    next.add(id);
+    setIgnoredItems(next);
+    localStorage.setItem('standup_ignored', JSON.stringify(Array.from(next)));
+  };
+
+  // Stats for summary bar
+  const stats = useMemo(() => {
+    const total = filteredItems.length;
+    const overdue = filteredItems.filter((i: any) => i.alertType === 'overdue').length;
+    const blocked = filteredItems.filter((i: any) => i.alertType === 'blocked').length;
+    const dueToday = filteredItems.filter((i: any) => i.alertType === 'due_today').length;
+    return { total, overdue, blocked, dueToday };
+  }, [filteredItems]);
+
   const isLoading = liveLoading && items.length === 0;
-  const totalAlerts = liveData?.total ?? items.length;
-  const overdueCnt = items.filter((i: any) => i.alertType === 'overdue').length;
-  const blockedCnt = items.filter((i: any) => i.alertType === 'blocked').length;
-  const dueTodayCnt = items.filter((i: any) => i.alertType === 'due_today').length;
 
   return (
     <AppLayout>
-      <Topbar title="Standup Brief" subtitle="Today's attention items" />
-      <div style={{ padding: '16px 20px', flex: 1 }}>
+      <Topbar title="Standup Brief" subtitle="Daily team alignment and risk evaluation" />
+      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* Overhead Summary Bar */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+          
+          <div style={summaryCardStyle('var(--olive)')}>
+            <div style={summaryLabelStyle}>
+              <Users size={13} style={{ color: 'var(--olive)' }} />
+              <span>Total Alerts</span>
+            </div>
+            <div style={summaryValueStyle}>{stats.total}</div>
+          </div>
+
+          <div style={summaryCardStyle('var(--red)')}>
+            <div style={summaryLabelStyle}>
+              <TriangleAlert size={13} style={{ color: 'var(--red)' }} />
+              <span>Overdue Tasks</span>
+            </div>
+            <div style={summaryValueStyle}>{stats.overdue}</div>
+          </div>
+
+          <div style={summaryCardStyle('#6B3FA0')}>
+            <div style={summaryLabelStyle}>
+              <Ban size={13} style={{ color: '#6B3FA0' }} />
+              <span>Blocked Tasks</span>
+            </div>
+            <div style={summaryValueStyle}>{stats.blocked}</div>
+          </div>
+
+          <div style={summaryCardStyle('var(--amber)')}>
+            <div style={summaryLabelStyle}>
+              <Clock size={13} style={{ color: 'var(--amber)' }} />
+              <span>Due Today</span>
+            </div>
+            <div style={summaryValueStyle}>{stats.dueToday}</div>
+          </div>
+
+        </div>
 
         {/* Filters */}
         <div style={{
-          display: 'flex', gap: 12, marginTop: 24, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap',
+          display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap',
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
           padding: '12px 16px'
         }}>
@@ -129,7 +279,7 @@ export default function StandupPage() {
               onChange={(e) => setSearch(e.target.value)}
               style={{
                 width: '100%', padding: '8px 12px 8px 34px', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--bg)', color: 'var(--ink)',
+                borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)',
                 outline: 'none', transition: 'all 0.15s'
               }}
             />
@@ -141,7 +291,7 @@ export default function StandupPage() {
             onChange={(e) => setAlertTypeFilter(e.target.value)}
             style={{
               padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-              fontSize: 13, background: 'var(--bg)', color: 'var(--ink)', outline: 'none'
+              fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer'
             }}
           >
             <option value="">All Alerts</option>
@@ -151,86 +301,207 @@ export default function StandupPage() {
           </select>
 
           {/* Team Filter */}
+          {user?.role !== 'team_leader' ? (
+            <select
+              value={teamFilter}
+              onChange={(e) => setTeamFilter(e.target.value)}
+              style={{
+                padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer'
+              }}
+            >
+              <option value="">All Teams</option>
+              {TEAMS.map(team => (
+                <option key={team} value={team}>{team}</option>
+              ))}
+            </select>
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--muted)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}>
+              Team: <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{user.teamName}</span>
+            </div>
+          )}
+
+          {/* Client Filter */}
           <select
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
+            value={clientFilter}
+            onChange={(e) => setClientFilter(e.target.value)}
             style={{
               padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-              fontSize: 13, background: 'var(--bg)', color: 'var(--ink)', outline: 'none'
+              fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer'
             }}
           >
-            <option value="">All Teams</option>
-            {TEAMS.map(team => (
-              <option key={team} value={team}>{team}</option>
-            ))}
+            <option value="">All Clients</option>
+            {uniqueClients.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
-        {/* Alert cards */}
+        {/* Grouped Alert Cards */}
         {isLoading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Loading…</div>
+          <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Loading standup brief…</div>
         ) : filteredItems.length === 0 ? (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 48, textAlign: 'center' }}>
             <Sparkles size={36} style={{ color: 'var(--olive)', margin: '0 auto 16px', display: 'block' }} />
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)', marginBottom: 8 }}>No items match your criteria!</div>
-            <div style={{ fontSize: 14, color: 'var(--muted)' }}>Try adjusting your filters or search terms.</div>
+            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)', marginBottom: 8 }}>No items match standup criteria!</div>
+            <div style={{ fontSize: 14, color: 'var(--muted)' }}>All clear or try adjusting your filters.</div>
           </div>
         ) : (
-          <div
-            onScroll={handleStandupScroll}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-              maxHeight: 650,
-              overflowY: 'auto',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
-              padding: '16px 20px',
-              background: 'var(--surface-2)'
-            }}
-          >
-            {scrollableItems.map((item: any) => {
-              const s = TYPE_STYLES[item.alertType] || TYPE_STYLES.due_today;
-              const { Icon } = s;
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {Object.entries(groupedItems).map(([groupKey, groupItems]) => {
+              const initials = groupKey.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
               return (
-                <div key={item.id} style={{
-                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-                  padding: '18px 20px', display: 'grid', gridTemplateColumns: '4px 1fr auto',
-                  gap: 18, alignItems: 'center', transition: 'border-color 0.15s, box-shadow 0.15s',
-                }}
-                  onMouseEnter={e => { e.currentTarget.style.boxShadow = 'var(--shadow)'; e.currentTarget.style.borderColor = 'var(--border-strong)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = 'var(--border)'; }}>
-                  <div style={{ width: 4, minHeight: 60, borderRadius: 4, background: s.color }} />
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)', flexWrap: 'wrap' }}>
-                      <Icon size={11} style={{ color: s.color }} />
-                      <span style={{ color: s.color }}>{s.label}</span>
-                      <span>·</span>
-                      <span style={{ color: 'var(--ink-2)', textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>{item.clientName}</span>
-                      {item.stepLabel && (
-                        <>
-                          <span>·</span>
-                          <span style={{ color: 'var(--ink-2)', textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>{item.stepLabel}</span>
-                        </>
-                      )}
+                <div key={groupKey} style={{ display: 'flex', flexDirection: 'column' }}>
+                  {/* Group Header */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    background: 'var(--surface-2)', padding: '10px 16px',
+                    borderRadius: '6px 6px 0 0', border: '1px solid var(--border)',
+                    borderBottom: 'none'
+                  }}>
+                    {isPerClient ? (
+                      <div style={{
+                        width: 26, height: 26, borderRadius: '50%',
+                        background: '#2860A1', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <GitBranch size={13} />
+                      </div>
+                    ) : (
+                      <div style={{
+                        width: 26, height: 26, borderRadius: '50%',
+                        background: 'var(--olive)', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 700
+                      }}>
+                        {initials}
+                      </div>
+                    )}
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>
+                      {isPerClient ? `Client: ${groupKey}` : groupKey}
                     </div>
-                    <div style={{ fontSize: 15.5, fontWeight: 600, color: 'var(--ink)' }}>{item.title}</div>
-                    <div style={{ fontSize: 13, color: 'var(--ink-2)' }}
-                      dangerouslySetInnerHTML={{ __html: item.detail }} />
+                    <span style={badgeStyle(isPerClient ? '#EBF3FB' : 'var(--olive-50)', isPerClient ? '#2860A1' : 'var(--olive-dark)', `${groupItems.length} alert${groupItems.length > 1 ? 's' : ''}`)}>
+                      {groupItems.length} Alert{groupItems.length > 1 ? 's' : ''}
+                    </span>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
-                    <span style={{
-                      fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5, fontWeight: 600,
-                      padding: '4px 10px', borderRadius: 5, background: s.bg, color: s.color,
-                    }}>
-                      {s.tag(item)}
-                    </span>
-                    <button onClick={() => item.clientId && router.push(`/clients/${item.clientId}`)} style={{ padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 5, fontSize: 11.5, fontWeight: 500, color: 'var(--ink-2)', background: 'var(--surface)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      Open client <ArrowRight size={11} />
-                    </button>
+                  {/* Group Table */}
+                  <div style={{
+                    border: '1px solid var(--border)', borderRadius: '0 0 var(--radius) var(--radius)',
+                    overflow: 'hidden', background: 'var(--surface)'
+                  }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                      <thead>
+                        <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '35%' }}>TASK & DETAILS</th>
+                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '20%' }}>
+                            {isPerClient ? 'ASSIGNEE' : 'CLIENT NAME'}
+                          </th>
+                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '25%' }}>CURRENT STEP & TIMING</th>
+                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '10%' }}>ALERT TYPE</th>
+                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'right', width: '10%' }}>ACTIONS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupItems.map((item: any) => {
+                          const s = TYPE_STYLES[item.alertType] || TYPE_STYLES.due_today;
+                          const { Icon } = s;
+                          const isHighlighted = highlightedItems.has(item.id);
+                          return (
+                            <tr
+                              key={item.id}
+                              onClick={() => item.clientId && router.push(`/clients/${item.clientId}`)}
+                              className={`standup-row ${isHighlighted ? 'highlighted' : ''}`}
+                              style={{
+                                cursor: 'pointer',
+                                borderBottom: '1px solid var(--surface-2)',
+                              }}
+                            >
+                              <td style={{ padding: '10px 18px', verticalAlign: 'top' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                  <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: s.color }} />
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.title}</div>
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: item.detail }} />
+                              </td>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'top' }}>
+                                {isPerClient ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{item.assignee}</div>
+                                    {item.assigneeTeam && (
+                                      <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{item.assigneeTeam}</div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{item.clientName}</div>
+                                )}
+                              </td>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'top', fontSize: 12 }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                  <div><strong style={{ color: 'var(--muted)' }}>Step:</strong> <span style={{ color: 'var(--ink)' }}>{item.stepLabel || '—'}</span></div>
+                                  <div><strong style={{ color: 'var(--muted)' }}>Assigned:</strong> <span style={{ color: 'var(--ink)' }}>{item.createdAt ? format(new Date(item.createdAt), 'd MMM yyyy') : '—'}</span></div>
+                                  <div><strong style={{ color: 'var(--muted)' }}>Due Date:</strong> <span style={{ color: 'var(--ink)' }}>{item.dueDate ? format(new Date(item.dueDate), 'd MMM yyyy') : '—'}</span></div>
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'top' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 6px', borderRadius: 4, background: s.bg, color: s.color, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
+                                  <Icon size={10} /> {s.label}
+                                </div>
+                                <div style={{ marginTop: 4, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: s.color }}>
+                                  {s.tag(item)}
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'top', textAlign: 'right' }}>
+                                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                                  <button
+                                    onClick={() => handleHighlight(item.id)}
+                                    style={{
+                                      padding: '4px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                                      background: isHighlighted ? 'var(--amber)' : 'var(--surface)',
+                                      color: isHighlighted ? '#fff' : 'var(--ink)',
+                                      border: `1px solid ${isHighlighted ? 'var(--amber)' : 'var(--border)'}`,
+                                      transition: 'all 0.12s'
+                                    }}
+                                    onMouseEnter={e => {
+                                      if (!isHighlighted) {
+                                        e.currentTarget.style.background = 'var(--surface-2)';
+                                        e.currentTarget.style.borderColor = 'var(--soft)';
+                                      }
+                                    }}
+                                    onMouseLeave={e => {
+                                      if (!isHighlighted) {
+                                        e.currentTarget.style.background = 'var(--surface)';
+                                        e.currentTarget.style.borderColor = 'var(--border)';
+                                      }
+                                    }}
+                                  >
+                                    {isHighlighted ? 'Alerted' : 'Alert'}
+                                  </button>
+                                  <button
+                                    onClick={() => handleIgnore(item.id)}
+                                    style={{
+                                      padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 4,
+                                      fontSize: 11, fontWeight: 500, color: 'var(--ink-2)', background: 'var(--surface)',
+                                      cursor: 'pointer', transition: 'all 0.12s'
+                                    }}
+                                    onMouseEnter={e => {
+                                      e.currentTarget.style.background = 'var(--red-bg)';
+                                      e.currentTarget.style.color = 'var(--red)';
+                                      e.currentTarget.style.borderColor = 'var(--red)';
+                                    }}
+                                    onMouseLeave={e => {
+                                      e.currentTarget.style.background = 'var(--surface)';
+                                      e.currentTarget.style.color = 'var(--ink-2)';
+                                      e.currentTarget.style.borderColor = 'var(--border)';
+                                    }}
+                                  >
+                                    Ignore
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               );
@@ -241,3 +512,45 @@ export default function StandupPage() {
     </AppLayout>
   );
 }
+
+// ── Inline Styles ────────────────────────────────────────────────────────
+
+const summaryCardStyle = (accent: string): React.CSSProperties => ({
+  background: 'var(--surface)',
+  border: '1px solid var(--border)',
+  borderRadius: 'var(--radius)',
+  padding: '12px 16px',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+  boxShadow: 'var(--shadow-sm)',
+});
+
+const summaryLabelStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  fontSize: 11,
+  fontWeight: 700,
+  textTransform: 'uppercase',
+  letterSpacing: '0.4px',
+  color: 'var(--muted)',
+};
+
+const summaryValueStyle: React.CSSProperties = {
+  fontFamily: 'Instrument Serif, serif',
+  fontSize: 28,
+  lineHeight: 1,
+  color: 'var(--ink)',
+};
+
+const badgeStyle = (bg: string, color: string, label: string): React.CSSProperties => ({
+  fontFamily: 'JetBrains Mono, monospace',
+  fontSize: 10,
+  fontWeight: 700,
+  padding: '2px 8px',
+  borderRadius: 4,
+  background: bg,
+  color: color,
+  textAlign: 'center',
+});

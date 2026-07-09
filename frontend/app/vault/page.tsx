@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
+import SectionCard from '@/components/ui/SectionCard';
 import { apiFetch, getUser } from '@/lib/api';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
@@ -236,15 +237,10 @@ export default function VaultPage() {
   /* ── Render ── */
   return (
     <AppLayout>
-      <Topbar title="Vault" subtitle={`${vault.totalDocs} item${vault.totalDocs !== 1 ? 's' : ''} across all clients`} />
-
-      <div style={{ padding: '16px 20px', flex: 1 }}>
+      <Topbar title="Vault" subtitle={`${vault.totalDocs} item${vault.totalDocs !== 1 ? 's' : ''} across all clients — Proof of work organised by client → step`} />
+      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 32, color: 'var(--ink)', letterSpacing: '-0.3px', lineHeight: 1.1 }}>Vault</h1>
-            <div style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 6 }}>Proof of work — organised by client → step</div>
-          </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => { setExpandedClients(new Set(filteredFolders.map(f => f.id))); setExpandedSteps(new Set(filteredFolders.flatMap(f => (f.children || []).map(s => s.id)))); }} style={btnSecondary}>Expand all</button>
             <button onClick={() => { setExpandedClients(new Set()); setExpandedSteps(new Set()); }} style={btnSecondary}>Collapse all</button>
@@ -262,9 +258,10 @@ export default function VaultPage() {
         </div>
 
         {/* Tree */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-          {filteredFolders.length === 0 ? (
-            <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)' }}>
+        <SectionCard padding={0}>
+          <div style={{ maxHeight: 'calc(100vh - 200px)', minHeight: 500, overflowY: 'auto', overflowX: 'auto' }}>
+            {filteredFolders.length === 0 ? (
+              <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)' }}>
               <Lock size={28} style={{ marginBottom: 8, opacity: 0.6 }} />
               <div style={{ fontSize: 14 }}>{search ? 'No matches.' : 'No items yet. Click "Add Drive Link" to get started.'}</div>
             </div>
@@ -342,7 +339,8 @@ export default function VaultPage() {
               })}
             </div>
           )}
-        </div>
+          </div>
+        </SectionCard>
 
         <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--olive-50)', border: '1px solid var(--olive-100)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, color: 'var(--olive-dark)' }}>
           💡 Team members add Google Drive links as proof of work. Admins can preview the Drive content directly in this page without leaving.
@@ -452,7 +450,7 @@ export default function VaultPage() {
               <span style={{ fontSize: 22 }}>{driveIcon(previewDoc.driveUrl)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewDoc.name}</div>
-                {previewDoc.notes && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{previewDoc.notes}</div>}
+                {previewDoc.notes && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>{previewDoc.notes}</div>}
               </div>
               <a href={previewDoc.driveUrl} target="_blank" rel="noreferrer"
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#4285F4', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 500, textDecoration: 'none', flexShrink: 0 }}>
@@ -507,7 +505,7 @@ function DocRow({ doc, isAdmin, onPreview, onDelete }: {
           )}
         </div>
         {(doc.description || doc.notes) && (
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 16, display: 'flex', flexDirection: 'column', gap: 1 }}>
             {doc.description && <div><span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>Description:</span> {doc.description}</div>}
             {doc.notes && <div><span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>Notes:</span> {doc.notes}</div>}
           </div>

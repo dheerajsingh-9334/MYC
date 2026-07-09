@@ -175,6 +175,7 @@ model Client {
   dateJoined     DateTime
   status         ClientStatus @default(active)
   notes          String?
+  isPinned       Boolean      @default(false)
   createdAt      DateTime     @default(now())
   createdById    String
 
@@ -216,6 +217,9 @@ model Task {
   timerStartedAt         DateTime?
   timeSpentSeconds       Int        @default(0)
   isTimerRunning         Boolean    @default(false)
+  isPinned               Boolean    @default(false)
+  isAlerted              Boolean    @default(false)
+  inProgressAt           DateTime?
   createdAt              DateTime   @default(now())
 
   organisation Organisation @relation(fields: [organisationId], references: [id])
@@ -284,6 +288,8 @@ enum NotificationType {
   step_advanced
   extension_request
   client_status_changed
+  admin_broadcast
+  highlight_broadcast
 }
 
 model Document {

@@ -49,8 +49,8 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
 //   - recent activity: 10 most recent task completions
 router.get('/admin', requireAuth, async (req: Request, res: Response) => {
   try {
-    if (req.user.role !== 'admin') {
-      res.status(403).json({ error: 'Admin only' });
+    if (req.user.role !== 'admin' && req.user.role !== 'team_leader') {
+      res.status(403).json({ error: 'Admin or Team Leader only' });
       return;
     }
     const { orgId } = req.user;
@@ -92,7 +92,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       prisma.task.findMany({
         where: { organisationId: orgId, status: 'complete' },
         orderBy: { completedAt: 'desc' },
-        take: 10,
+        take: 50,
         include: {
           assignedTo: { select: { fullName: true } },
           client: { select: { brandName: true, fullName: true } },
@@ -234,13 +234,15 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       if (u.role === 'team_leader') team.leadCount += 1;
     }
     for (const t of activeTasks) {
-      const team = ensureTeam(t.step.owningTeamName);
+      const teamName = t.step?.owningTeamName || t.assignedTo?.teamName || '(Unassigned)';
+      const team = ensureTeam(teamName);
       team.activeTasks += 1;
       if (t.status === 'blocked') team.blocked += 1;
       if (new Date(t.dueDate) < today) team.overdue += 1;
     }
     for (const t of completedLast7d) {
-      const team = ensureTeam(t.step.owningTeamName);
+      const teamName = t.step?.owningTeamName || t.assignedTo?.teamName || '(Unassigned)';
+      const team = ensureTeam(teamName);
       team.completedLast7d += 1;
     }
     const teams = Array.from(teamMap.values()).sort((a, b) => a.teamName.localeCompare(b.teamName));
@@ -304,9 +306,9 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         title: t.title,
         completedAt: t.completedAt,
         assignee: t.assignedTo?.fullName,
-        team: t.step.owningTeamName,
+        team: t.step?.owningTeamName || '(Unassigned)',
         client: t.client?.brandName || t.client?.fullName,
-        step: t.step.name,
+        step: t.step?.name || 'Task Complete',
       })),
       pendingExtensions: extensionTasks.map((t) => ({
         id: t.id,

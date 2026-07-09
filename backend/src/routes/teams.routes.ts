@@ -9,43 +9,54 @@ const router = Router();
 router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const orgId = req.user.orgId;
+    const role = req.user.role;
+    const userTeam = req.user.teamName;
 
-    // Fetch teams from Team table
-    const dbTeams = await prisma.team.findMany({
-      where: { organisationId: orgId },
-      select: { name: true }
-    });
+    if (role === 'admin') {
+      // Fetch teams from Team table
+      const dbTeams = await prisma.team.findMany({
+        where: { organisationId: orgId },
+        select: { name: true }
+      });
 
-    // Fetch unique teamNames from User
-    const userTeams = await prisma.user.findMany({
-      where: { organisationId: orgId },
-      select: { teamName: true },
-      distinct: ['teamName']
-    });
+      // Fetch unique teamNames from User
+      const userTeams = await prisma.user.findMany({
+        where: { organisationId: orgId },
+        select: { teamName: true },
+        distinct: ['teamName']
+      });
 
-    // Fetch unique owningTeamName from Step
-    const stepTeams = await prisma.step.findMany({
-      where: { organisationId: orgId, isActive: true },
-      select: { owningTeamName: true },
-      distinct: ['owningTeamName']
-    });
+      // Fetch unique owningTeamName from Step
+      const stepTeams = await prisma.step.findMany({
+        where: { organisationId: orgId, isActive: true },
+        select: { owningTeamName: true },
+        distinct: ['owningTeamName']
+      });
 
-    const teamNamesSet = new Set<string>();
-    
-    // Seed default teams to make sure they are always present
-    const defaultTeams = [
-      'Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 
-      'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 
-      'Account Manager', 'Content Team'
-    ];
-    defaultTeams.forEach(t => teamNamesSet.add(t));
+      const teamNamesSet = new Set<string>();
+      
+      // Seed default teams to make sure they are always present
+      const defaultTeams = [
+        'Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 
+        'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 
+        'Account Manager', 'Content Team'
+      ];
+      defaultTeams.forEach(t => teamNamesSet.add(t));
 
-    dbTeams.forEach(t => t.name && teamNamesSet.add(t.name.trim()));
-    userTeams.forEach(u => u.teamName && teamNamesSet.add(u.teamName.trim()));
-    stepTeams.forEach(s => s.owningTeamName && teamNamesSet.add(s.owningTeamName.trim()));
+      dbTeams.forEach(t => t.name && teamNamesSet.add(t.name.trim()));
+      userTeams.forEach(u => u.teamName && teamNamesSet.add(u.teamName.trim()));
+      stepTeams.forEach(s => s.owningTeamName && teamNamesSet.add(s.owningTeamName.trim()));
 
-    const teams = Array.from(teamNamesSet).sort();
-    res.json(teams);
+      const teams = Array.from(teamNamesSet).sort();
+      res.json(teams);
+    } else {
+      // Non-admins only see their own team
+      if (userTeam) {
+        res.json([userTeam]);
+      } else {
+        res.json([]);
+      }
+    }
   } catch (err) {
     console.error('[teams] GET error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -133,7 +144,21 @@ router.post('/invite', requireAuth, requireRole('admin'), async (req: Request, r
 
     const link = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/invite/accept?token=${invite.token}`;
 
-    res.status(201).json({ invite, link });
+    // Fetch org details to send high quality invitation email
+    const org = await prisma.organisation.findUnique({
+      where: { id: req.user.orgId },
+      select: { name: true }
+    });
+
+    let emailSent = false;
+    try {
+      const { sendInvitationEmail } = require('../services/email.service');
+      emailSent = await sendInvitationEmail(email, link, org?.name || 'your organisation');
+    } catch (mailErr) {
+      console.error('[teams.invite] Failed to send email:', mailErr);
+    }
+
+    res.status(201).json({ invite, link, emailSent });
   } catch (err) {
     console.error('[teams.invite] error:', err);
     res.status(500).json({ error: 'Internal server error' });

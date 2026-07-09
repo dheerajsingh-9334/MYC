@@ -34,7 +34,7 @@ const EMPTY_DATA: OnboardData = {
 
 const sectionDot = (done: boolean, active: boolean, label: string) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-    <div style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, background: done ? '#556B2F' : active ? '#fff' : 'rgba(255,255,255,0.15)', color: done ? '#fff' : active ? '#556B2F' : 'rgba(255,255,255,0.6)', border: active ? '2px solid #fff' : 'none' }}>
+    <div style={{ width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0, background: done ? 'var(--olive)' : active ? '#fff' : 'rgba(255,255,255,0.15)', color: done ? '#fff' : active ? 'var(--olive)' : 'rgba(255,255,255,0.6)', border: active ? '2px solid #fff' : 'none' }}>
       {done ? '✓' : label}
     </div>
   </div>
@@ -184,7 +184,7 @@ export default function OnboardFormPage() {
         <p style={{ fontSize: 15, color: '#6B6B6B', lineHeight: 1.7, marginBottom: 24 }}>
           Thank you, <strong>{form.fullName}</strong>! Our team at MyC will review your application and get back to you within 24-48 hours via WhatsApp and email.
         </p>
-        <div style={{ background: '#F4F7EC', border: '1px solid #E4ECD0', borderRadius: 12, padding: '16px 20px', fontSize: 13.5, color: '#3A4A20', lineHeight: 1.7 }}>
+        <div style={{ background: 'var(--olive-50)', border: '1px solid var(--olive-100)', borderRadius: 12, padding: '16px 20px', fontSize: 13.5, color: 'var(--olive-dark)', lineHeight: 1.7 }}>
           📱 Watch out for a message from our team on <strong>{form.whatsappNumber || 'your WhatsApp'}</strong>
         </div>
       </div>
@@ -195,7 +195,7 @@ export default function OnboardFormPage() {
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAF7', fontFamily: 'Inter, system-ui, sans-serif' }}>
       {/* Header */}
-      <div style={{ background: 'linear-gradient(135deg, #3A4A20 0%, #556B2F 100%)', color: '#fff', padding: '20px 24px' }}>
+      <div style={{ background: 'linear-gradient(135deg, var(--olive-dark) 0%, var(--olive) 100%)', color: '#fff', padding: '20px 24px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 36, height: 36, background: 'rgba(255,255,255,0.15)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Instrument Serif, serif', fontStyle: 'italic', fontSize: 20, fontWeight: 700 }}>M</div>
@@ -241,7 +241,7 @@ export default function OnboardFormPage() {
                 <div style={{
                   width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, transition: 'all 0.2s',
                   background: i < section ? '#fff' : i === section ? '#fff' : 'rgba(255,255,255,0.15)',
-                  color: i < section ? '#556B2F' : i === section ? '#556B2F' : 'rgba(255,255,255,0.6)',
+                  color: i < section ? 'var(--olive)' : i === section ? 'var(--olive)' : 'rgba(255,255,255,0.6)',
                   border: i === section ? '3px solid rgba(255,255,255,0.4)' : 'none',
                   boxShadow: i === section ? '0 0 0 3px rgba(255,255,255,0.15)' : 'none',
                 }}>
@@ -354,7 +354,7 @@ export default function OnboardFormPage() {
               </div>
             ))}
 
-            <div style={{ background: '#F4F7EC', border: '1px solid #E4ECD0', borderRadius: 10, padding: '14px 18px', marginTop: 16, fontSize: 13.5, color: '#3A4A20', lineHeight: 1.7 }}>
+            <div style={{ background: 'var(--olive-50)', border: '1px solid var(--olive-100)', borderRadius: 10, padding: '14px 18px', marginTop: 16, fontSize: 13.5, color: 'var(--olive-dark)', lineHeight: 1.7 }}>
               By submitting, you agree that MyC may contact you via WhatsApp and email about your application.
             </div>
           </div>
@@ -372,13 +372,13 @@ export default function OnboardFormPage() {
           {section < 3 ? (
             <button onClick={() => goToSection(section + 1)}
               disabled={section === 0 && (!form.fullName || !form.email || !form.whatsappNumber)}
-              style={{ padding: '11px 28px', background: !form.fullName && section === 0 ? '#9C9C9C' : '#556B2F', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: !form.fullName && section === 0 ? 'not-allowed' : 'pointer', transition: 'background 0.15s' }}>
+              style={{ padding: '11px 28px', background: !form.fullName && section === 0 ? '#9C9C9C' : 'var(--olive)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: !form.fullName && section === 0 ? 'not-allowed' : 'pointer', transition: 'background 0.15s' }}>
               Continue →
             </button>
           ) : (
             <button onClick={handleSubmit}
               disabled={!form.fullName || !form.eventTopic}
-              style={{ padding: '11px 28px', background: '#556B2F', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              style={{ padding: '11px 28px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
               Submit application 🚀
             </button>
           )}

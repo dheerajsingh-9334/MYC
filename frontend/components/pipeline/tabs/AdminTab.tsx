@@ -1,6 +1,7 @@
 import { StepRow, autoBox, triggerBox, infoBox, Card, TaskItem } from '../PipelineUI';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
+import Link from 'next/link';
 
 export default function AdminTab({ stats, standup, clients }: { stats: any; standup: any; clients: any[] }) {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function AdminTab({ stats, standup, clients }: { stats: any; stan
         <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--olive)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 20, flexShrink: 0 }}>🛡</div>
         <div>
           <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Admin (manager)</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginTop: 16 }}>
             Sees everything. Approves clients, monitors pipeline, handles escalations, overrides steps, configures templates. Does not do task-level work.
           </div>
         </div>
@@ -68,9 +69,9 @@ export default function AdminTab({ stats, standup, clients }: { stats: any; stan
             ))}
           </Card>
         </div>
-        <button onClick={() => router.push('/dashboard')} style={{ marginTop: 14, padding: '8px 16px', background: 'var(--surface)', color: 'var(--olive)', border: '1px solid var(--olive)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+        <Link href="/clients" style={{ display: 'inline-flex', marginTop: 14, padding: '8px 16px', background: 'var(--surface)', color: 'var(--olive)', border: '1px solid var(--olive)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: 'pointer', textDecoration: 'none' }}>
           Open Pipeline Dashboard →
-        </button>
+        </Link>
       </div>
 
       {/* 3 — Daily standup */}

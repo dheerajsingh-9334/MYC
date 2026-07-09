@@ -54,7 +54,7 @@ export default function PipelinePage() {
   return (
     <AppLayout>
       <Topbar title="Pipeline" subtitle="Full system view by role" />
-      <div style={{ padding: '16px 20px', flex: 1 }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
 
         {/* Demo banner */}
         {USE_MOCK && (

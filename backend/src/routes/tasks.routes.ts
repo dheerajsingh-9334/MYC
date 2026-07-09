@@ -99,6 +99,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
         step: true,
         assignedTo: { select: { id: true, fullName: true, email: true, teamName: true } },
         completedBy: { select: { id: true, fullName: true } },
+        documents: true,
       },
       orderBy: { dueDate: 'asc' },
     });
@@ -130,7 +131,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 // status, assignee, step). Used by the admin "All Tasks" table on /admin.
 router.patch('/:id', requireAuth, requireAdminOrLeader, async (req: Request, res: Response) => {
   try {
-    const { title, description, priority, dueDate, status, assignedToId, stepId } = req.body;
+    const { title, description, priority, dueDate, status, assignedToId, stepId, isPinned, isAlerted } = req.body;
     const existing = await prisma.task.findFirst({
       where: { id: req.params.id, organisationId: req.user.orgId },
     });
@@ -141,6 +142,8 @@ router.patch('/:id', requireAuth, requireAdminOrLeader, async (req: Request, res
     if (description !== undefined) data.description = description;
     if (priority !== undefined) data.priority = priority;
     if (dueDate !== undefined) data.dueDate = new Date(dueDate);
+    if (isPinned !== undefined) data.isPinned = isPinned;
+    if (isAlerted !== undefined) data.isAlerted = isAlerted;
     if (status !== undefined) {
       data.status = status;
       if (status === 'complete') {
@@ -158,6 +161,9 @@ router.patch('/:id', requireAuth, requireAdminOrLeader, async (req: Request, res
       } else if (status === 'in_progress' && existing.status !== 'in_progress') {
         data.isTimerRunning = true;
         data.timerStartedAt = new Date();
+        if (!existing.inProgressAt) {
+          data.inProgressAt = new Date();
+        }
       } else if (status !== 'in_progress' && existing.isTimerRunning) {
         const elapsed = existing.timerStartedAt ? Math.floor((new Date().getTime() - new Date(existing.timerStartedAt).getTime()) / 1000) : 0;
         data.isTimerRunning = false;
@@ -166,11 +172,15 @@ router.patch('/:id', requireAuth, requireAdminOrLeader, async (req: Request, res
       }
     }
     if (assignedToId !== undefined) {
-      const assignee = await prisma.user.findFirst({
-        where: { id: assignedToId, organisationId: req.user.orgId, isActive: true },
-      });
-      if (!assignee) { res.status(404).json({ error: 'Assignee not found' }); return; }
-      data.assignedToId = assignedToId;
+      if (assignedToId === null || assignedToId === '') {
+        data.assignedToId = null;
+      } else {
+        const assignee = await prisma.user.findFirst({
+          where: { id: assignedToId, organisationId: req.user.orgId, isActive: true },
+        });
+        if (!assignee) { res.status(404).json({ error: 'Assignee not found' }); return; }
+        data.assignedToId = assignedToId;
+      }
     }
     if (stepId !== undefined) {
       const step = await prisma.step.findFirst({
@@ -222,6 +232,9 @@ router.patch('/:id/status', requireAuth, async (req: Request, res: Response) => 
       if (!task.isTimerRunning) {
         data.isTimerRunning = true;
         data.timerStartedAt = new Date();
+      }
+      if (!task.inProgressAt) {
+        data.inProgressAt = new Date();
       }
     } else {
       // If moving away from in_progress, stop the timer if it is running
@@ -276,6 +289,7 @@ router.patch('/:id/start-timer', requireAuth, async (req: Request, res: Response
         status: 'in_progress', // automatically transition to In Progress
         isTimerRunning: true,
         timerStartedAt: new Date(),
+        ...(!task.inProgressAt ? { inProgressAt: new Date() } : {}),
       },
     });
 
@@ -743,6 +757,58 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
   } catch (err: any) {
     console.error('[tasks import] error:', err);
     res.status(500).json({ error: err?.message || 'Internal server error' });
+  }
+});
+
+// PATCH /api/tasks/:id/pin
+router.patch('/:id/pin', requireAuth, requireAdminOrLeader, async (req: Request, res: Response) => {
+  try {
+    await prisma.task.updateMany({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+      data: { isPinned: true },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/tasks/:id/unpin
+router.patch('/:id/unpin', requireAuth, requireAdminOrLeader, async (req: Request, res: Response) => {
+  try {
+    await prisma.task.updateMany({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+      data: { isPinned: false },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/tasks/:id/alert
+router.patch('/:id/alert', requireAuth, requireAdminOrLeader, async (req: Request, res: Response) => {
+  try {
+    await prisma.task.updateMany({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+      data: { isAlerted: true },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/tasks/:id/unalert
+router.patch('/:id/unalert', requireAuth, requireAdminOrLeader, async (req: Request, res: Response) => {
+  try {
+    await prisma.task.updateMany({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+      data: { isAlerted: false },
+    });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

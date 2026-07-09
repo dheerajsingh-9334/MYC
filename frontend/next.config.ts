@@ -3,9 +3,12 @@ import type { NextConfig } from 'next';
 const PROD_API_HOSTS: string[] = [
   // Add deployed backend hostnames here. Pulled in at build time so the
   // browser bundle only allows CORS / image fetches to known origins.
-  // Example: 'api.myc-ops.com'
+
 ];
 
+module.exports = {
+  allowedDevOrigins: ['192.168.1.40'],
+}
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
@@ -22,6 +25,28 @@ const nextConfig: NextConfig = {
         },
       }
     : {}),
+    experimental: {
+    proxyClientMaxBodySize: "500mb",
+    serverActions: {
+      bodySizeLimit: "500mb",
+      allowedOrigins: [
+        "*.ngrok-free.app",
+        "*.ngrok.io",
+        "*.ngrok.app",
+        "*.localhost",
+        "localhost:3000",
+        "*.trycloudflare.com"
+      ],
+    },
+  },
+    allowedDevOrigins: [
+    "*.ngrok-free.app",
+    "*.ngrok.io",
+    "*.ngrok.app",
+    "*.trycloudflare.com",
+    "localhost:3000",
+    "[IP_ADDRESS]"
+  ],  
 };
 
 export default nextConfig;

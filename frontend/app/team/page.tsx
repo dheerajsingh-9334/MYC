@@ -4,6 +4,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { USE_MOCK, MOCK_TEAM } from '@/lib/mockData';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { ChevronRight, Folder, FolderOpen, Shield, UserCheck, Users, Plus, X, CircleAlert, Search } from 'lucide-react';
 import DashboardHeader from '@/components/ui/DashboardHeader';
@@ -27,6 +28,7 @@ interface Member {
 
 export default function TeamPage() {
   const qc = useQueryClient();
+  const router = useRouter();
   // Read the logged-in user on the client only. SSR has no localStorage,
   // so we render a neutral default until mount to avoid hydration mismatch.
   const [user, setUser] = useState<any>({});
@@ -42,6 +44,20 @@ export default function TeamPage() {
     setMounted(true);
   }, []);
   const isAdmin = user?.role === 'admin';
+
+  useEffect(() => {
+    if (mounted && user && user.role && user.role !== 'admin') {
+      router.push('/dashboard');
+    }
+  }, [mounted, user, router]);
+
+  if (mounted && user?.role && user.role !== 'admin') {
+    return (
+      <AppLayout>
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Redirecting...</div>
+      </AppLayout>
+    );
+  }
 
   const { data: liveTeam = [] } = useQuery({
     queryKey: ['users'],
@@ -75,6 +91,14 @@ export default function TeamPage() {
   const [error, setError] = useState('');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
 
+  const [showCreateTeam, setShowCreateTeam] = useState(false);
+  const [newTeamName, setNewTeamName] = useState('');
+
+  const [changeTeamTarget, setChangeTeamTarget] = useState<Member | null>(null);
+  const [newTargetTeam, setNewTargetTeam] = useState('');
+
+  const allTeamNames = useMemo(() => Array.from(new Set([...TEAMS, ...team.map(t => t.teamName).filter(Boolean)])).sort(), [team]);
+
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -105,10 +129,12 @@ export default function TeamPage() {
   const tree = useMemo(() => {
     const map = new Map<string, Member[]>();
     for (const m of active) {
-      const key = m.teamName || '(Unassigned)';
-      const arr = map.get(key) || [];
-      arr.push(m);
-      map.set(key, arr);
+      const teams = m.teamName ? m.teamName.split(',').map(t => t.trim()).filter(Boolean) : ['(Unassigned)'];
+      for (const key of teams) {
+        const arr = map.get(key) || [];
+        arr.push(m);
+        map.set(key, arr);
+      }
     }
     // Sort members within each team: leader first, then alphabetical
     for (const arr of map.values()) {
@@ -165,17 +191,24 @@ export default function TeamPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
 
+  const teamMut = useMutation({
+    mutationFn: ({ id, teamName }: { id: string; teamName: string }) =>
+      apiFetch(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify({ teamName }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+
   const handleCreateNewTeam = async () => {
-    const name = prompt('Enter new team name:');
-    if (!name?.trim()) return;
+    if (!newTeamName.trim()) return;
     try {
       await apiFetch('/api/teams', {
         method: 'POST',
-        body: JSON.stringify({ name: name.trim() })
+        body: JSON.stringify({ name: newTeamName.trim() })
       });
       qc.invalidateQueries({ queryKey: ['teams'] });
       qc.invalidateQueries({ queryKey: ['users'] });
       alert('Team created successfully!');
+      setShowCreateTeam(false);
+      setNewTeamName('');
     } catch (e: any) {
       alert(e.message || 'Failed to create team');
     }
@@ -193,25 +226,31 @@ export default function TeamPage() {
   return (
     <AppLayout>
       <Topbar title="Team" subtitle={`${active.length} active member${active.length !== 1 ? 's' : ''}`} />
-      <div style={{ padding: '16px 20px', flex: 1 }}>
-        {isAdmin && (
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginBottom: 14 }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
+        {/* Compact Admin controls & Search row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Search - decreased size! */}
+            <div style={{ position: 'relative', width: 150 }}>
+              <Search size={13} style={{ position: 'absolute', top: '50%', left: 10, transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..."
+                style={{ width: '100%', padding: '6px 10px 6px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none' }} />
+            </div>
+
             <button onClick={expandAll} style={btnSecondary}>Expand all</button>
             <button onClick={collapseAll} style={btnSecondary}>Collapse all</button>
-            <button onClick={handleCreateNewTeam} style={{ ...btnSecondary, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <Plus size={13} /> New Team
-            </button>
+            {isAdmin && (
+              <button onClick={() => setShowCreateTeam(true)} style={{ ...btnSecondary, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                <Plus size={13} /> New Team
+              </button>
+            )}
+          </div>
+
+          {isAdmin && (
             <button onClick={() => setShowModal(true)} style={btnPrimary}>
               <Plus size={14} /> Add Member
             </button>
-          </div>
-        )}
-
-        {/* Search */}
-        <div style={{ position: 'relative', marginBottom: 14 }}>
-          <Search size={13} style={{ position: 'absolute', top: '50%', left: 12, transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search teams or members…"
-            style={{ width: '100%', padding: '9px 12px 9px 32px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', outline: 'none' }} />
+          )}
         </div>
 
         {/* File-based tree */}
@@ -240,7 +279,7 @@ export default function TeamPage() {
                     <div style={{ paddingBottom: 8 }}>
                       {activeAdmins.map((m) => {
                         return (
-                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 16px 10px 60px', borderTop: '1px solid var(--surface-2)' }}
+                          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderTop: '1px solid var(--surface-2)', transition: 'background 0.1s', cursor: 'pointer' }}
                             onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
                             onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                             
@@ -290,7 +329,7 @@ export default function TeamPage() {
                                   {roleLabel(m.role)}
                                 </span>
                               </div>
-                              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{m.email}</div>
+                              <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 16 }}>{m.email}</div>
                             </div>
 
                             {/* Actions for deactivating admins if not self */}
@@ -339,7 +378,7 @@ export default function TeamPage() {
                         {members.map((m) => {
                           const activeTasks = (m.active ?? m._count?.assignedTasks) || 0;
                           return (
-                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 16px 10px 60px', borderTop: '1px solid var(--surface-2)' }}
+                            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', borderTop: '1px solid var(--surface-2)', transition: 'background 0.1s', cursor: 'pointer' }}
                               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
                               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                               
@@ -389,7 +428,7 @@ export default function TeamPage() {
                                     {roleLabel(m.role)}
                                   </span>
                                 </div>
-                                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 2 }}>{m.email}</div>
+                                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 16 }}>{m.email}</div>
                               </div>
                               
                               {/* Tasks Badge or Performance Stats */}
@@ -415,6 +454,10 @@ export default function TeamPage() {
                               {/* Actions */}
                               {isAdmin && m.role !== 'admin' && (
                                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                  <button onClick={() => {
+                                    setChangeTeamTarget(m);
+                                    setNewTargetTeam(m.teamName || '');
+                                  }} style={btnMini}>Change Team</button>
                                   <button onClick={() => {
                                     const nextRole = m.role === 'team_leader' ? 'team_member' : 'team_leader';
                                     if (confirm(`${nextRole === 'team_leader' ? 'Promote' : 'Demote'} ${m.fullName} to ${nextRole === 'team_leader' ? 'Team Lead' : 'Team Member'}?`)) {
@@ -528,7 +571,7 @@ export default function TeamPage() {
                         }}
                       >
                         <option value="">Select team...</option>
-                        {TEAMS.map((t) => <option key={t} value={t}>{t}</option>)}
+                        {allTeamNames.map((t) => <option key={t as string} value={t as string}>{t as string}</option>)}
                       </select>
                     </div>
                   </div>
@@ -544,6 +587,66 @@ export default function TeamPage() {
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── CREATE TEAM MODAL ── */}
+      {showCreateTeam && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateTeam(false); }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 400, boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Create New Team</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Add a new team to organize your members.</div>
+              </div>
+              <button onClick={() => setShowCreateTeam(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <label style={lbl}>Team Name *</label>
+              <input type="text" value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} placeholder="e.g. Sales Team" style={inp} />
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+              <button onClick={() => setShowCreateTeam(false)} style={{ ...btnSecondary, padding: '8px 14px' }}>Cancel</button>
+              <button onClick={handleCreateNewTeam} disabled={!newTeamName.trim()}
+                style={{ ...btnPrimary, padding: '8px 16px', opacity: !newTeamName.trim() ? 0.6 : 1 }}>
+                Create Team
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CHANGE TEAM MODAL ── */}
+      {changeTeamTarget && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setChangeTeamTarget(null); }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 400, boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Change Team</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Assign {changeTeamTarget.fullName} to a new team.</div>
+              </div>
+              <button onClick={() => setChangeTeamTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <label style={lbl}>Select Team</label>
+              <select value={newTargetTeam} onChange={(e) => setNewTargetTeam(e.target.value)} style={inp}>
+                <option value="">Unassigned</option>
+                {allTeamNames.map(t => <option key={t as string} value={t as string}>{t as string}</option>)}
+              </select>
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+              <button onClick={() => setChangeTeamTarget(null)} style={{ ...btnSecondary, padding: '8px 14px' }}>Cancel</button>
+              <button onClick={() => {
+                teamMut.mutate({ id: changeTeamTarget.id, teamName: newTargetTeam });
+                setChangeTeamTarget(null);
+              }}
+                style={{ ...btnPrimary, padding: '8px 16px' }}>
+                Save Changes
+              </button>
+            </div>
           </div>
         </div>
       )}

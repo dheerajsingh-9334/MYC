@@ -97,7 +97,7 @@ export default function StepConfigPage() {
     letterSpacing: '0.4px',
     textTransform: 'uppercase',
     color: 'var(--muted)',
-    padding: '12px 20px',
+    padding: '10px 18px',
     borderBottom: '1px solid var(--border)',
     position: 'sticky',
     top: 0,
@@ -198,7 +198,7 @@ export default function StepConfigPage() {
                         }}
                       >
                         {/* Client details */}
-                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>
                               {initials}
@@ -211,15 +211,15 @@ export default function StepConfigPage() {
                         </td>
 
                         {/* Contact info */}
-                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--ink-2)' }}>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--ink-2)' }}>
                           <div>{c.email || '—'}</div>
                           {c.whatsappNumber && (
-                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>WhatsApp: {c.whatsappNumber}</div>
+                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 16 }}>WhatsApp: {c.whatsappNumber}</div>
                           )}
                         </td>
 
                         {/* Current step */}
-                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                           {c.currentStep ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'var(--olive-50)', border: '1px solid var(--olive-100)', borderRadius: 6, fontSize: 12, fontWeight: 600, color: 'var(--olive-dark)' }}>
                               <span style={{ background: 'var(--olive)', color: '#fff', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>{stepNumPad}</span>
@@ -231,7 +231,7 @@ export default function StepConfigPage() {
                         </td>
 
                         {/* Owning team */}
-                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--ink-2)' }}>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--ink-2)' }}>
                           {c.currentStep?.owningTeamName ? (
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--olive-light)', flexShrink: 0 }} />
@@ -243,12 +243,12 @@ export default function StepConfigPage() {
                         </td>
 
                         {/* Task Count */}
-                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--ink-2)', fontWeight: 500 }}>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', fontSize: 12.5, color: 'var(--ink-2)', fontWeight: 500 }}>
                           {c.taskCount ?? 0} task{c.taskCount !== 1 ? 's' : ''}
                         </td>
 
                         {/* Status */}
-                        <td style={{ padding: '14px 20px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', borderRadius: 5, fontSize: 11.5, fontWeight: 600, background: sc.bg, color: sc.color }}>
                             <span style={{ width: 6, height: 6, borderRadius: '50%', background: sc.dot, flexShrink: 0 }} />
                             {sc.label}
@@ -256,7 +256,7 @@ export default function StepConfigPage() {
                         </td>
 
                         {/* Actions */}
-                        <td style={{ padding: '14px 20px', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
+                        <td style={{ padding: '10px 18px', textAlign: 'right', verticalAlign: 'middle', whiteSpace: 'nowrap' }}>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -453,7 +453,7 @@ function ManageStepsModal({ clientId, clientName, teamsList, onClose }: ManageSt
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--olive)' }}>
               Manage Pipeline Steps
             </div>
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)', marginTop: 2 }}>
+            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)', marginTop: 16 }}>
               {clientName}
             </div>
           </div>

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import prisma from '../prisma/client';
 
 export interface JwtPayload {
   userId: string;
@@ -17,7 +18,7 @@ declare global {
   }
 }
 
-export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+export const requireAuth = async (req: Request, res: Response, next: NextFunction) => {
   let token = req.headers.authorization?.split(' ')[1];
   if (!token && req.query.token) {
     token = req.query.token as string;
@@ -28,7 +29,23 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
   }
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
-    req.user = payload;
+    
+    // Fetch fresh user data from DB to ensure roles/teams are always up to date!
+    const dbUser = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { role: true, teamName: true, isActive: true }
+    });
+    
+    if (!dbUser || !dbUser.isActive) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    req.user = {
+      ...payload,
+      role: dbUser.role,
+      teamName: dbUser.teamName ?? undefined
+    };
     next();
   } catch {
     res.status(401).json({ error: 'Invalid token' });

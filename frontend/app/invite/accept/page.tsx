@@ -314,7 +314,7 @@ const cardStyle: React.CSSProperties = {
 const logoIconStyle: React.CSSProperties = {
   width: 48,
   height: 48,
-  background: 'linear-gradient(135deg, var(--olive, #556B2F), var(--olive-light, #8FBC8F))',
+  background: 'linear-gradient(135deg, var(--olive, var(--olive)), var(--olive-light, #8FBC8F))',
   color: '#ffffff',
   borderRadius: 12,
   display: 'flex',
@@ -400,7 +400,7 @@ const btnPrimary: React.CSSProperties = {
   justifyContent: 'center',
   padding: '11px 20px',
   borderRadius: 8,
-  background: 'var(--olive, #556B2F)',
+  background: 'var(--olive, var(--olive))',
   color: '#ffffff',
   fontSize: 14,
   fontWeight: 600,
@@ -410,7 +410,7 @@ const btnPrimary: React.CSSProperties = {
 };
 
 const errorBoxStyle: React.CSSProperties = {
-  padding: '10px 14px',
+  padding: '12px 16px',
   background: 'var(--red-bg, #FDF3F2)',
   color: 'var(--red, #B23B2D)',
   borderRadius: 8,
@@ -436,7 +436,7 @@ const spinnerStyle: React.CSSProperties = {
   width: 32,
   height: 32,
   border: '3px solid #E5E4DC',
-  borderTop: '3px solid #556B2F',
+  borderTop: '3px solid var(--olive)',
   borderRadius: '50%',
   animation: 'spin 1s linear infinite',
   margin: '0 auto',
