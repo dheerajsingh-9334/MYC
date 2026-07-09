@@ -15,10 +15,11 @@ interface TopbarProps {
   subtitle?: string;
   onAddClient?: () => void;
   showAddClient?: boolean;
+  actionLabel?: string;
   renderActions?: () => React.ReactNode;
 }
 
-export default function Topbar({ title, subtitle, onAddClient, showAddClient, renderActions }: TopbarProps) {
+export default function Topbar({ title, subtitle, onAddClient, showAddClient, actionLabel, renderActions }: TopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [search, setSearch] = useState('');
@@ -274,7 +275,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, re
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
             >
-              <Plus size={14} /> Add Client
+              <Plus size={14} /> {actionLabel || 'Add Client'}
             </button>
           )}
         </div>

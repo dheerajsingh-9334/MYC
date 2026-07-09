@@ -225,18 +225,14 @@ export default function TeamPage() {
 
   return (
     <AppLayout>
-      <Topbar title="Team" subtitle={`${active.length} active member${active.length !== 1 ? 's' : ''}`} />
-      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
-        {/* Compact Admin controls & Search row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+      <Topbar 
+        title="Team" 
+        subtitle={`${active.length} active member${active.length !== 1 ? 's' : ''}`} 
+        showAddClient={isAdmin}
+        actionLabel="Add Member"
+        onAddClient={() => setShowModal(true)}
+        renderActions={() => (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {/* Search - decreased size! */}
-            <div style={{ position: 'relative', width: 150 }}>
-              <Search size={13} style={{ position: 'absolute', top: '50%', left: 10, transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..."
-                style={{ width: '100%', padding: '6px 10px 6px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none' }} />
-            </div>
-
             <button onClick={expandAll} style={btnSecondary}>Expand all</button>
             <button onClick={collapseAll} style={btnSecondary}>Collapse all</button>
             {isAdmin && (
@@ -245,12 +241,18 @@ export default function TeamPage() {
               </button>
             )}
           </div>
-
-          {isAdmin && (
-            <button onClick={() => setShowModal(true)} style={btnPrimary}>
-              <Plus size={14} /> Add Member
-            </button>
-          )}
+        )}
+      />
+      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {/* Search - decreased size! */}
+            <div style={{ position: 'relative', width: 150 }}>
+              <Search size={13} style={{ position: 'absolute', top: '50%', left: 10, transform: 'translateY(-50%)', color: 'var(--muted)', pointerEvents: 'none' }} />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..."
+                style={{ width: '100%', padding: '6px 10px 6px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none' }} />
+            </div>
+          </div>
         </div>
 
         {/* File-based tree */}
