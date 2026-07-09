@@ -1182,7 +1182,13 @@ export default function StaffDashboard() {
                 </div>
               }
               padding="16px 18px"
-              style={{ height: '100%', minHeight: 500, display: 'flex', flexDirection: 'column', overflow: 'visible' }}
+              style={{
+                flex: 1,
+                minHeight: user?.role === 'team_leader' ? 380 : 500,
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'visible'
+              }}
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {/* Weekday labels */}
