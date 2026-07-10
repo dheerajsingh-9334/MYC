@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../prisma/client';
-import { requireAuth } from '../middleware/auth.middleware';
+import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { computeClientStatus } from '../services/pipeline.service';
 
 const router = Router();
@@ -16,9 +16,26 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const isLeader = req.user.role === 'team_leader';
     const leaderTeam = req.user.teamName;
 
-    // Get all active clients with their tasks
+    // Get all active, pinned, or tasks-pinned clients with their tasks
     const clients = await prisma.client.findMany({
-      where: { organisationId: req.user.orgId, status: 'active' },
+      where: {
+        organisationId: req.user.orgId,
+        OR: [
+          { status: 'active' },
+          { isPinned: true },
+          {
+            tasks: {
+              some: {
+                status: { notIn: ['complete', 'cancelled'] },
+                OR: [
+                  { isPinned: true },
+                  { isAlerted: true }
+                ]
+              }
+            }
+          }
+        ]
+      },
       include: {
         currentStep: true,
         tasks: {
@@ -42,7 +59,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const alertItems = [];
     for (const client of clients) {
       const status = computeClientStatus(client.tasks);
-      if (status === 'on_track') continue;
+      const hasPinnedOrAlerted = client.isPinned || client.tasks.some(t => t.isPinned || t.isAlerted);
+      if (status === 'on_track' && !hasPinnedOrAlerted) continue;
 
       for (const task of client.tasks) {
         const taskStatus = task.status;
@@ -58,6 +76,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
           const due = new Date(task.dueDate);
           if (due >= today && due < tomorrow) {
             alertType = 'due_today';
+          } else if (task.isAlerted || task.isPinned || client.isPinned) {
+            alertType = 'highlighted';
           }
         }
 
@@ -101,7 +121,7 @@ router.get('/stats', requireAuth, async (_req: Request, res: Response) => {
 });
 
 // POST /api/standup/highlight
-router.post('/highlight', requireAuth, async (req: Request, res: Response) => {
+router.post('/highlight', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { taskId } = req.body;
     if (!taskId) { res.status(400).json({ error: 'taskId required' }); return; }
@@ -163,15 +183,18 @@ router.post('/highlight', requireAuth, async (req: Request, res: Response) => {
         data: { isPinned: false, isAlerted: false }
       });
 
-      // Check if client has other pinned tasks
-      const otherPinnedTasks = await prisma.task.findFirst({
+      // Check if client has other pinned or alerted tasks
+      const otherPinnedOrAlerted = await prisma.task.findFirst({
         where: {
           clientId: task.clientId,
-          isPinned: true,
-          id: { not: taskId }
+          id: { not: taskId },
+          OR: [
+            { isPinned: true },
+            { isAlerted: true }
+          ]
         }
       });
-      if (!otherPinnedTasks) {
+      if (!otherPinnedOrAlerted) {
         await prisma.client.update({
           where: { id: task.clientId },
           data: { isPinned: false }

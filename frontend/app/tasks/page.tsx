@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, getUser } from '@/lib/api';
 import AppLayout from '@/components/layout/AppLayout';
@@ -38,6 +38,7 @@ export default function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>('');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('');
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -101,6 +102,7 @@ export default function TasksPage() {
   }, []);
 
   const isAdmin = user?.role === 'admin';
+  const isLeader = user?.role === 'team_leader';
 
   const { data: liveTasks = [], isLoading } = useQuery({
     queryKey: ['tasks'],
@@ -251,6 +253,25 @@ export default function TasksPage() {
     return filtered.slice(0, taskLimit);
   }, [filtered, taskLimit]);
 
+  const groupedByClient = useMemo(() => {
+    const groups: Record<string, { client: any; tasks: any[] }> = {};
+    scrollableTasks.forEach((t) => {
+      const clientId = t.client?.id || 'unassigned';
+      if (!groups[clientId]) {
+        groups[clientId] = {
+          client: t.client || { id: 'unassigned', brandName: 'No Client', fullName: 'No Client' },
+          tasks: [],
+        };
+      }
+      groups[clientId].tasks.push(t);
+    });
+    return Object.values(groups).sort((a, b) => {
+      const nameA = a.client.brandName || a.client.fullName || '';
+      const nameB = b.client.brandName || b.client.fullName || '';
+      return nameA.localeCompare(nameB);
+    });
+  }, [scrollableTasks]);
+
   useEffect(() => { setTaskLimit(15); }, [search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir]);
 
   const handleTaskScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -274,6 +295,36 @@ export default function TasksPage() {
   const reopenMut = useMutation({
     mutationFn: (id: string) => apiFetch(`/api/tasks/${id}/reopen`, { method: 'PATCH' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+  });
+  const pinMut = useMutation({
+    mutationFn: ({ id, pin }: { id: string; pin: boolean }) =>
+      apiFetch(`/api/tasks/${id}/${pin ? 'pin' : 'unpin'}`, { method: 'PATCH' }),
+    onSuccess: (data, variables) => {
+      try {
+        const current = JSON.parse(localStorage.getItem('pinned_tasks') || '[]');
+        let updated;
+        if (variables.pin) {
+          updated = Array.from(new Set([...current, variables.id]));
+        } else {
+          updated = current.filter((x: string) => x !== variables.id);
+        }
+        localStorage.setItem('pinned_tasks', JSON.stringify(updated));
+      } catch (err) {}
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['standup'] });
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      window.dispatchEvent(new Event('pinned-updated'));
+    },
+  });
+  const alertMut = useMutation({
+    mutationFn: ({ id, alert }: { id: string; alert: boolean }) =>
+      apiFetch(`/api/tasks/${id}/${alert ? 'alert' : 'unalert'}`, { method: 'PATCH' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['standup'] });
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      window.dispatchEvent(new Event('pinned-updated'));
+    },
   });
   const completeMut = useMutation({
     mutationFn: ({ id: taskId, proofLink, proofDescription }: { id: string; proofLink?: string; proofDescription?: string }) =>
@@ -697,23 +748,100 @@ export default function TasksPage() {
                   <tbody>
                     {scrollableTasks.length === 0 ? (
                       <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks match your filters.</td></tr>
-                    ) : scrollableTasks.map((t) => (
-                      <StaffTaskRow
-                        key={t.id}
-                        task={t}
-                        isAdmin={isAdmin}
-                        onComplete={() => setCompleteTaskId(t.id)}
-                        onReject={() => setRejectTaskId(t.id)}
-                        onReopen={() => reopenMut.mutate(t.id)}
-                        reopenPending={reopenMut.isPending && reopenMut.variables === t.id}
-                        onOpenVault={() => setVaultTask(t)}
-                        onBlock={() => setBlockerTaskId(t.id)}
-                        onExtend={() => setExtendTaskId(t.id)}
-                        onStartTimer={() => startTimerMut.mutate(t.id)}
-                        onStopTimer={() => stopTimerMut.mutate(t.id)}
-                        onStatusChange={(id, status) => statusMut.mutate({ id, status })}
-                      />
-                    ))}
+                    ) : groupedByClient.map((group) => {
+                      const client = group.client;
+                      const clientTasks = group.tasks;
+                      const isExpanded = expandedClients[client.id] ?? true;
+
+                      const statusCounts = {
+                        pending: clientTasks.filter(t => t.status === 'pending').length,
+                        in_progress: clientTasks.filter(t => t.status === 'in_progress').length,
+                        complete: clientTasks.filter(t => t.status === 'complete').length,
+                        blocked: clientTasks.filter(t => t.status === 'blocked').length,
+                        extension_requested: clientTasks.filter(t => t.status === 'extension_requested').length,
+                        rejected: clientTasks.filter(t => t.status === 'rejected').length,
+                        cancelled: clientTasks.filter(t => t.status === 'cancelled').length,
+                      };
+
+                      const toggleClientExpand = (clientId: string) => {
+                        setExpandedClients((prev) => ({
+                          ...prev,
+                          [clientId]: !(prev[clientId] ?? true),
+                        }));
+                      };
+
+                      return (
+                        <Fragment key={client.id}>
+                          <tr
+                            onClick={() => toggleClientExpand(client.id)}
+                            style={{
+                              background: 'var(--surface-3)',
+                              borderBottom: '1px solid var(--border)',
+                              cursor: 'pointer',
+                              userSelect: 'none',
+                            }}
+                          >
+                            <td colSpan={7} style={{ padding: '10px 18px', fontWeight: 600 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  {isExpanded ? <ChevronDown size={14} style={{ color: 'var(--ink-2)' }} /> : <ChevronRight size={14} style={{ color: 'var(--ink-2)' }} />}
+                                  <span style={{ fontSize: 13, color: 'var(--ink)' }}>
+                                    {client.brandName || client.fullName || 'No Client'}
+                                  </span>
+                                  <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>
+                                    ({clientTasks.length} {clientTasks.length === 1 ? 'task' : 'tasks'})
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                  {statusCounts.pending > 0 && (
+                                    <span style={statusBadgeStyle('pending')}>{statusCounts.pending} Pending</span>
+                                  )}
+                                  {statusCounts.in_progress > 0 && (
+                                    <span style={statusBadgeStyle('in_progress')}>{statusCounts.in_progress} In Progress</span>
+                                  )}
+                                  {statusCounts.complete > 0 && (
+                                    <span style={statusBadgeStyle('complete')}>{statusCounts.complete} Complete</span>
+                                  )}
+                                  {statusCounts.blocked > 0 && (
+                                    <span style={statusBadgeStyle('blocked')}>{statusCounts.blocked} Blocked</span>
+                                  )}
+                                  {statusCounts.extension_requested > 0 && (
+                                    <span style={statusBadgeStyle('extension_requested')}>{statusCounts.extension_requested} Extension</span>
+                                  )}
+                                  {statusCounts.rejected > 0 && (
+                                    <span style={statusBadgeStyle('rejected')}>{statusCounts.rejected} Rejected</span>
+                                  )}
+                                  {statusCounts.cancelled > 0 && (
+                                    <span style={statusBadgeStyle('cancelled')}>{statusCounts.cancelled} Cancelled</span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                          {isExpanded && clientTasks.map((t) => (
+                            <StaffTaskRow
+                              key={t.id}
+                              task={t}
+                              isAdmin={isAdmin}
+                              isLeader={isLeader}
+                              isNested={true}
+                              onPinToggle={(id, pin) => pinMut.mutate({ id, pin })}
+                              onAlertToggle={(id, alert) => alertMut.mutate({ id, alert })}
+                              onComplete={() => setCompleteTaskId(t.id)}
+                              onReject={() => setRejectTaskId(t.id)}
+                              onReopen={() => reopenMut.mutate(t.id)}
+                              reopenPending={reopenMut.isPending && reopenMut.variables === t.id}
+                              onOpenVault={() => setVaultTask(t)}
+                              onBlock={() => setBlockerTaskId(t.id)}
+                              onExtend={() => setExtendTaskId(t.id)}
+                              onStartTimer={() => startTimerMut.mutate(t.id)}
+                              onStopTimer={() => stopTimerMut.mutate(t.id)}
+                              onStatusChange={(id, status) => statusMut.mutate({ id, status })}
+                            />
+                          ))}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1056,9 +1184,11 @@ export default function TasksPage() {
 // ── Staff / admin task row ────────────────────────────────────────────────
 
 function StaffTaskRow({
-  task: t, isAdmin, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend, onStartTimer, onStopTimer, onStatusChange,
+  task: t, isAdmin, isLeader, isNested, onPinToggle, onAlertToggle, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend, onStartTimer, onStopTimer, onStatusChange,
 }: {
-  task: any; isAdmin: boolean;
+  task: any; isAdmin: boolean; isLeader?: boolean; isNested?: boolean;
+  onPinToggle?: (id: string, pin: boolean) => void;
+  onAlertToggle?: (id: string, alert: boolean) => void;
   onComplete: () => void;
   onReject: () => void;
   onReopen: () => void;
@@ -1070,31 +1200,6 @@ function StaffTaskRow({
   onStopTimer?: () => void;
   onStatusChange?: (id: string, status: string) => void;
 }) {
-  const [pinned, setPinned] = useState(false);
-  useEffect(() => {
-    try {
-      const current = JSON.parse(localStorage.getItem('pinned_tasks') || '[]');
-      setPinned(current.includes(t.id));
-    } catch (e) {}
-  }, [t.id]);
-
-  const togglePin = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const current = JSON.parse(localStorage.getItem('pinned_tasks') || '[]');
-      let updated;
-      if (current.includes(t.id)) {
-        updated = current.filter((x: string) => x !== t.id);
-        setPinned(false);
-      } else {
-        updated = [...current, t.id];
-        setPinned(true);
-      }
-      localStorage.setItem('pinned_tasks', JSON.stringify(updated));
-      window.dispatchEvent(new Event('pinned-updated'));
-    } catch (err) {}
-  };
-
   const done = t.status === 'complete';
   const rej = t.status === 'rejected' || t.status === 'cancelled';
   const overdue = !done && !rej && isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate));
@@ -1123,31 +1228,57 @@ function StaffTaskRow({
     <tr style={{ borderBottom: '1px solid var(--surface-2)', background: rej ? '#FBEEF105' : 'transparent' }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = rej ? '#FBEEF105' : 'transparent'; }}>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle', minWidth: 240 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {!hidePin ? (
+      <td style={{ padding: '10px 18px', paddingLeft: isNested ? 28 : 18, verticalAlign: 'middle', minWidth: 240 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {isAdmin && !hidePin ? (
             <button
-              onClick={togglePin}
+              onClick={(e) => { e.stopPropagation(); onPinToggle?.(t.id, !t.isPinned); }}
               style={{
                 border: 'none',
                 background: 'none',
                 padding: 4,
                 cursor: 'pointer',
-                color: pinned ? 'var(--olive)' : 'var(--muted)',
+                color: t.isPinned ? 'var(--olive)' : 'var(--muted)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'color 0.15s',
               }}
               onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--olive)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = pinned ? 'var(--olive)' : 'var(--muted)')}
-              title={pinned ? "Unpin task" : "Pin task"}
+              onMouseLeave={(e) => (e.currentTarget.style.color = t.isPinned ? 'var(--olive)' : 'var(--muted)')}
+              title={t.isPinned ? "Unpin task" : "Pin task"}
             >
-              <Pin size={16} style={{ fill: pinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+              <Pin size={15} style={{ fill: t.isPinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
             </button>
           ) : (
-            <div style={{ width: 24 }} />
+            isAdmin && <div style={{ width: 23 }} />
           )}
+
+          {(isAdmin || isLeader) && !hidePin ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAlertToggle?.(t.id, !t.isAlerted); }}
+              style={{
+                border: 'none',
+                background: 'none',
+                padding: 4,
+                cursor: 'pointer',
+                color: t.isAlerted ? 'var(--red)' : 'var(--muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'color 0.15s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--red)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = t.isAlerted ? 'var(--red)' : 'var(--muted)')}
+              title={t.isAlerted ? "Remove alert" : "Alert task"}
+            >
+              <AlertCircle size={15} style={{ fill: t.isAlerted ? 'var(--red-bg)' : 'none' }} />
+            </button>
+          ) : (
+            (isAdmin || isLeader) && <div style={{ width: 23 }} />
+          )}
+
+          {!isAdmin && !isLeader && <div style={{ width: 12 }} />}
           {t.priority === 'high' && <span style={{ width: 4, height: 22, borderRadius: 2, background: 'var(--red)' }} />}
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -1400,4 +1531,28 @@ const pageBtnStyle: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 4,
   padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 5,
   fontSize: 12, fontWeight: 500, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer',
+};
+
+const statusBadgeStyle = (status: string): React.CSSProperties => {
+  const colors: Record<string, { bg: string; color: string }> = {
+    pending: { bg: 'var(--pending-bg)', color: 'var(--pending)' },
+    in_progress: { bg: 'var(--olive-50)', color: 'var(--olive)' },
+    complete: { bg: 'var(--green-bg)', color: 'var(--green)' },
+    blocked: { bg: 'var(--blocked-bg)', color: 'var(--blocked)' },
+    extension_requested: { bg: 'var(--amber-bg)', color: 'var(--amber)' },
+    rejected: { bg: 'var(--rejected-bg)', color: 'var(--rejected)' },
+    cancelled: { bg: 'var(--surface-2)', color: 'var(--muted)' },
+  };
+  const c = colors[status] || colors.pending;
+  return {
+    fontSize: 10,
+    fontWeight: 700,
+    padding: '2px 8px',
+    borderRadius: 4,
+    background: c.bg,
+    color: c.color,
+    border: `1px solid ${c.color}20`,
+    display: 'inline-flex',
+    alignItems: 'center',
+  };
 };

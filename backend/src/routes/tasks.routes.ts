@@ -143,7 +143,7 @@ router.patch('/:id', requireAuth, requireAdminOrLeader, async (req: Request, res
     if (description !== undefined) data.description = description;
     if (priority !== undefined) data.priority = priority;
     if (dueDate !== undefined) data.dueDate = new Date(dueDate);
-    if (isPinned !== undefined) data.isPinned = isPinned;
+    if (isPinned !== undefined && req.user.role === 'admin') data.isPinned = isPinned;
     if (isAlerted !== undefined) data.isAlerted = isAlerted;
     if (status !== undefined) {
       data.status = status;
@@ -200,6 +200,25 @@ router.patch('/:id', requireAuth, requireAdminOrLeader, async (req: Request, res
         assignedTo: { select: { id: true, fullName: true, teamName: true } },
       },
     });
+
+    if (!updated.isPinned && !updated.isAlerted) {
+      const otherActiveFlags = await prisma.task.findFirst({
+        where: {
+          clientId: updated.clientId,
+          id: { not: updated.id },
+          OR: [
+            { isPinned: true },
+            { isAlerted: true }
+          ]
+        }
+      });
+      if (!otherActiveFlags) {
+        await prisma.client.update({
+          where: { id: updated.clientId },
+          data: { isPinned: false }
+        });
+      }
+    }
 
     res.json(updated);
   } catch (err) {
@@ -762,7 +781,7 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
 });
 
 // PATCH /api/tasks/:id/pin
-router.patch('/:id/pin', requireAuth, requireAdminOrLeader, async (req: Request, res: Response) => {
+router.patch('/:id/pin', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     await prisma.task.updateMany({
       where: { id: req.params.id, organisationId: req.user.orgId },
@@ -775,12 +794,40 @@ router.patch('/:id/pin', requireAuth, requireAdminOrLeader, async (req: Request,
 });
 
 // PATCH /api/tasks/:id/unpin
-router.patch('/:id/unpin', requireAuth, requireAdminOrLeader, async (req: Request, res: Response) => {
+router.patch('/:id/unpin', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    await prisma.task.updateMany({
-      where: { id: req.params.id, organisationId: req.user.orgId },
+    const task = await prisma.task.findFirst({
+      where: { id: req.params.id, organisationId: req.user.orgId }
+    });
+    if (!task) {
+      res.status(404).json({ error: 'Task not found' });
+      return;
+    }
+
+    await prisma.task.update({
+      where: { id: req.params.id },
       data: { isPinned: false },
     });
+
+    if (!task.isAlerted) {
+      const otherActiveFlags = await prisma.task.findFirst({
+        where: {
+          clientId: task.clientId,
+          id: { not: task.id },
+          OR: [
+            { isPinned: true },
+            { isAlerted: true }
+          ]
+        }
+      });
+      if (!otherActiveFlags) {
+        await prisma.client.update({
+          where: { id: task.clientId },
+          data: { isPinned: false }
+        });
+      }
+    }
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
@@ -843,6 +890,25 @@ router.patch('/:id/unalert', requireAuth, requireAdminOrLeader, async (req: Requ
       where: { id: req.params.id },
       data: { isAlerted: false },
     });
+
+    if (!task.isPinned) {
+      const otherActiveFlags = await prisma.task.findFirst({
+        where: {
+          clientId: task.clientId,
+          id: { not: task.id },
+          OR: [
+            { isPinned: true },
+            { isAlerted: true }
+          ]
+        }
+      });
+      if (!otherActiveFlags) {
+        await prisma.client.update({
+          where: { id: task.clientId },
+          data: { isPinned: false }
+        });
+      }
+    }
 
     const actor = await prisma.user.findUnique({
       where: { id: req.user.userId },

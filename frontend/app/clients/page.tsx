@@ -449,26 +449,27 @@ export default function ClientsPage() {
                     >
                        {/* Header: Avatar + Title/Status */}
                       <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                          <button
-                            onClick={(e) => togglePinClient(client.id, e)}
-                            style={{
-                              border: 'none',
-                              background: 'none',
-                              padding: 4,
-                              cursor: 'pointer',
-                              color: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'color 0.15s',
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--olive)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.color = pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)')}
-                            title={pinnedClientIds.includes(client.id) ? "Unpin client" : "Pin client"}
-                          >
-                            <Pin size={16} style={{ fill: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
-                          </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>                          {isAdmin && (
+                            <button
+                              onClick={(e) => togglePinClient(client.id, e)}
+                              style={{
+                                border: 'none',
+                                background: 'none',
+                                padding: 4,
+                                cursor: 'pointer',
+                                color: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'color 0.15s',
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--olive)')}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)')}
+                              title={pinnedClientIds.includes(client.id) ? "Unpin client" : "Pin client"}
+                            >
+                              <Pin size={16} style={{ fill: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+                            </button>
+                          )}
                           <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
                             {initials}
                           </div>
@@ -595,26 +596,28 @@ export default function ClientsPage() {
                           <td style={{ position: 'relative', padding: '10px 18px', verticalAlign: 'middle', ...colStyles.client }}>
                             <span style={{ position: 'absolute', top: 0, left: 0, width: 2, height: '100%', background: 'var(--olive)', transform: 'scaleY(0)', transformOrigin: 'top', transition: 'transform 0.1s' }} className="row-stripe" />
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <button
-                                onClick={(e) => togglePinClient(client.id, e)}
-                                style={{
-                                  border: 'none',
-                                  background: 'none',
-                                  padding: 4,
-                                  cursor: 'pointer',
-                                  color: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  transition: 'color 0.15s',
-                                  flexShrink: 0,
-                                }}
-                                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--olive)')}
-                                onMouseLeave={(e) => (e.currentTarget.style.color = pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)')}
-                                title={pinnedClientIds.includes(client.id) ? "Unpin client" : "Pin client"}
-                              >
-                                <Pin size={16} style={{ fill: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
-                              </button>
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) => togglePinClient(client.id, e)}
+                                  style={{
+                                    border: 'none',
+                                    background: 'none',
+                                    padding: 4,
+                                    cursor: 'pointer',
+                                    color: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    transition: 'color 0.15s',
+                                    flexShrink: 0,
+                                  }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--olive)')}
+                                  onMouseLeave={(e) => (e.currentTarget.style.color = pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)')}
+                                  title={pinnedClientIds.includes(client.id) ? "Unpin client" : "Pin client"}
+                                >
+                                  <Pin size={16} style={{ fill: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+                                </button>
+                              )}
                               <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{initials}</div>
                               <div style={{ minWidth: 0, flex: 1 }}>
                                 <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13.5, whiteSpace: 'normal', wordBreak: 'break-word' }}>{client.brandName || client.fullName}</div>

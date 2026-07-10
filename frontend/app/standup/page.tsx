@@ -39,6 +39,10 @@ const TYPE_STYLES: Record<string, { color: string; bg: string; Icon: any; label:
     color: 'var(--amber)', bg: 'var(--amber-bg)', Icon: Clock, label: 'DUE TODAY',
     tag: () => 'Today',
   },
+  highlighted: {
+    color: 'var(--olive)', bg: 'var(--olive-50)', Icon: Pin, label: 'HIGHLIGHTED',
+    tag: () => 'Highlighted',
+  },
 };
 
 export default function StandupPage() {

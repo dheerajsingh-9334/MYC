@@ -473,7 +473,7 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
 });
 
 // PATCH /api/clients/:id/pin
-router.patch('/:id/pin', requireAuth, async (req: Request, res: Response) => {
+router.patch('/:id/pin', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     await prisma.client.updateMany({
       where: { id: req.params.id, organisationId: req.user.orgId },
@@ -486,7 +486,7 @@ router.patch('/:id/pin', requireAuth, async (req: Request, res: Response) => {
 });
 
 // PATCH /api/clients/:id/unpin
-router.patch('/:id/unpin', requireAuth, async (req: Request, res: Response) => {
+router.patch('/:id/unpin', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     await prisma.client.updateMany({
       where: { id: req.params.id, organisationId: req.user.orgId },

@@ -188,6 +188,9 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
       if (user?.role === 'admin') {
         apiFetch(`/api/clients/${id}/unpin`, {
           method: 'PATCH'
+        }).then(() => {
+          qc.invalidateQueries({ queryKey: ['clients'] });
+          qc.invalidateQueries({ queryKey: ['standup'] });
         }).catch(err => console.error("Failed to unpin client on server:", err));
       }
     } catch (err) {}
@@ -208,6 +211,9 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
         apiFetch(`/api/tasks/${task.id}`, {
           method: 'PATCH',
           body: JSON.stringify({ isPinned: false }),
+        }).then(() => {
+          qc.invalidateQueries({ queryKey: ['tasks'] });
+          qc.invalidateQueries({ queryKey: ['standup'] });
         }).catch(err => console.error("Failed to unpin task on server:", err));
       }
     } catch (err) {}
@@ -358,7 +364,9 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
               >
                 <span style={{ fontSize: 9, fontWeight: 800, opacity: 0.8 }}>CLIENT</span>
                 <span style={{ fontWeight: 600 }}>{c.brandName || c.fullName}</span>
-                <X size={12} onClick={(e) => unpinClient(e, c.id)} style={{ opacity: 0.6, cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.6'} />
+                {(user?.role === 'admin' || !c.isPinned) && (
+                  <X size={12} onClick={(e) => unpinClient(e, c.id)} style={{ opacity: 0.6, cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.opacity = '1'} onMouseLeave={e => e.currentTarget.style.opacity = '0.6'} />
+                )}
               </div>
             ))}
 
