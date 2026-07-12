@@ -281,6 +281,9 @@ tr:hover td {
 .standup-row:hover td {
   background: var(--olive-50) !important;
 }
+.standup-row:hover {
+  background: var(--olive-50) !important;
+}
 .standup-row.highlighted td {
   background: var(--amber-bg) !important;
 }

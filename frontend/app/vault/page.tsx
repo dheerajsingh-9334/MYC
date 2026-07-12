@@ -273,9 +273,8 @@ export default function VaultPage() {
                   <div key={client.id}>
                     {/* Client row */}
                     <div onClick={() => toggleClient(client.id)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', cursor: 'pointer', userSelect: 'none' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'}
-                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                      className="standup-row"
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', cursor: 'pointer', userSelect: 'none' }}>
                       <span style={{ 
                         display: 'inline-block',
                         fontSize: 9, 
@@ -297,9 +296,8 @@ export default function VaultPage() {
                       return (
                         <div key={step.id}>
                           <div onClick={() => toggleStep(step.id)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 44px', cursor: 'pointer', userSelect: 'none' }}
-                            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'}
-                            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                            className="standup-row"
+                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 44px', cursor: 'pointer', userSelect: 'none' }}>
                             <span style={{ 
                               display: 'inline-block',
                               fontSize: 9, 
@@ -320,9 +318,8 @@ export default function VaultPage() {
                               return (
                                 <div key={child.id}>
                                   <div onClick={() => toggleStep(child.id)}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 68px', cursor: 'pointer', userSelect: 'none' }}
-                                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
-                                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                                    className="standup-row"
+                                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 68px', cursor: 'pointer', userSelect: 'none' }}>
                                     <span style={{ 
                                       display: 'inline-block',
                                       fontSize: 9, 
@@ -507,9 +504,8 @@ function DocRow({ doc, isAdmin, onPreview, onDelete }: {
   const isDrive = doc.docType === 'drive_link';
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 72px', borderTop: '1px solid transparent' }}
-      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
-      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+    <div className="standup-row"
+      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 72px', borderTop: '1px solid transparent' }}>
 
       {/* icon */}
       <span style={{ fontSize: 15 }}>{isDrive ? driveIcon(doc.driveUrl) : '📄'}</span>
