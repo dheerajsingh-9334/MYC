@@ -361,11 +361,23 @@ export default function EnterpriseDashboard() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
           
           {/* Card 1: Total Clients */}
-          <div style={{
-            ...statCardStyle('var(--olive)'),
-            background: 'var(--olive-50)',
-            borderColor: 'var(--olive)',
-          }}>
+          <div
+            onClick={() => router.push('/clients')}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'var(--olive)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+            }}
+            style={{
+              ...statCardStyle('var(--olive)'),
+              cursor: 'pointer',
+            }}
+          >
             <div style={{ ...statCardHeaderStyle, color: 'var(--olive)' }}>
               <Users size={14} style={{ color: 'var(--olive)' }} />
               <span style={{ fontWeight: 800 }}>Total Clients</span>
@@ -377,11 +389,23 @@ export default function EnterpriseDashboard() {
           </div>
 
           {/* Card 2: Launched Clients */}
-          <div style={{
-            ...statCardStyle('var(--green)'),
-            background: 'var(--green-bg)',
-            borderColor: 'var(--green)',
-          }}>
+          <div
+            onClick={() => router.push('/clients')}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'var(--green)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+            }}
+            style={{
+              ...statCardStyle('var(--green)'),
+              cursor: 'pointer',
+            }}
+          >
             <div style={{ ...statCardHeaderStyle, color: 'var(--green)' }}>
               <CheckCircle size={14} style={{ color: 'var(--green)' }} />
               <span style={{ fontWeight: 800 }}>Launched Clients</span>
@@ -395,10 +419,18 @@ export default function EnterpriseDashboard() {
           {/* Card 3: Overdue - Clickable & Red Highlighted */}
           <div
             onClick={() => router.push('/clients?filter=overdue')}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'var(--red)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'var(--border)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+            }}
             style={{
               ...statCardStyle('var(--red)'),
-              background: 'var(--red-bg)',
-              borderColor: 'var(--red)',
               cursor: 'pointer',
             }}
           >
@@ -550,6 +582,7 @@ const statCardStyle = (accent: string): React.CSSProperties => ({
   position: 'relative',
   background: 'var(--surface)',
   border: '1px solid var(--border)',
+  borderLeft: `4px solid ${accent}`,
   borderRadius: 'var(--radius)',
   padding: '16px 20px',
   display: 'flex',
@@ -558,7 +591,7 @@ const statCardStyle = (accent: string): React.CSSProperties => ({
   minHeight: 110,
   overflow: 'hidden',
   boxShadow: 'var(--shadow-sm)',
-  transition: 'border-color 0.15s, transform 0.15s',
+  transition: 'all 0.15s ease',
 });
 
 const statCardHeaderStyle: React.CSSProperties = {

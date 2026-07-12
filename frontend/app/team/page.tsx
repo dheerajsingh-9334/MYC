@@ -6,7 +6,7 @@ import { USE_MOCK, MOCK_TEAM } from '@/lib/mockData';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
-import { ChevronRight, Folder, FolderOpen, Shield, UserCheck, Users, Plus, X, CircleAlert, Search } from 'lucide-react';
+import { Folder, FolderOpen, Shield, UserCheck, Users, Plus, X, CircleAlert, Search } from 'lucide-react';
 import DashboardHeader from '@/components/ui/DashboardHeader';
 
 const TEAMS = ['Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 'Account Manager', 'Content Team'];
@@ -88,18 +88,10 @@ export default function TeamPage() {
   // Admin sees the full file-based tree. Team leaders see only their team.
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
 
-  // On mount, admin opens all teams by default; leader opens only theirs.
+  // On mount, teams are collapsed by default.
   useEffect(() => {
-    const teams = new Set<string>();
-    if (isAdmin) {
-      // Expand all teams that have at least one active member
-      active.forEach((m) => { if (m.teamName) teams.add(m.teamName); });
-      teams.add('Administrators');
-    } else if (user?.teamName) {
-      teams.add(user.teamName);
-    }
-    setExpandedTeams(teams);
-  }, [isAdmin, user?.teamName, team.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    setExpandedTeams(new Set());
+  }, []);
 
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ fullName: '', email: '', role: 'team_member', teamName: '', whatsappNumber: '' });
@@ -244,7 +236,19 @@ export default function TeamPage() {
   };
   const roleLabel = (role: string) => role === 'admin' ? 'Admin' : role === 'team_leader' ? 'Team Lead' : 'Team Member';
 
-  const thStyleBase = { padding: '10px 16px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' };
+  const thStyleBase: React.CSSProperties = {
+    padding: '10px 18px',
+    fontSize: 11.5,
+    fontWeight: 600,
+    color: 'var(--muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.4px',
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--surface-2)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+  };
   const colStyles = {
     member: { width: '22%', minWidth: '160px' } as React.CSSProperties,
     email: { width: '24%', minWidth: '200px' } as React.CSSProperties,
@@ -336,8 +340,14 @@ export default function TeamPage() {
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}>
                         <td colSpan={isAdmin ? 8 : 7} style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <ChevronRight size={14} style={{ color: 'var(--soft)', transform: (expandedTeams.has('Administrators') || !!search.trim()) ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', flexShrink: 0 }} />
-                            {(expandedTeams.has('Administrators') || !!search.trim()) ? <FolderOpen size={20} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={20} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
+                            <span style={{ 
+                              display: 'inline-block',
+                              fontSize: 9, 
+                              transform: (expandedTeams.has('Administrators') || !!search.trim()) ? 'rotate(90deg)' : 'rotate(0deg)', 
+                              transition: 'transform 0.2s',
+                              color: 'var(--muted)',
+                              flexShrink: 0
+                            }}>▶</span>
                             <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Administrators</span>
                             <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                               · {activeAdmins.length} admin{activeAdmins.length !== 1 ? 's' : ''}
@@ -346,8 +356,8 @@ export default function TeamPage() {
                         </td>
                       </tr>
                       {(expandedTeams.has('Administrators') || !!search.trim()) && activeAdmins.map((m) => (
-                        <tr key={m.id} style={{ borderBottom: '1px solid var(--surface-2)', background: 'transparent' }}>
-                          <td style={{ padding: '10px 16px 10px 40px', verticalAlign: 'middle', ...colStyles.member }}>
+                        <tr key={m.id} className="standup-row" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+                          <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'middle', ...colStyles.member }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <div style={{ position: 'relative', width: 28, height: 28, flexShrink: 0 }}>
                                 {m.avatarUrl ? (
@@ -374,10 +384,10 @@ export default function TeamPage() {
                               <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{m.fullName}</span>
                             </div>
                           </td>
-                          <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)', ...colStyles.email }}>
+                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)', ...colStyles.email }}>
                             {m.email}
                           </td>
-                          <td style={{ padding: '10px 16px', verticalAlign: 'middle', ...colStyles.role }}>
+                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', ...colStyles.role }}>
                             <span style={{
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -393,20 +403,20 @@ export default function TeamPage() {
                               {roleLabel(m.role)}
                             </span>
                           </td>
-                          <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--ink)', ...colStyles.active }}>
+                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--ink)', ...colStyles.active }}>
                             {m.active ?? 0}
                           </td>
-                          <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: (m.overdue ?? 0) > 0 ? 'var(--red)' : 'var(--muted)', ...colStyles.late }}>
+                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: (m.overdue ?? 0) > 0 ? 'var(--red)' : 'var(--muted)', ...colStyles.late }}>
                             {m.overdue ?? 0}
                           </td>
-                          <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--green)', ...colStyles.done }}>
+                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--green)', ...colStyles.done }}>
                             {m.completedLast7d ?? 0}
                           </td>
-                          <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--olive-dark)', ...colStyles.avgTime }}>
+                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--olive-dark)', ...colStyles.avgTime }}>
                             {m.avgCompletionTime ?? '—'}
                           </td>
                           {isAdmin && (
-                            <td style={{ padding: '10px 16px', verticalAlign: 'middle', ...colStyles.actions }}>
+                            <td style={{ padding: '10px 18px', verticalAlign: 'middle', ...colStyles.actions }}>
                               <div style={{ display: 'flex', justifyContent: 'center' }}>
                                 {m.id !== user?.id && (
                                   <button onClick={() => { if (confirm(`Deactivate ${m.fullName}?`)) deactivateMut.mutate(m.id); }} style={{ ...btnMini, color: 'var(--red)', borderColor: 'rgba(220,38,38,0.2)' }}>
@@ -434,8 +444,14 @@ export default function TeamPage() {
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}>
                           <td colSpan={isAdmin ? 8 : 7} style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <ChevronRight size={14} style={{ color: 'var(--soft)', transform: isOpen ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.15s', flexShrink: 0 }} />
-                              {isOpen ? <FolderOpen size={20} style={{ color: 'var(--olive)', flexShrink: 0 }} /> : <Folder size={20} style={{ color: 'var(--olive)', flexShrink: 0 }} />}
+                              <span style={{ 
+                                display: 'inline-block',
+                                fontSize: 9, 
+                                transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
+                                transition: 'transform 0.2s',
+                                color: 'var(--muted)',
+                                flexShrink: 0
+                              }}>▶</span>
                               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{teamName}</span>
                               <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                                 {leaderCount > 0 && `· ${leaderCount} lead${leaderCount !== 1 ? 's' : ''}`} · {members.length} member{members.length !== 1 ? 's' : ''}
@@ -451,8 +467,8 @@ export default function TeamPage() {
                         {isOpen && members.map((m) => {
                           const activeTasks = (m.active ?? m._count?.assignedTasks) || 0;
                           return (
-                            <tr key={m.id} style={{ borderBottom: '1px solid var(--surface-2)', background: 'transparent' }}>
-                              <td style={{ padding: '10px 16px 10px 40px', verticalAlign: 'middle', ...colStyles.member }}>
+                            <tr key={m.id} className="standup-row" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+                              <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'middle', ...colStyles.member }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                   <div style={{ position: 'relative', width: 28, height: 28, flexShrink: 0 }}>
                                     {m.avatarUrl ? (
@@ -479,10 +495,10 @@ export default function TeamPage() {
                                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{m.fullName}</span>
                                 </div>
                               </td>
-                              <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)', ...colStyles.email }}>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)', ...colStyles.email }}>
                                 {m.email}
                               </td>
-                              <td style={{ padding: '10px 16px', verticalAlign: 'middle', ...colStyles.role }}>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'middle', ...colStyles.role }}>
                                 <span style={{
                                   display: 'inline-flex',
                                   alignItems: 'center',
@@ -498,20 +514,20 @@ export default function TeamPage() {
                                   {roleLabel(m.role)}
                                 </span>
                               </td>
-                              <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--ink)', ...colStyles.active }}>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--ink)', ...colStyles.active }}>
                                 {activeTasks}
                               </td>
-                              <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: (m.overdue ?? 0) > 0 ? 'var(--red)' : 'var(--muted)', ...colStyles.late }}>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: (m.overdue ?? 0) > 0 ? 'var(--red)' : 'var(--muted)', ...colStyles.late }}>
                                 {m.overdue ?? 0}
                               </td>
-                              <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--green)', ...colStyles.done }}>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--green)', ...colStyles.done }}>
                                 {m.completedLast7d ?? 0}
                               </td>
-                              <td style={{ padding: '10px 16px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--olive-dark)', ...colStyles.avgTime }}>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--olive-dark)', ...colStyles.avgTime }}>
                                 {m.avgCompletionTime ?? '—'}
                               </td>
                               {isAdmin && (
-                                <td style={{ padding: '10px 16px', verticalAlign: 'middle', ...colStyles.actions }}>
+                                <td style={{ padding: '10px 18px', verticalAlign: 'middle', ...colStyles.actions }}>
                                   <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
                                     <button onClick={() => {
                                       setChangeTeamTarget(m);

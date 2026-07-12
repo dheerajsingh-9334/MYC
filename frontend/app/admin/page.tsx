@@ -9,9 +9,10 @@ import { useRouter } from 'next/navigation';
 import {
   Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity,
   ArrowRight, BarChart3, Search, Bell, Check, X, Download, Play,
-  Sun, Moon, Shield, CheckCircle, Hourglass, Ban, Sparkles, Megaphone
+  Sun, Moon, Shield, CheckCircle, Hourglass, Ban, Sparkles, Megaphone,
+  ListChecks, XCircle, Filter
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays, startOfDay } from 'date-fns';
 import SectionCard from '@/components/ui/SectionCard';
 
 const AUTO_REFRESH_MS = 15000;
@@ -80,67 +81,17 @@ export default function AdminDashboard() {
   const [memberSearch, setMemberSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState<string>('');
 
-  // Broadcast States
-  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
-  const [broadcastTarget, setBroadcastTarget] = useState<'all' | 'team' | 'user'>('all');
-  const [broadcastTeam, setBroadcastTeam] = useState('');
-  const [broadcastUser, setBroadcastUser] = useState('');
-  const [broadcastMessage, setBroadcastMessage] = useState('');
-  const [broadcastSending, setBroadcastSending] = useState(false);
-  const [broadcastError, setBroadcastError] = useState('');
-  const [broadcastSuccess, setBroadcastSuccess] = useState('');
-
-  const handleSendBroadcast = async () => {
-    if (!broadcastMessage.trim()) {
-      setBroadcastError('Please enter a message.');
-      return;
-    }
-    if (broadcastTarget === 'team' && !broadcastTeam) {
-      setBroadcastError('Please select a team.');
-      return;
-    }
-    if (broadcastTarget === 'user' && !broadcastUser) {
-      setBroadcastError('Please select a user.');
-      return;
-    }
-
-    setBroadcastSending(true);
-    setBroadcastError('');
-    setBroadcastSuccess('');
-    try {
-      const body: any = {
-        message: broadcastMessage.trim(),
-        target: broadcastTarget,
-      };
-      if (broadcastTarget === 'team') {
-        body.teamName = broadcastTeam;
-      } else if (broadcastTarget === 'user') {
-        body.userId = broadcastUser;
-      }
-
-      await apiFetch('/api/notifications/admin-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      setBroadcastSuccess('Broadcast announcement sent successfully!');
-      setBroadcastMessage('');
-      setTimeout(() => {
-        setShowBroadcastModal(false);
-        setBroadcastSuccess('');
-      }, 1500);
-    } catch (e: any) {
-      setBroadcastError(e.message || 'Failed to send broadcast announcement.');
-    } finally {
-      setBroadcastSending(false);
-    }
-  };
-
   // Export Modal States
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportType, setExportType] = useState('client_full');
   const [exportFormat, setExportFormat] = useState('csv');
+
+  // Admin Tasks State
+  const [adminTaskTab, setAdminTaskTab] = useState<'active' | 'completed' | 'rejected'>('active');
+  const [adminTaskSearch, setAdminTaskSearch] = useState('');
+  const [adminTaskScope, setAdminTaskScope] = useState<'my' | 'all'>('my');
+  const [adminTaskPriority, setAdminTaskPriority] = useState<'all' | 'high' | 'normal'>('all');
+  const [showHoverFilter, setShowHoverFilter] = useState(false);
   const [expStartDate, setExpStartDate] = useState('');
   const [expEndDate, setExpEndDate] = useState('');
   const [expStepId, setExpStepId] = useState('');
@@ -226,6 +177,7 @@ export default function AdminDashboard() {
   const allTasks = USE_MOCK ? MOCK_TASKS : (tasksList || []);
 
   const totalClientsCount = allClients.length;
+  const activeClientsCount = allClients.filter((c: any) => c.status === 'active').length;
   const launchedClientsCount = allClients.filter((c: any) => c.status === 'completed' || (c.currentStep?.stepNumber && c.currentStep.stepNumber >= 9)).length;
 
   const avgCompletionTimeStr = useMemo(() => {
@@ -238,6 +190,9 @@ export default function AdminDashboard() {
   }, [allClients, data.orgStats.avgCompletionTimeDays]);
 
   const overdueClientsCount = allClients.filter((c: any) => c.computedStatus === 'overdue').length;
+  const blockedClientsCount = allClients.filter((c: any) => c.computedStatus === 'blocked').length;
+  const activeTasksCount = allTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length;
+  const overdueTasksCount = allTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled' && differenceInCalendarDays(startOfDay(new Date(t.dueDate)), startOfDay(new Date())) < 0).length;
   const pendingRequestsCount = allTasks.filter((t: any) => t.status === 'extension_requested' || t.status === 'blocked').length;
 
   const standupItems = useMemo(() => {
@@ -400,6 +355,108 @@ export default function AdminDashboard() {
     return ms;
   }, [data.members, memberSearch, teamFilter]);
 
+  const groupedAdminTasks = useMemo(() => {
+    if (!user) return { active: [], completed: [], rejected: [] };
+    const filteredTasks = allTasks.filter((t: any) => {
+      // Filter by Scope
+      if (adminTaskScope === 'my') {
+        const assigneeId = t.assignedToId || t.assignedTo?.id;
+        if (assigneeId !== user.id && t.assignedTo?.fullName !== user.fullName) {
+          return false;
+        }
+      }
+      // Filter by Priority
+      if (adminTaskPriority !== 'all') {
+        if (t.priority !== adminTaskPriority) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    return {
+      active: filteredTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled'),
+      completed: filteredTasks.filter((t: any) => t.status === 'complete'),
+      rejected: filteredTasks.filter((t: any) => t.status === 'rejected' || t.status === 'cancelled'),
+    };
+  }, [allTasks, user, adminTaskScope, adminTaskPriority]);
+
+  const visibleAdminTasks = useMemo(() => {
+    let list = groupedAdminTasks[adminTaskTab];
+    if (adminTaskSearch.trim()) {
+      const q = adminTaskSearch.toLowerCase();
+      list = list.filter((t: any) => (t.title?.toLowerCase().includes(q) || t.client?.brandName?.toLowerCase().includes(q)));
+    }
+    return list;
+  }, [groupedAdminTasks, adminTaskTab, adminTaskSearch]);
+
+  const allTimeJoinData = useMemo(() => {
+    const sorted = [...allClients].map(c => {
+      const date = new Date(c.dateJoined || c.createdAt || c.addedAt || new Date());
+      return { ...c, parsedDate: date };
+    }).sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+
+    if (sorted.length === 0) {
+      return { labels: ['Start', 'Now'], data: [0, 0] };
+    }
+
+    const monthlyCounts: { [key: string]: number } = {};
+    sorted.forEach(c => {
+      const label = format(c.parsedDate, 'MMM yy');
+      monthlyCounts[label] = (monthlyCounts[label] || 0) + 1;
+    });
+
+    const labels = Object.keys(monthlyCounts);
+    const counts = Object.values(monthlyCounts);
+    
+    let cumulative = 0;
+    const cumulativeCounts = counts.map(count => {
+      cumulative += count;
+      return cumulative;
+    });
+
+    if (labels.length === 1) {
+      return {
+        labels: ['Prev', labels[0]],
+        data: [0, cumulativeCounts[0]]
+      };
+    }
+
+    return { labels, data: cumulativeCounts };
+  }, [allClients]);
+
+  const launchedLineChartData = useMemo(() => {
+    const launchedClients = allClients.filter((c: any) => c.currentStep?.stepNumber === 9 || c.currentStep?.isFinal);
+    if (launchedClients.length === 0) {
+      return { labels: ['Start', 'Now'], data: [0, 0] };
+    }
+    
+    const timestamps = launchedClients.map((c: any) => new Date(c.updatedAt || c.createdAt || new Date()).getTime());
+    const minTime = Math.min(...timestamps);
+    const maxTime = new Date().getTime();
+    
+    const range = Math.max(1000 * 60 * 60 * 24, maxTime - minTime); 
+    const step = range / 6;
+    timestamps.sort((a: any, b: any) => a - b);
+    
+    const data = [0, 0, 0, 0, 0, 0, 0];
+    const labels = ['', '', '', '', '', '', ''];
+    let cumulative = 0;
+    let tIdx = 0;
+    
+    for (let i = 0; i < 7; i++) {
+      const bucketEnd = i === 6 ? maxTime : minTime + step * i;
+      while (tIdx < timestamps.length && timestamps[tIdx] <= bucketEnd) {
+        cumulative++;
+        tIdx++;
+      }
+      data[i] = cumulative;
+      labels[i] = new Date(bucketEnd).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    }
+    
+    return { labels, data };
+  }, [allClients]);
+
   // Fetch notifications
   const { data: liveNotifs } = useQuery<any[]>({
     queryKey: ['admin-notifications'],
@@ -419,214 +476,378 @@ export default function AdminDashboard() {
 
       <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
         
-        {/* Page Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginBottom: -4 }}>
-          <button
-            onClick={() => setShowBroadcastModal(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              height: 32,
-              padding: '0 14px',
-              borderRadius: 'var(--radius-sm)',
-              background: 'rgba(220, 38, 38, 0.08)',
-              border: '1px solid rgba(220, 38, 38, 0.2)',
-              color: 'var(--red)',
-              fontSize: 12.5,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
-          >
-            <Megaphone size={13} /> Broadcast Announcement
-          </button>
-        </div>
-        
-        {/* 3 Stat Cards in a row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-          {/* Card 1: Total Clients */}
-          <div style={{
-            ...statCardStyle('var(--olive)'),
-            background: 'var(--olive-50)',
-            borderColor: 'var(--olive)',
-          }}>
-            <div style={{ ...statCardHeaderStyle, color: 'var(--olive)' }}>
-              <Users size={14} style={{ color: 'var(--olive)' }} />
-              <span style={{ fontWeight: 800 }}>Total Clients</span>
-            </div>
-            <div style={statCardValueContainerStyle}>
-              <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{totalClientsCount}</span>
-              <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Registered</span>
-            </div>
-          </div>
-
-          {/* Card 2: Launched Clients */}
-          <div style={{
-            ...statCardStyle('var(--green)'),
-            background: 'var(--green-bg)',
-            borderColor: 'var(--green)',
-          }}>
-            <div style={{ ...statCardHeaderStyle, color: 'var(--green)' }}>
-              <CheckCircle size={14} style={{ color: 'var(--green)' }} />
-              <span style={{ fontWeight: 800 }}>Launched Clients</span>
-            </div>
-            <div style={statCardValueContainerStyle}>
-              <span style={{ ...statCardValueStyle, color: 'var(--green)' }}>{launchedClientsCount}</span>
-              <span style={{ ...statCardSubtitleStyle, color: 'var(--green)', opacity: 0.8 }}>Completed Step 9</span>
-            </div>
-          </div>
-
-          {/* Card 3: Overdue - Clickable & Red Highlighted */}
-          <div
-            onClick={() => router.push('/clients?filter=overdue')}
-            style={{
-              ...statCardStyle('var(--red)'),
-              background: 'var(--red-bg)',
-              borderColor: 'var(--red)',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ ...statCardHeaderStyle, color: 'var(--red)' }}>
-              <TriangleAlert size={14} style={{ color: 'var(--red)' }} />
-              <span style={{ fontWeight: 800 }}>Overdue</span>
-            </div>
-            <div style={statCardValueContainerStyle}>
-              <span style={{ ...statCardValueStyle, color: 'var(--red)' }}>{overdueClientsCount}</span>
-              <span style={{ ...statCardSubtitleStyle, color: 'var(--red)', opacity: 0.8 }}>Needs attention</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Needs Attention Today Panel */}
-        <div style={{
-          border: '1.5px solid var(--amber)',
-          borderLeft: '5px solid var(--amber)',
-          borderRadius: 'var(--radius)',
-          background: 'var(--surface-2)',
-          padding: '16px 20px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 12
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <TriangleAlert size={16} style={{ color: 'var(--amber)' }} />
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Needs Attention Today</span>
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>— Immediate actions required to maintain service level agreements</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* Critical Row */}
-            <div style={attentionRowStyle}>
-              <span style={badgeStyle('var(--red-bg)', 'var(--red)', 'CRITICAL')}>CRITICAL</span>
-              <span style={attentionMessageStyle}>{attentionItems.critical.message}</span>
-              <button
-                onClick={() => router.push(attentionItems.critical.link)}
-                style={attentionButtonStyle('var(--red)', 'var(--red-bg)')}
+        {/* Row 2: 5 Stat Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16 }}>
+          {[
+            {
+              title: 'Total Clients',
+              value: totalClientsCount,
+              subtitle: 'Registered portfolio',
+              path: '/clients',
+              accent: 'var(--olive)',
+              icon: Users,
+            },
+            {
+              title: 'Launched Clients',
+              value: launchedClientsCount,
+              subtitle: 'Step 9+ / Completed',
+              path: '/clients?filter=completed',
+              accent: 'var(--green)',
+              icon: CheckCircle,
+            },
+            {
+              title: 'Overdue Clients',
+              value: overdueClientsCount,
+              subtitle: 'Exceeded step SLA',
+              path: '/clients?filter=overdue',
+              accent: 'var(--red)',
+              icon: TriangleAlert,
+            },
+            {
+              title: 'Overdue Tasks',
+              value: overdueTasksCount,
+              subtitle: 'Past due date',
+              path: '/tasks?filter=overdue',
+              accent: 'var(--red)',
+              icon: Clock,
+            },
+            {
+              title: 'Team Size',
+              value: usersList.filter((u: any) => u.isActive !== false).length,
+              subtitle: 'Active employees',
+              path: '/team',
+              accent: 'var(--olive)',
+              icon: Users,
+            },
+          ].map((kpi, idx) => {
+            const Icon = kpi.icon;
+            return (
+              <div
+                key={idx}
+                onClick={() => router.push(kpi.path)}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderTopColor = kpi.accent;
+                  e.currentTarget.style.borderRightColor = kpi.accent;
+                  e.currentTarget.style.borderBottomColor = kpi.accent;
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderTopColor = 'var(--border)';
+                  e.currentTarget.style.borderRightColor = 'var(--border)';
+                  e.currentTarget.style.borderBottomColor = 'var(--border)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                }}
+                style={{ ...statCardStyle(kpi.accent), cursor: 'pointer' }}
               >
-                {attentionItems.critical.hasItems ? 'Resolve' : 'View'}
-              </button>
-            </div>
-
-            {/* Warning Row */}
-            <div style={attentionRowStyle}>
-              <span style={badgeStyle('var(--amber-bg)', 'var(--amber)', 'WARNING')}>WARNING</span>
-              <span style={attentionMessageStyle}>{attentionItems.warning.message}</span>
-              <button
-                onClick={() => router.push(attentionItems.warning.link)}
-                style={attentionButtonStyle('var(--amber)', 'var(--amber-bg)')}
-              >
-                {attentionItems.warning.hasItems ? 'Resolve' : 'View'}
-              </button>
-            </div>
-
-            {/* Info Row */}
-            <div style={attentionRowStyle}>
-              <span style={badgeStyle('var(--blue-bg)', 'var(--blue)', 'INFO')}>INFO</span>
-              <span style={attentionMessageStyle}>{attentionItems.info.message}</span>
-              <button
-                onClick={() => router.push(attentionItems.info.link)}
-                style={attentionButtonStyle('var(--blue)', 'var(--blue-bg)')}
-              >
-                {attentionItems.info.hasItems ? 'Resolve' : 'View'}
-              </button>
-            </div>
-          </div>
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <div style={{ ...statCardHeaderStyle, color: kpi.accent }}>
+                    <Icon size={14} style={{ color: kpi.accent }} />
+                    <span style={{ fontWeight: 800 }}>{kpi.title}</span>
+                  </div>
+                  <div style={statCardValueContainerStyle}>
+                    <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{kpi.value}</span>
+                    <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>{kpi.subtitle}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Client Risk Section (Full Width) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20, minHeight: 400 }}>
-          {/* Client Risk */}
-          <SectionCard
-            title={
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                <Activity size={15} style={{ color: 'var(--olive)' }} />
-                Client Risk Analysis
-              </span>
-            }
-            subtitle="Clients sorted by highest overdue duration"
-            padding="0"
-            style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
-          >
-            <div style={{ flex: 1, overflowY: 'auto', maxHeight: 450, padding: 0 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', color: 'var(--muted)', textAlign: 'left' }}>
-                    <th style={{ padding: '10px 18px', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)' }}>Client / Brand</th>
-                    <th style={{ padding: '10px 18px', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)' }}>Current Step</th>
-                    <th style={{ padding: '10px 18px', fontSize: '11.5px', fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)', textAlign: 'right' }}>Delay Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedClientsForRisk.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} style={{ padding: '20px 18px', textAlign: 'center', color: 'var(--muted)' }}>
-                        No active clients.
-                      </td>
-                    </tr>
-                  ) : (
-                    sortedClientsForRisk.map((client: any) => {
-                      const sc = getClientStatusStyles(client);
+        {/* Row 3: Split Screen (My Tasks | Client Analysis & Graph) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+          
+          {/* Left Column: My Tasks */}
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <SectionCard 
+              title="My Tasks" 
+              subtitle="Overdue, due today, and upcoming" 
+              padding="0" 
+              style={{ display: 'flex', flexDirection: 'column' }}
+              action={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 140 }}>
+                    <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--muted)' }} />
+                    <input
+                      type="text"
+                      placeholder="Search tasks..."
+                      value={adminTaskSearch}
+                      onChange={(e) => setAdminTaskSearch(e.target.value)}
+                      style={{ padding: '5px 8px 5px 26px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, outline: 'none', background: 'var(--surface-2)', color: 'var(--ink)', width: '100%' }}
+                    />
+                  </div>
+
+                  {/* Hover Filter Button */}
+                  <div 
+                    style={{ position: 'relative' }}
+                    onMouseEnter={() => setShowHoverFilter(true)}
+                    onMouseLeave={() => setShowHoverFilter(false)}
+                  >
+                    <button
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        height: 28,
+                        padding: '0 10px',
+                        borderRadius: 6,
+                        border: '1px solid var(--border)',
+                        background: 'var(--surface)',
+                        color: 'var(--ink-2)',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <Filter size={12} />
+                      Filter
+                    </button>
+                    {showHoverFilter && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          right: 0,
+                          zIndex: 100,
+                          marginTop: 4,
+                          width: 200,
+                          padding: 12,
+                          background: 'var(--surface)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 8,
+                          boxShadow: 'var(--shadow-lg)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 12,
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Task Scope</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
+                              <input type="radio" checked={adminTaskScope === 'my'} onChange={() => setAdminTaskScope('my')} style={{ cursor: 'pointer' }} />
+                              My Tasks Only
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
+                              <input type="radio" checked={adminTaskScope === 'all'} onChange={() => setAdminTaskScope('all')} style={{ cursor: 'pointer' }} />
+                              All Tasks
+                            </label>
+                          </div>
+                        </div>
+                        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Priority</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
+                              <input type="radio" checked={adminTaskPriority === 'all'} onChange={() => setAdminTaskPriority('all')} style={{ cursor: 'pointer' }} />
+                              All Priorities
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
+                              <input type="radio" checked={adminTaskPriority === 'high'} onChange={() => setAdminTaskPriority('high')} style={{ cursor: 'pointer' }} />
+                              High Only
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
+                              <input type="radio" checked={adminTaskPriority === 'normal'} onChange={() => setAdminTaskPriority('normal')} style={{ cursor: 'pointer' }} />
+                              Normal Only
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button onClick={() => router.push('/tasks')} style={{ fontSize: 12, fontWeight: 500, color: 'var(--olive)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    Open full task manager <ArrowRight size={12} />
+                  </button>
+                </div>
+              }
+            >
+              {/* Filter Tabs */}
+              <div style={{ display: 'flex', gap: 8, padding: '14px 20px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+                {[
+                  { key: 'active', label: adminTaskScope === 'all' ? 'All Active' : 'My Tasks', count: groupedAdminTasks.active.length, icon: ListChecks, accent: 'var(--olive)', bg: 'var(--olive-50)' },
+                  { key: 'completed', label: 'Completed', count: groupedAdminTasks.completed.length, icon: CircleCheck, accent: 'var(--green)', bg: 'var(--green-bg)' },
+                  { key: 'rejected', label: 'Rejected', count: groupedAdminTasks.rejected.length, icon: XCircle, accent: 'var(--rejected)', bg: 'var(--rejected-bg)' }
+                ].map(t => {
+                  const isActive = adminTaskTab === t.key;
+                  return (
+                    <button key={t.key} onClick={() => setAdminTaskTab(t.key as any)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, border: `1px solid ${isActive ? t.accent : 'var(--border)'}`, background: isActive ? t.accent : 'var(--surface)', color: isActive ? '#fff' : 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}>
+                      <t.icon size={13} />
+                      {t.label}
+                      <span style={{ background: isActive ? 'rgba(255,255,255,0.25)' : t.bg, color: isActive ? '#fff' : t.accent, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999 }}>{t.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ padding: 0 }}>
+                {visibleAdminTasks.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: 'var(--muted)' }}>No matching tasks found.</div>
+                ) : (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', maxHeight: 580, overflowY: 'auto' }}>
+                    {visibleAdminTasks.map((t: any, idx: number) => {
+                      const isAlerted = t.isAlerted;
+                      const stripe = isAlerted ? 'var(--red)' : adminTaskTab === 'completed' ? 'var(--green)' : adminTaskTab === 'rejected' ? 'var(--rejected)' : 'var(--olive)';
+                      const due = format(new Date(t.dueDate), 'EEE d MMM');
+                      const todayStart = startOfDay(new Date());
+                      const isOverdue = differenceInCalendarDays(startOfDay(new Date(t.dueDate)), todayStart) < 0;
+                      const daysDiff = differenceInCalendarDays(startOfDay(new Date(t.dueDate)), todayStart);
+                      
                       return (
-                        <tr
-                          key={client.id}
-                          onClick={() => router.push(`/clients/${client.id}`)}
-                          style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background 0.12s' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <td style={{ padding: '10px 18px', fontWeight: 600, color: 'var(--ink)' }}>
-                            {client.brandName || client.fullName}
-                          </td>
-                          <td style={{ padding: '10px 18px', color: 'var(--ink-2)' }}>
-                            {client.currentStep?.name || 'Unassigned'}
-                          </td>
-                          <td style={{ padding: '10px 18px', textAlign: 'right' }}>
-                            <span style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 5,
-                              padding: '2px 8px',
-                              borderRadius: 999,
-                              fontSize: 11,
-                              fontWeight: 600,
-                              background: sc.bg,
-                              color: sc.color
-                            }}>
+                        <li key={t.id} onClick={() => t.client?.id && router.push(`/clients/${t.client.id}`)} style={{ position: 'relative', display: 'grid', gridTemplateColumns: '3px 1fr auto', gap: 14, padding: '12px 20px', borderBottom: idx === visibleAdminTasks.length - 1 ? 'none' : '1px solid var(--surface-2)', cursor: 'pointer', background: isAlerted ? 'rgba(220, 38, 38, 0.05)' : 'transparent' }}>
+                          <div style={{ background: stripe, borderRadius: 3 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', color: 'var(--muted)' }}>
+                              <span style={{ color: 'var(--ink-2)', textTransform: 'none', fontWeight: 500 }}>{t.client?.brandName || t.client?.fullName || '—'}</span>
+                              {t.step?.stepNumber && <><span>·</span><span style={{ color: 'var(--ink-2)', textTransform: 'none', fontWeight: 500 }}>Step {String(t.step.stepNumber).padStart(2, '0')} — {t.step?.name}</span></>}
+                            </div>
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginTop: 3 }}>{t.title}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--soft)', marginTop: 2 }}>
+                              Due: {due} {t.priority === 'high' && <span style={{ color: 'var(--red)', fontWeight: 600 }}>· High priority</span>}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {adminTaskTab === 'active' && (
+                              isOverdue ? <span style={badgeStyle('var(--red-bg)', 'var(--red)', '')}>+{Math.abs(daysDiff)}d</span>
+                              : daysDiff === 0 ? <span style={badgeStyle('var(--amber-bg)', 'var(--amber)', '')}>TODAY</span>
+                              : <span style={badgeStyle('var(--olive-50)', 'var(--olive-dark)', '')}>in {daysDiff}d</span>
+                            )}
+                            <span style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink-2)', fontSize: 11.5, fontWeight: 500 }}>
+                              {t.status === 'in_progress' ? 'In Progress' : t.status === 'complete' ? 'Completed' : t.status === 'pending' ? 'Pending' : t.status}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </SectionCard>
+          </div>
+
+          {/* Right Column: Client Analysis with Graph */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, height: '100%' }}>
+
+            {/* Client Joins Over Time Chart */}
+            <div style={{ position: 'relative', width: '100%', padding: '16px 20px', background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Client Growth Over Time</div>
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Cumulative client onboarding (all-time)</div>
+              </div>
+              <div style={{ width: '100%', height: 180 }}>
+                {(() => {
+                  const { labels, data } = allTimeJoinData;
+                  const maxVal = Math.max(...data, 10);
+                  const minVal = 0;
+                  const range = maxVal - minVal;
+                  
+                  const width = 500;
+                  const height = 180;
+                  const padding = 35;
+                  
+                  const chartWidth = width - padding * 2;
+                  const chartHeight = height - padding * 2;
+                  
+                  const points = data.map((val, idx) => {
+                    const x = padding + (idx / Math.max(1, data.length - 1)) * chartWidth;
+                    const y = padding + chartHeight - ((val - minVal) / range) * chartHeight;
+                    return { x, y, val, label: labels[idx] };
+                  });
+                  
+                  const pathD = points.length > 0 
+                    ? `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')
+                    : '';
+                    
+                  const areaD = points.length > 0
+                    ? `${pathD} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`
+                    : '';
+
+                  return (
+                    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                      <defs>
+                        <linearGradient id="adminChartGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--olive)" stopOpacity="0.25" />
+                          <stop offset="100%" stopColor="var(--olive)" stopOpacity="0.00" />
+                        </linearGradient>
+                      </defs>
+                      
+                      {/* Grid Lines */}
+                      {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
+                        const y = padding + chartHeight * pct;
+                        const val = Math.round(maxVal - pct * range);
+                        return (
+                          <g key={idx}>
+                            <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="4 4" />
+                            <text x={padding - 8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--muted)" fontWeight="600">{val}</text>
+                          </g>
+                        );
+                      })}
+                      
+                      {/* Area Path */}
+                      {areaD && <path d={areaD} fill="url(#adminChartGrad)" />}
+                      
+                      {/* Line Path */}
+                      {pathD && <path d={pathD} fill="none" stroke="var(--olive)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+                      
+                      {/* Data Points */}
+                      {points.map((p, idx) => (
+                        <g key={idx} style={{ cursor: 'pointer' }}>
+                          <circle cx={p.x} cy={p.y} r="4" fill="var(--surface)" stroke="var(--olive)" strokeWidth="2" />
+                          <title>{`${p.label}: ${p.val} clients`}</title>
+                        </g>
+                      ))}
+                      
+                      {/* X Axis Labels */}
+                      {points.map((p, idx) => {
+                        const step = Math.ceil(points.length / 6);
+                        if (idx % step !== 0 && idx !== points.length - 1) return null;
+                        return (
+                          <text key={idx} x={p.x} y={height - padding + 16} textAnchor="middle" fontSize="10" fill="var(--muted)" fontWeight="600">
+                            {p.label}
+                          </text>
+                        );
+                      })}
+                    </svg>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Client Risk Analysis */}
+            <SectionCard title="Client Risk Analysis" subtitle="Sorted by overdue duration" padding="0">
+              <div style={{ padding: 0 }}>
+                {sortedClientsForRisk.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: 'var(--muted)' }}>No active clients.</div>
+                ) : (
+                  <ul style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', maxHeight: 350, overflowY: 'auto' }}>
+                    {sortedClientsForRisk.map((client: any, idx: number) => {
+                      const sc = getClientStatusStyles(client);
+                      const stripe = sc.color;
+                      return (
+                        <li key={client.id} onClick={() => router.push(`/clients/${client.id}`)} style={{ position: 'relative', display: 'grid', gridTemplateColumns: '3px 1fr auto', gap: 14, padding: '12px 20px', borderBottom: idx === sortedClientsForRisk.length - 1 ? 'none' : '1px solid var(--surface-2)', cursor: 'pointer', background: 'transparent' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0,0,0,0.02)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                          <div style={{ background: stripe, borderRadius: 3 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{client.brandName || client.fullName}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--soft)', marginTop: 2 }}>
+                              Current Step: <span style={{ fontWeight: 600 }}>{client.currentStep?.name || 'Unassigned'}</span>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: sc.color, fontSize: 11.5, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                               <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc.color }} />
                               {sc.label}
                             </span>
-                          </td>
-                        </tr>
+                          </div>
+                        </li>
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </SectionCard>
+                    })}
+                  </ul>
+                )}
+              </div>
+            </SectionCard>
+          </div>
         </div>
 
         {/* ── EXPORT MODAL ── */}
@@ -890,120 +1111,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
-      {showBroadcastModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowBroadcastModal(false); }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.2)', overflow: 'hidden', padding: 24, gap: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
-                <Megaphone size={18} style={{ color: 'var(--olive)' }} />
-                <span>Send Broadcast Announcement</span>
-              </div>
-              <button onClick={() => setShowBroadcastModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={18} /></button>
-            </div>
 
-            {broadcastError && (
-              <div style={{ background: '#FDF2F2', border: '1px solid #FDE8E8', borderRadius: 6, padding: '10px 14px', color: '#9B1C1C', fontSize: 13, fontWeight: 500 }}>
-                {broadcastError}
-              </div>
-            )}
-
-            {broadcastSuccess && (
-              <div style={{ background: 'var(--green-bg)', border: '1px solid var(--green-100)', borderRadius: 6, padding: '10px 14px', color: 'var(--green)', fontSize: 13, fontWeight: 500 }}>
-                {broadcastSuccess}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Target Audience</label>
-              <select
-                value={broadcastTarget}
-                onChange={(e: any) => {
-                  setBroadcastTarget(e.target.value);
-                  setBroadcastError('');
-                }}
-                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5 }}
-              >
-                <option value="all">Broadcast to All Users</option>
-                <option value="team">Specific Team</option>
-                <option value="user">Specific User</option>
-              </select>
-            </div>
-
-            {broadcastTarget === 'team' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Select Team</label>
-                <select
-                  value={broadcastTeam}
-                  onChange={(e) => setBroadcastTeam(e.target.value)}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5 }}
-                >
-                  <option value="">-- Choose Team --</option>
-                  {(teamsList as string[]).map(t => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {broadcastTarget === 'user' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Select User</label>
-                <select
-                  value={broadcastUser}
-                  onChange={(e) => setBroadcastUser(e.target.value)}
-                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5 }}
-                >
-                  <option value="">-- Choose User --</option>
-                  {(usersList as any[]).filter((u: any) => u.isActive !== false).map(u => (
-                    <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Announcement Message</label>
-              <textarea
-                placeholder="Type your broadcast announcement here..."
-                value={broadcastMessage}
-                onChange={(e) => setBroadcastMessage(e.target.value)}
-                rows={4}
-                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5, resize: 'none' }}
-              />
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
-              <button
-                onClick={() => setShowBroadcastModal(false)}
-                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSendBroadcast}
-                disabled={broadcastSending}
-                style={{
-                  padding: '8px 18px',
-                  borderRadius: 8,
-                  border: 'none',
-                  background: 'var(--olive)',
-                  color: '#fff',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  opacity: broadcastSending ? 0.7 : 1
-                }}
-              >
-                {broadcastSending ? 'Sending...' : 'Send Announcement'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       </div>
     </AppLayout>
@@ -1015,7 +1123,10 @@ export default function AdminDashboard() {
 const statCardStyle = (accent: string): React.CSSProperties => ({
   position: 'relative',
   background: 'var(--surface)',
-  border: '1px solid var(--border)',
+  borderTop: '1px solid var(--border)',
+  borderRight: '1px solid var(--border)',
+  borderBottom: '1px solid var(--border)',
+  borderLeft: `4px solid ${accent}`,
   borderRadius: 'var(--radius)',
   padding: '16px 20px',
   display: 'flex',
@@ -1024,7 +1135,7 @@ const statCardStyle = (accent: string): React.CSSProperties => ({
   minHeight: 110,
   overflow: 'hidden',
   boxShadow: 'var(--shadow-sm)',
-  transition: 'border-color 0.15s, transform 0.15s',
+  transition: 'all 0.15s ease',
 });
 
 const statCardHeaderStyle: React.CSSProperties = {

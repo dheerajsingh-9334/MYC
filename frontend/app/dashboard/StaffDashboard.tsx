@@ -791,7 +791,7 @@ export default function StaffDashboard() {
                       margin: '16px 20px 20px',
                       flex: 1,
                       minHeight: 0,
-                      maxHeight: 'calc(100vh - 350px)',
+                      maxHeight: 580,
                       overflowY: 'auto',
                       border: '1px solid var(--border)',
                       borderRadius: 'var(--radius)',
@@ -1164,7 +1164,7 @@ export default function StaffDashboard() {
 
             <SectionCard
               title={
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: '15px', fontWeight: 600 }}>
                     <CalendarDays size={15} style={{ color: 'var(--olive)', marginRight: 2 }} />
                     My Calendar
@@ -1176,35 +1176,45 @@ export default function StaffDashboard() {
                   <div style={{ display: 'flex', gap: 4 }}>
                     <button
                       onClick={() => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+                      title="Previous Month"
                       style={{
-                        padding: '4px 8px',
+                        width: 24,
+                        height: 24,
                         border: '1px solid var(--border)',
-                        borderRadius: 6,
+                        borderRadius: '50%',
                         background: 'var(--surface)',
                         color: 'var(--ink-2)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        transition: 'all 0.15s ease'
                       }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
                     >
-                      <ChevronLeft size={14} />
+                      <ChevronLeft size={12} />
                     </button>
                     <button
                       onClick={() => setCurrentDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+                      title="Next Month"
                       style={{
-                        padding: '4px 8px',
+                        width: 24,
+                        height: 24,
                         border: '1px solid var(--border)',
-                        borderRadius: 6,
+                        borderRadius: '50%',
                         background: 'var(--surface)',
                         color: 'var(--ink-2)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center'
+                        justifyContent: 'center',
+                        transition: 'all 0.15s ease'
                       }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
                     >
-                      <ChevronRight size={14} />
+                      <ChevronRight size={12} />
                     </button>
                   </div>
                 </div>
@@ -1269,44 +1279,41 @@ export default function StaffDashboard() {
                       const isCurrentMonth = day.getMonth() === month;
                       const isDayToday = isToday(day);
 
-                      const hasOverdue = dayTasks.some(t => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled' && differenceInCalendarDays(startOfDay(new Date(t.dueDate)), todayStart) < 0);
-                      const hasBlocked = dayTasks.some(t => t.status === 'blocked');
-                      const hasRejected = dayTasks.some(t => t.status === 'rejected' || t.status === 'cancelled');
-                      const hasPending = dayTasks.some(t => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled' && t.status !== 'blocked');
-                      const allComplete = dayTasks.length > 0 && dayTasks.every(t => t.status === 'complete');
-
-                      let boxBg = isCurrentMonth ? 'var(--surface)' : 'var(--surface-2)';
-                      let boxBorder = isDayToday
-                        ? '1.5px solid var(--olive)'
-                        : activeTooltipDate === dateStr
-                          ? '1px solid var(--olive)'
-                          : '1px solid var(--border)';
-                      let textColor = isDayToday ? 'var(--olive-dark)' : isCurrentMonth ? 'var(--ink-2)' : 'var(--soft)';
-                      let textWeight = isDayToday ? 700 : 500;
-
+                      // Calculate dot composition
+                      const dots: { color: string; label: string }[] = [];
                       if (dayTasks.length > 0) {
-                        textWeight = 700;
-                        if (hasOverdue) {
-                          boxBg = 'var(--red-bg)';
-                          boxBorder = activeTooltipDate === dateStr ? '1.5px solid var(--red)' : '1.5px solid var(--red-border)';
-                          textColor = 'var(--red)';
-                        } else if (hasBlocked) {
-                          boxBg = 'var(--blocked-bg)';
-                          boxBorder = activeTooltipDate === dateStr ? '1.5px solid var(--blocked)' : '1.5px solid var(--blocked-border)';
-                          textColor = 'var(--blocked)';
-                        } else if (hasRejected) {
-                          boxBg = 'var(--rejected-bg)';
-                          boxBorder = activeTooltipDate === dateStr ? '1.5px solid var(--rejected)' : '1.5px solid var(--rejected-border)';
-                          textColor = 'var(--rejected)';
-                        } else if (hasPending) {
-                          boxBg = 'var(--pending-bg)';
-                          boxBorder = activeTooltipDate === dateStr ? '1.5px solid var(--pending)' : '1.5px solid var(--pending-border)';
-                          textColor = 'var(--pending)';
-                        } else if (allComplete) {
-                          boxBg = 'var(--green-bg)';
-                          boxBorder = activeTooltipDate === dateStr ? '1.5px solid var(--green)' : '1.5px solid var(--green-border)';
-                          textColor = 'var(--green)';
-                        }
+                        const hasOverdue = dayTasks.some(t => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled' && differenceInCalendarDays(startOfDay(new Date(t.dueDate)), todayStart) < 0);
+                        const hasBlocked = dayTasks.some(t => t.status === 'blocked');
+                        const hasRejected = dayTasks.some(t => t.status === 'rejected' || t.status === 'cancelled');
+                        const hasPending = dayTasks.some(t => t.status === 'pending' || t.status === 'in_progress');
+                        const hasExtension = dayTasks.some(t => t.status === 'extension_requested');
+                        const hasComplete = dayTasks.some(t => t.status === 'complete');
+
+                        if (hasOverdue) dots.push({ color: 'var(--red)', label: 'Overdue' });
+                        if (hasBlocked) dots.push({ color: 'var(--blocked, #6B3FA0)', label: 'Blocked' });
+                        if (hasRejected) dots.push({ color: 'var(--rejected, #EF4444)', label: 'Rejected' });
+                        if (hasPending) dots.push({ color: 'var(--olive)', label: 'Pending' });
+                        if (hasExtension) dots.push({ color: 'var(--blue, #3B82F6)', label: 'Extension Requested' });
+                        if (hasComplete) dots.push({ color: 'var(--green)', label: 'Complete' });
+                      }
+
+                      const isHovered = activeTooltipDate === dateStr;
+
+                      let cellBg = isCurrentMonth ? 'var(--surface)' : 'var(--surface-2)';
+                      let cellBorder = isCurrentMonth ? '1px solid rgba(214, 227, 245, 0.4)' : '1px solid transparent';
+                      
+                      if (isDayToday) {
+                        cellBg = 'var(--olive-50)';
+                        cellBorder = '1.5px solid var(--olive-light)';
+                      } else if (isHovered) {
+                        cellBg = 'var(--surface-2)';
+                        cellBorder = '1px solid var(--border-strong)';
+                      }
+
+                      let textWeight = isDayToday ? 700 : 500;
+                      let textColor = isCurrentMonth ? 'var(--ink)' : 'var(--soft)';
+                      if (isDayToday) {
+                        textColor = 'var(--olive-dark)';
                       }
 
                       const colIdx = idx % 7;
@@ -1342,34 +1349,80 @@ export default function StaffDashboard() {
                           style={{
                             position: 'relative',
                             aspectRatio: '1',
-                            border: boxBorder,
-                            borderRadius: 6,
-                            background: boxBg,
-                            padding: '4px',
+                            border: cellBorder,
+                            borderRadius: 8,
+                            background: cellBg,
+                            padding: '6px',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            opacity: isCurrentMonth ? 1 : 0.45,
-                            boxShadow: activeTooltipDate === dateStr 
-                              ? '0 4px 12px var(--shadow-sm), 0 0 0 2px var(--olive-50)' 
-                              : isDayToday ? '0 0 0 2px var(--olive-light)' : 'none',
-                            transform: activeTooltipDate === dateStr ? 'translateY(-2px)' : 'none',
-                            transition: 'all 0.15s ease-in-out',
+                            opacity: isCurrentMonth ? 1 : 0.5,
+                            boxShadow: isHovered 
+                              ? 'var(--shadow)' 
+                              : 'none',
+                            transform: isHovered ? 'translateY(-2px)' : 'none',
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                             cursor: 'pointer',
-                            zIndex: activeTooltipDate === dateStr ? 50 : 1
+                            zIndex: isHovered ? 50 : 1
                           }}
                         >
-                          <span style={{
-                            fontSize: 12,
-                            fontWeight: textWeight,
-                            color: textColor,
-                            lineHeight: 1
-                          }}>
-                            {day.getDate()}
-                          </span>
+                          {isDayToday ? (
+                            <span style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: 22,
+                              height: 22,
+                              borderRadius: '50%',
+                              background: 'var(--olive)',
+                              color: '#fff',
+                              fontSize: 11.5,
+                              fontWeight: 700,
+                              lineHeight: 1
+                            }}>
+                              {day.getDate()}
+                            </span>
+                          ) : (
+                            <span style={{
+                              fontSize: 12,
+                              fontWeight: textWeight,
+                              color: textColor,
+                              lineHeight: 1
+                            }}>
+                              {day.getDate()}
+                            </span>
+                          )}
 
-                          {activeTooltipDate === dateStr && dayTasks.length > 0 && (
+                          {dots.length > 0 && (
+                            <div style={{
+                              display: 'flex',
+                              gap: 3,
+                              marginTop: 4,
+                              height: 5,
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}>
+                              {dots.slice(0, 3).map((dot, dIdx) => (
+                                <span
+                                  key={dIdx}
+                                  title={dot.label}
+                                  style={{
+                                    width: 5,
+                                    height: 5,
+                                    borderRadius: '50%',
+                                    background: dot.color,
+                                    display: 'inline-block'
+                                  }}
+                                />
+                              ))}
+                              {dots.length > 3 && (
+                                <span style={{ fontSize: 8, fontWeight: 700, color: 'var(--muted)', lineHeight: 1 }}>+</span>
+                              )}
+                            </div>
+                          )}
+
+                          {isHovered && dayTasks.length > 0 && (
                             <div style={tooltipStyle}>
                               <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 6, borderBottom: '1px solid var(--border)', paddingBottom: 4 }}>
                                 {format(day, 'EEE, d MMM yyyy')}

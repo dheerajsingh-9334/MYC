@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  ChevronRight, Folder, FolderOpen, FileText, Search, Lock,
+  Folder, FolderOpen, FileText, Search, Lock,
   Link2, X, ExternalLink, Eye, Trash2, Plus, AlertCircle,
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
@@ -276,8 +276,14 @@ export default function VaultPage() {
                       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', cursor: 'pointer', userSelect: 'none' }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                      <ChevronRight size={14} style={{ color: 'var(--soft)', transform: clientOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
-                      {clientOpen ? <FolderOpen size={16} style={{ color: 'var(--olive)' }} /> : <Folder size={16} style={{ color: 'var(--olive)' }} />}
+                      <span style={{ 
+                        display: 'inline-block',
+                        fontSize: 9, 
+                        transform: clientOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
+                        transition: 'transform 0.2s',
+                        color: 'var(--muted)',
+                        flexShrink: 0
+                      }}>▶</span>
                       <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{client.name}</span>
                       <span style={{ fontSize: 11.5, color: 'var(--muted)', marginLeft: 4 }}>· {client.fullName}</span>
                       <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface-2)', padding: '2px 8px', borderRadius: 10 }}>
@@ -294,8 +300,14 @@ export default function VaultPage() {
                             style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 44px', cursor: 'pointer', userSelect: 'none' }}
                             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'}
                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                            <ChevronRight size={12} style={{ color: 'var(--soft)', transform: stepOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
-                            <Folder size={13} style={{ color: 'var(--olive-light)' }} />
+                            <span style={{ 
+                              display: 'inline-block',
+                              fontSize: 9, 
+                              transform: stepOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
+                              transition: 'transform 0.2s',
+                              color: 'var(--muted)',
+                              flexShrink: 0
+                            }}>▶</span>
                             <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-2)' }}>{step.name}</span>
                             <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--muted)' }}>{step.childCount}</span>
                           </div>
@@ -311,8 +323,14 @@ export default function VaultPage() {
                                     style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 68px', cursor: 'pointer', userSelect: 'none' }}
                                     onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
                                     onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
-                                    <ChevronRight size={11} style={{ color: 'var(--soft)', transform: taskOpen ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }} />
-                                    <FileText size={12} style={{ color: 'var(--olive-light)' }} />
+                                    <span style={{ 
+                                      display: 'inline-block',
+                                      fontSize: 9, 
+                                      transform: taskOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
+                                      transition: 'transform 0.2s',
+                                      color: 'var(--muted)',
+                                      flexShrink: 0
+                                    }}>▶</span>
                                     <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ink-2)' }}>{child.name}</span>
                                     <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--muted)' }}>{child.childCount}</span>
                                   </div>

@@ -17,7 +17,8 @@ import {
   GitBranch,
   AlertCircle,
   Pin,
-  Trash2
+  Trash2,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import React, { useState, useMemo, useEffect } from 'react';
@@ -57,6 +58,7 @@ export default function StandupPage() {
   const [localHighlighted, setLocalHighlighted] = useState<Record<string, boolean>>({});
   const [localClientPinned, setLocalClientPinned] = useState<Record<string, boolean>>({});
   const [ignoredItems, setIgnoredItems] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -135,19 +137,31 @@ export default function StandupPage() {
       const clientName = it.client?.brandName || it.client?.fullName || '—';
       const stepLabel = it.step ? `Step ${String(it.step.stepNumber).padStart(2, '0')} — ${it.step.name}` : '';
       const title = it.task?.title || '—';
-      let detail = '';
+      let detailText = '';
+      let detail: React.ReactNode = null;
       if (isBlocked && it.task?.blockerNote) {
-        detail = `Blocker raised by <b>${assignee || 'team member'}</b>: <em>"${it.task.blockerNote}"</em>`;
+        detailText = `Blocker raised by ${assignee || 'team member'}: "${it.task.blockerNote}"`;
+        detail = (
+          <>
+            Blocker raised by <strong>{assignee || 'team member'}</strong>: <em>"{it.task.blockerNote}"</em>
+          </>
+        );
       } else if (assignee) {
-        detail = `Assigned to <b>${assignee}${assigneeTeam ? ` (${assigneeTeam})` : ''}</b>.${it.task?.dueDate ? ` Due ${format(new Date(it.task.dueDate), 'd MMM')}.` : ''}`;
+        detailText = `Assigned to ${assignee}${assigneeTeam ? ` (${assigneeTeam})` : ''}.${it.task?.dueDate ? ` Due ${format(new Date(it.task.dueDate), 'd MMM')}.` : ''}`;
+        detail = (
+          <>
+            Assigned to <strong>{assignee}{assigneeTeam ? ` (${assigneeTeam})` : ''}</strong>.{it.task?.dueDate ? ` Due ${format(new Date(it.task.dueDate), 'd MMM')}.` : ''}
+          </>
+        );
       } else {
+        detailText = 'Unassigned';
         detail = 'Unassigned';
       }
       return {
         id: it.task?.id || `${it.client?.id}-${it.task?.id || ''}`,
         clientId: it.client?.id,
         alertType: it.alertType,
-        clientName, stepLabel, title, detail, daysLate,
+        clientName, stepLabel, title, detail, detailText, daysLate,
         assignee: assignee || 'Unassigned',
         assigneeTeam,
         dueDate: it.task?.dueDate,
@@ -166,7 +180,7 @@ export default function StandupPage() {
         item.title.toLowerCase().includes(search.toLowerCase()) ||
         item.clientName.toLowerCase().includes(search.toLowerCase()) ||
         (item.stepLabel && item.stepLabel.toLowerCase().includes(search.toLowerCase())) ||
-        item.detail.toLowerCase().includes(search.toLowerCase());
+        item.detailText.toLowerCase().includes(search.toLowerCase());
 
       const alertTypeMatch = !alertTypeFilter || item.alertType === alertTypeFilter;
       const teamMatch = !teamFilter || item.assigneeTeam === teamFilter;
@@ -268,36 +282,124 @@ export default function StandupPage() {
         {/* Overhead Summary Bar */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
           
-          <div style={summaryCardStyle('var(--olive)')}>
-            <div style={summaryLabelStyle}>
-              <Users size={13} style={{ color: 'var(--olive)' }} />
-              <span>Total Alerts</span>
+          <div 
+            onClick={() => setAlertTypeFilter('')}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderTopColor = 'var(--olive)';
+              e.currentTarget.style.borderRightColor = 'var(--olive)';
+              e.currentTarget.style.borderBottomColor = 'var(--olive)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderTopColor = 'var(--border)';
+              e.currentTarget.style.borderRightColor = 'var(--border)';
+              e.currentTarget.style.borderBottomColor = 'var(--border)';
+              e.currentTarget.style.transform = alertTypeFilter === '' ? 'translateY(-2px)' : 'translateY(0)';
+              e.currentTarget.style.boxShadow = alertTypeFilter === '' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
+            }}
+            style={{ ...statCardStyle('var(--olive)', alertTypeFilter === ''), cursor: 'pointer' }}
+          >
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ ...statCardHeaderStyle, color: 'var(--olive)' }}>
+                <Users size={14} style={{ color: 'var(--olive)' }} />
+                <span style={{ fontWeight: 800 }}>Total Alerts</span>
+              </div>
+              <div style={statCardValueContainerStyle}>
+                <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{stats.total}</span>
+                <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Active alerts</span>
+              </div>
             </div>
-            <div style={summaryValueStyle}>{stats.total}</div>
           </div>
 
-          <div style={summaryCardStyle('var(--red)')}>
-            <div style={summaryLabelStyle}>
-              <TriangleAlert size={13} style={{ color: 'var(--red)' }} />
-              <span>Overdue Tasks</span>
+          <div 
+            onClick={() => setAlertTypeFilter('overdue')}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderTopColor = 'var(--red)';
+              e.currentTarget.style.borderRightColor = 'var(--red)';
+              e.currentTarget.style.borderBottomColor = 'var(--red)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderTopColor = 'var(--border)';
+              e.currentTarget.style.borderRightColor = 'var(--border)';
+              e.currentTarget.style.borderBottomColor = 'var(--border)';
+              e.currentTarget.style.transform = alertTypeFilter === 'overdue' ? 'translateY(-2px)' : 'translateY(0)';
+              e.currentTarget.style.boxShadow = alertTypeFilter === 'overdue' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
+            }}
+            style={{ ...statCardStyle('var(--red)', alertTypeFilter === 'overdue'), cursor: 'pointer' }}
+          >
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ ...statCardHeaderStyle, color: 'var(--red)' }}>
+                <TriangleAlert size={14} style={{ color: 'var(--red)' }} />
+                <span style={{ fontWeight: 800 }}>Overdue Tasks</span>
+              </div>
+              <div style={statCardValueContainerStyle}>
+                <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{stats.overdue}</span>
+                <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Past due date</span>
+              </div>
             </div>
-            <div style={summaryValueStyle}>{stats.overdue}</div>
           </div>
 
-          <div style={summaryCardStyle('#6B3FA0')}>
-            <div style={summaryLabelStyle}>
-              <Ban size={13} style={{ color: '#6B3FA0' }} />
-              <span>Blocked Tasks</span>
+          <div 
+            onClick={() => setAlertTypeFilter('blocked')}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderTopColor = '#6B3FA0';
+              e.currentTarget.style.borderRightColor = '#6B3FA0';
+              e.currentTarget.style.borderBottomColor = '#6B3FA0';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderTopColor = 'var(--border)';
+              e.currentTarget.style.borderRightColor = 'var(--border)';
+              e.currentTarget.style.borderBottomColor = 'var(--border)';
+              e.currentTarget.style.transform = alertTypeFilter === 'blocked' ? 'translateY(-2px)' : 'translateY(0)';
+              e.currentTarget.style.boxShadow = alertTypeFilter === 'blocked' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
+            }}
+            style={{ ...statCardStyle('#6B3FA0', alertTypeFilter === 'blocked'), cursor: 'pointer' }}
+          >
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ ...statCardHeaderStyle, color: '#6B3FA0' }}>
+                <Ban size={14} style={{ color: '#6B3FA0' }} />
+                <span style={{ fontWeight: 800 }}>Blocked Tasks</span>
+              </div>
+              <div style={statCardValueContainerStyle}>
+                <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{stats.blocked}</span>
+                <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Awaiting resolution</span>
+              </div>
             </div>
-            <div style={summaryValueStyle}>{stats.blocked}</div>
           </div>
 
-          <div style={summaryCardStyle('var(--amber)')}>
-            <div style={summaryLabelStyle}>
-              <Clock size={13} style={{ color: 'var(--amber)' }} />
-              <span>Due Today</span>
+          <div 
+            onClick={() => setAlertTypeFilter('due_today')}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderTopColor = 'var(--amber)';
+              e.currentTarget.style.borderRightColor = 'var(--amber)';
+              e.currentTarget.style.borderBottomColor = 'var(--amber)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderTopColor = 'var(--border)';
+              e.currentTarget.style.borderRightColor = 'var(--border)';
+              e.currentTarget.style.borderBottomColor = 'var(--border)';
+              e.currentTarget.style.transform = alertTypeFilter === 'due_today' ? 'translateY(-2px)' : 'translateY(0)';
+              e.currentTarget.style.boxShadow = alertTypeFilter === 'due_today' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
+            }}
+            style={{ ...statCardStyle('var(--amber)', alertTypeFilter === 'due_today'), cursor: 'pointer' }}
+          >
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ ...statCardHeaderStyle, color: 'var(--amber)' }}>
+                <Clock size={14} style={{ color: 'var(--amber)' }} />
+                <span style={{ fontWeight: 800 }}>Due Today</span>
+              </div>
+              <div style={statCardValueContainerStyle}>
+                <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{stats.dueToday}</span>
+                <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Due within 24h</span>
+              </div>
             </div>
-            <div style={summaryValueStyle}>{stats.dueToday}</div>
           </div>
 
         </div>
@@ -309,7 +411,7 @@ export default function StandupPage() {
           padding: '12px 16px'
         }}>
           {/* Search */}
-          <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+          <div style={{ position: 'relative', flex: 2, minWidth: 350 }}>
             <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
             <input
               type="text"
@@ -330,7 +432,8 @@ export default function StandupPage() {
             onChange={(e) => setAlertTypeFilter(e.target.value)}
             style={{
               padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-              fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer'
+              fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer',
+              width: 130
             }}
           >
             <option value="">All Alerts</option>
@@ -346,7 +449,8 @@ export default function StandupPage() {
               onChange={(e) => setTeamFilter(e.target.value)}
               style={{
                 padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer'
+                fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer',
+                width: 140
               }}
             >
               <option value="">All Teams</option>
@@ -366,7 +470,8 @@ export default function StandupPage() {
             onChange={(e) => setClientFilter(e.target.value)}
             style={{
               padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-              fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer'
+              fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer',
+              width: 140
             }}
           >
             <option value="">All Clients</option>
@@ -374,7 +479,7 @@ export default function StandupPage() {
           </select>
         </div>
 
-        {/* Grouped Alert Cards */}
+        {/* Grouped Alert Table */}
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Loading standup brief…</div>
         ) : filteredItems.length === 0 ? (
@@ -384,244 +489,269 @@ export default function StandupPage() {
             <div style={{ fontSize: 14, color: 'var(--muted)' }}>All clear or try adjusting your filters.</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {Object.entries(groupedItems).map(([groupKey, groupItems]) => {
-              const initials = groupKey.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
-              const firstItem = groupItems[0];
-              const clientId = firstItem?.clientId;
-              const clientPinned = firstItem?.clientPinned;
-              return (
-                <div key={groupKey} style={{ display: 'flex', flexDirection: 'column' }}>
-                  {/* Group Header */}
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    background: 'var(--surface-2)', padding: '10px 16px',
-                    borderRadius: '6px 6px 0 0', border: '1px solid var(--border)',
-                    borderBottom: 'none'
-                  }}>
-                    {isPerClient ? (
-                      <div style={{
-                        width: 26, height: 26, borderRadius: '50%',
-                        background: '#2860A1', color: '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <GitBranch size={13} />
-                      </div>
-                    ) : (
-                      <div style={{
-                        width: 26, height: 26, borderRadius: '50%',
-                        background: 'var(--olive)', color: '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 11, fontWeight: 700
-                      }}>
-                        {initials}
-                      </div>
-                    )}
-                    <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>
-                      {isPerClient ? `Client: ${groupKey}` : groupKey}
-                    </div>
-                    <span style={badgeStyle(isPerClient ? '#EBF3FB' : 'var(--olive-50)', isPerClient ? '#2860A1' : 'var(--olive-dark)', `${groupItems.length} alert${groupItems.length > 1 ? 's' : ''}`)}>
-                      {groupItems.length} Alert{groupItems.length > 1 ? 's' : ''}
-                    </span>
-                    {isPerClient && clientId && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handlePinClient(clientId, localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned);
-                        }}
-                        style={{
-                          marginLeft: 12,
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          padding: '6px 12px',
-                          borderRadius: 6,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          background: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) 
-                            ? 'linear-gradient(135deg, #1e40af, #2860A1)' 
-                            : 'var(--surface)',
-                          color: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#fff' : 'var(--ink-2)',
-                          border: `1px solid ${(localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#1e40af' : 'var(--border)'}`,
-                          boxShadow: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '0 2px 4px rgba(40,96,161,0.2)' : 'none',
-                          transition: 'all 0.2s',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}
-                        onMouseEnter={e => {
-                          const isPinned = (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned);
-                          if (!isPinned) {
-                            e.currentTarget.style.background = 'rgba(40, 96, 161, 0.05)';
-                            e.currentTarget.style.borderColor = '#2860A1';
-                            e.currentTarget.style.color = '#2860A1';
-                          }
-                        }}
-                        onMouseLeave={e => {
-                          const isPinned = (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned);
-                          if (!isPinned) {
-                            e.currentTarget.style.background = 'var(--surface)';
-                            e.currentTarget.style.borderColor = 'var(--border)';
-                            e.currentTarget.style.color = 'var(--ink-2)';
-                          }
-                        }}
-                      >
-                        <Pin size={11} style={{ fill: (localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? '#fff' : 'none', transform: 'rotate(45deg)', flexShrink: 0 }} />
-                        {(localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned) ? 'Pinned Client' : 'Pin Client'}
-                      </button>
-                    )}
-                  </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Actions bar */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+              <button 
+                onClick={() => {
+                  const next: Record<string, boolean> = {};
+                  Object.keys(groupedItems).forEach(k => { next[k] = true; });
+                  setExpandedGroups(next);
+                }} 
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  background: 'var(--surface)',
+                  color: 'var(--ink-2)',
+                  cursor: 'pointer'
+                }}
+              >
+                Expand all
+              </button>
+              <button 
+                onClick={() => {
+                  setExpandedGroups({});
+                }} 
+                style={{
+                  padding: '6px 12px',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  background: 'var(--surface)',
+                  color: 'var(--ink-2)',
+                  cursor: 'pointer'
+                }}
+              >
+                Collapse all
+              </button>
+            </div>
 
-                  {/* Group Table */}
-                  <div style={{
-                    border: '1px solid var(--border)', borderRadius: '0 0 var(--radius) var(--radius)',
-                    overflow: 'hidden', background: 'var(--surface)'
-                  }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
-                      <thead>
-                        <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '35%' }}>TASK & DETAILS</th>
-                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '20%' }}>
-                            {isPerClient ? 'ASSIGNEE' : 'CLIENT NAME'}
-                          </th>
-                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '25%' }}>CURRENT STEP & TIMING</th>
-                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '10%' }}>ALERT TYPE</th>
-                          <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center', width: '20%' }}>ACTIONS</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {groupItems.map((item: any) => {
-                          const s = TYPE_STYLES[item.alertType] || TYPE_STYLES.due_today;
-                          const { Icon } = s;
-                           const isHighlighted = localHighlighted[item.id] !== undefined ? localHighlighted[item.id] : (item.isAlerted || item.isPinned || false);
-                          return (
-                            <tr
-                              key={item.id}
-                              onClick={() => item.clientId && router.push(`/clients/${item.clientId}`)}
-                              className={`standup-row ${isHighlighted ? 'highlighted' : ''}`}
-                              style={{
-                                cursor: 'pointer',
-                                borderBottom: '1px solid var(--surface-2)',
-                              }}
-                            >
-                              <td style={{ padding: '10px 18px', verticalAlign: 'top' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                  <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: s.color }} />
-                                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.title}</div>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '35%' }}>TASK & DETAILS</th>
+                      <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '20%' }}>
+                        {isPerClient ? 'ASSIGNEE' : 'CLIENT NAME'}
+                      </th>
+                      <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '25%' }}>CURRENT STEP & TIMING</th>
+                      <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '10%' }}>ALERT TYPE</th>
+                      <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center', width: '10%' }}>ACTIONS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(groupedItems).map(([groupKey, groupItems]) => {
+                      const firstItem = groupItems[0];
+                      const clientId = firstItem?.clientId;
+                      const clientPinned = firstItem?.clientPinned;
+                      const isOpen = !!expandedGroups[groupKey];
+                      return (
+                        <React.Fragment key={groupKey}>
+                          {/* Group Header Row */}
+                          <tr
+                            onClick={() => setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
+                            style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', userSelect: 'none' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                          >
+                            <td colSpan={5} style={{ padding: '12px 18px', verticalAlign: 'middle' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                  <span style={{ 
+                                    display: 'inline-block',
+                                    fontSize: 9, 
+                                    transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
+                                    transition: 'transform 0.2s',
+                                    color: 'var(--muted)',
+                                    flexShrink: 0 
+                                  }}>▶</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>
+                                    {isPerClient ? 'Client' : 'Assignee'}: {groupKey}
+                                  </span>
                                 </div>
-                                <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.4 }} dangerouslySetInnerHTML={{ __html: item.detail }} />
-                              </td>
-                              <td style={{ padding: '10px 18px', verticalAlign: 'top' }}>
-                                {isPerClient ? (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{item.assignee}</div>
-                                    {item.assigneeTeam && (
-                                      <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{item.assigneeTeam}</div>
-                                    )}
+                                <span style={{ 
+                                  padding: '2px 8px', 
+                                  borderRadius: 12, 
+                                  background: 'rgba(30, 64, 175, 0.1)', 
+                                  color: '#1e40af', 
+                                  fontSize: 10.5, 
+                                  fontWeight: 700 
+                                }}>
+                                  {groupItems.length} Alert{groupItems.length !== 1 ? 's' : ''}
+                                </span>
+
+                                {isPerClient && clientId && (() => {
+                                  const isClientPinned = localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned;
+                                  return (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handlePinClient(clientId, isClientPinned);
+                                      }}
+                                      style={{
+                                        marginLeft: 'auto',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 6,
+                                        padding: '4px 10px',
+                                        borderRadius: 6,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        background: 'var(--surface)',
+                                        color: 'var(--ink-2)',
+                                        border: '1px solid var(--border)',
+                                        transition: 'all 0.2s',
+                                      }}
+                                    >
+                                      <Pin size={11} style={{ transform: isClientPinned ? 'rotate(45deg)' : 'none', color: isClientPinned ? 'var(--olive)' : 'inherit', flexShrink: 0 }} />
+                                      {isClientPinned ? 'UNPIN CLIENT' : 'PIN CLIENT'}
+                                    </button>
+                                  );
+                                })()}
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Member Rows */}
+                          {isOpen && groupItems.map((item: any) => {
+                            const s = TYPE_STYLES[item.alertType] || TYPE_STYLES.due_today;
+                            const { Icon } = s;
+                            const isHighlighted = localHighlighted[item.id] !== undefined ? localHighlighted[item.id] : (item.isAlerted || item.isPinned || false);
+                            return (
+                              <tr
+                                key={item.id}
+                                onClick={() => item.clientId && router.push(`/clients/${item.clientId}`)}
+                                className={`standup-row ${isHighlighted ? 'highlighted' : ''}`}
+                                style={{
+                                  cursor: 'pointer',
+                                  borderBottom: '1px solid var(--surface-2)',
+                                }}
+                              >
+                                <td style={{ padding: '10px 18px', verticalAlign: 'top', width: '35%' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                    <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: s.color }} />
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.title}</div>
                                   </div>
-                                ) : (
-                                  <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{item.clientName}</div>
-                                )}
-                              </td>
-                              <td style={{ padding: '10px 18px', verticalAlign: 'top', fontSize: 12 }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                  <div><strong style={{ color: 'var(--muted)' }}>Step:</strong> <span style={{ color: 'var(--ink)' }}>{item.stepLabel || '—'}</span></div>
-                                  <div><strong style={{ color: 'var(--muted)' }}>Assigned:</strong> <span style={{ color: 'var(--ink)' }}>{item.createdAt ? format(new Date(item.createdAt), 'd MMM yyyy') : '—'}</span></div>
-                                  <div><strong style={{ color: 'var(--muted)' }}>Due Date:</strong> <span style={{ color: 'var(--ink)' }}>{item.dueDate ? format(new Date(item.dueDate), 'd MMM yyyy') : '—'}</span></div>
-                                </div>
-                              </td>
-                              <td style={{ padding: '10px 18px', verticalAlign: 'top' }}>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 6px', borderRadius: 4, background: s.bg, color: s.color, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
-                                  <Icon size={10} /> {s.label}
-                                </div>
-                                <div style={{ marginTop: 4, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: s.color }}>
-                                  {s.tag(item)}
-                                </div>
-                              </td>
-                              <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center' }}>
-                                <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'center', width: '100%' }} onClick={e => e.stopPropagation()}>
-                                  <button
-                                    onClick={() => handleHighlight(item.id)}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 4,
-                                      padding: '6px 12px',
-                                      borderRadius: 6,
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      cursor: 'pointer',
-                                      background: isHighlighted 
-                                        ? 'linear-gradient(135deg, var(--red), #dc2626)' 
-                                        : 'var(--surface)',
-                                      color: isHighlighted ? '#fff' : 'var(--ink-2)',
-                                      border: `1px solid ${isHighlighted ? '#dc2626' : 'var(--border)'}`,
-                                      boxShadow: isHighlighted ? '0 2px 4px rgba(220,38,38,0.2)' : 'none',
-                                      transition: 'all 0.2s',
-                                      textTransform: 'uppercase',
-                                      letterSpacing: '0.5px'
-                                    }}
-                                    onMouseEnter={e => {
-                                      if (!isHighlighted) {
-                                        e.currentTarget.style.background = 'rgba(220, 38, 38, 0.05)';
+                                  <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.4 }}>{item.detail}</div>
+                                </td>
+                                <td style={{ padding: '10px 18px', verticalAlign: 'top', width: '20%' }}>
+                                  {isPerClient ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                      <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{item.assignee}</div>
+                                      {item.assigneeTeam && (
+                                        <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{item.assigneeTeam}</div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{item.clientName}</div>
+                                  )}
+                                </td>
+                                <td style={{ padding: '10px 18px', verticalAlign: 'top', fontSize: 12, width: '25%' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    <div><strong style={{ color: 'var(--muted)' }}>Step:</strong> <span style={{ color: 'var(--ink)' }}>{item.stepLabel || '—'}</span></div>
+                                    <div><strong style={{ color: 'var(--muted)' }}>Assigned:</strong> <span style={{ color: 'var(--ink)' }}>{item.createdAt ? format(new Date(item.createdAt), 'd MMM yyyy') : '—'}</span></div>
+                                    <div><strong style={{ color: 'var(--muted)' }}>Due Date:</strong> <span style={{ color: 'var(--ink)' }}>{item.dueDate ? format(new Date(item.dueDate), 'd MMM yyyy') : '—'}</span></div>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '10px 18px', verticalAlign: 'top', width: '10%' }}>
+                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 6px', borderRadius: 4, background: s.bg, color: s.color, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
+                                    <Icon size={10} /> {s.label}
+                                  </div>
+                                  <div style={{ marginTop: 4, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: s.color }}>
+                                    {s.tag(item)}
+                                  </div>
+                                </td>
+                                <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', width: '10%' }}>
+                                  <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'center', width: '100%' }} onClick={e => e.stopPropagation()}>
+                                    <button
+                                      onClick={() => handleHighlight(item.id)}
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        padding: '6px 12px',
+                                        borderRadius: 6,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        background: isHighlighted 
+                                          ? 'linear-gradient(135deg, var(--red), #dc2626)' 
+                                          : 'var(--surface)',
+                                        color: isHighlighted ? '#fff' : 'var(--ink-2)',
+                                        border: `1px solid ${isHighlighted ? '#dc2626' : 'var(--border)'}`,
+                                        boxShadow: isHighlighted ? '0 2px 4px rgba(220,38,38,0.2)' : 'none',
+                                        transition: 'all 0.2s',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px'
+                                      }}
+                                      onMouseEnter={e => {
+                                        if (!isHighlighted) {
+                                          e.currentTarget.style.background = 'rgba(220, 38, 38, 0.05)';
+                                          e.currentTarget.style.borderColor = 'var(--red)';
+                                          e.currentTarget.style.color = 'var(--red)';
+                                        }
+                                      }}
+                                      onMouseLeave={e => {
+                                        if (!isHighlighted) {
+                                          e.currentTarget.style.background = 'var(--surface)';
+                                          e.currentTarget.style.borderColor = 'var(--border)';
+                                          e.currentTarget.style.color = 'var(--ink-2)';
+                                        }
+                                      }}
+                                    >
+                                      <AlertCircle size={11} />
+                                      {isHighlighted ? 'ALERTED' : 'ALERT'}
+                                    </button>
+                                    <button
+                                      onClick={() => handleIgnore(item.id)}
+                                      style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: 4,
+                                        padding: '6px 12px',
+                                        border: '1px solid var(--border)',
+                                        borderRadius: 6,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: 'var(--ink-2)',
+                                        background: 'var(--surface)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px'
+                                      }}
+                                      onMouseEnter={e => {
+                                        e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)';
                                         e.currentTarget.style.borderColor = 'var(--red)';
                                         e.currentTarget.style.color = 'var(--red)';
-                                      }
-                                    }}
-                                    onMouseLeave={e => {
-                                      if (!isHighlighted) {
+                                      }}
+                                      onMouseLeave={e => {
                                         e.currentTarget.style.background = 'var(--surface)';
-                                        e.currentTarget.style.borderColor = 'var(--border)';
                                         e.currentTarget.style.color = 'var(--ink-2)';
-                                      }
-                                    }}
-                                  >
-                                    <AlertCircle size={11} />
-                                    {isHighlighted ? 'Alerted' : 'Alert'}
-                                  </button>
-                                  <button
-                                    onClick={() => handleIgnore(item.id)}
-                                    style={{
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: 4,
-                                      padding: '6px 12px',
-                                      border: '1px solid var(--border)',
-                                      borderRadius: 6,
-                                      fontSize: 11,
-                                      fontWeight: 700,
-                                      color: 'var(--ink-2)',
-                                      background: 'var(--surface)',
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s',
-                                      textTransform: 'uppercase',
-                                      letterSpacing: '0.5px'
-                                    }}
-                                    onMouseEnter={e => {
-                                      e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)';
-                                      e.currentTarget.style.borderColor = 'var(--red)';
-                                      e.currentTarget.style.color = 'var(--red)';
-                                    }}
-                                    onMouseLeave={e => {
-                                      e.currentTarget.style.background = 'var(--surface)';
-                                      e.currentTarget.style.color = 'var(--ink-2)';
-                                      e.currentTarget.style.borderColor = 'var(--border)';
-                                    }}
-                                  >
-                                    <Trash2 size={11} />
-                                    Dismiss
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })}
+                                        e.currentTarget.style.borderColor = 'var(--border)';
+                                      }}
+                                    >
+                                      <Trash2 size={11} />
+                                      DISMISS
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -631,33 +761,53 @@ export default function StandupPage() {
 
 // ── Inline Styles ────────────────────────────────────────────────────────
 
-const summaryCardStyle = (accent: string): React.CSSProperties => ({
-  background: 'var(--surface)',
-  border: '1px solid var(--border)',
+const statCardStyle = (accent: string, isActive: boolean): React.CSSProperties => ({
+  position: 'relative',
+  background: isActive ? 'var(--surface-2)' : 'var(--surface)',
+  borderTop: '1px solid var(--border)',
+  borderRight: '1px solid var(--border)',
+  borderBottom: '1px solid var(--border)',
+  borderLeft: `4px solid ${accent}`,
   borderRadius: 'var(--radius)',
-  padding: '12px 16px',
+  padding: '16px 20px',
   display: 'flex',
   flexDirection: 'column',
-  gap: 4,
-  boxShadow: 'var(--shadow-sm)',
+  gap: 12,
+  minHeight: 110,
+  overflow: 'hidden',
+  boxShadow: isActive ? 'var(--shadow-md)' : 'var(--shadow-sm)',
+  transition: 'all 0.15s ease',
+  transform: isActive ? 'translateY(-2px)' : 'translateY(0)',
 });
 
-const summaryLabelStyle: React.CSSProperties = {
+const statCardHeaderStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 6,
-  fontSize: 11,
+  gap: 8,
+  fontSize: 11.5,
   fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.4px',
   color: 'var(--muted)',
 };
 
-const summaryValueStyle: React.CSSProperties = {
+const statCardValueContainerStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'baseline',
+  gap: 6,
+  marginTop: 'auto',
+};
+
+const statCardValueStyle: React.CSSProperties = {
   fontFamily: 'Instrument Serif, serif',
-  fontSize: 28,
+  fontSize: 36,
   lineHeight: 1,
   color: 'var(--ink)',
+};
+
+const statCardSubtitleStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: 'var(--muted)',
 };
 
 const badgeStyle = (bg: string, color: string, label: string): React.CSSProperties => ({

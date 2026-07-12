@@ -259,14 +259,14 @@ export default function StepConfigPage() {
 }
 
 // ── SEPARATE OPTIMIZED PANEL COMPONENT (isolates typing re-renders) ──
-type ManageStepsPanelProps = {
+export type ManageStepsPanelProps = {
   clientId: string;
   clientName: string;
   teamsList: string[];
   onClearSelection: () => void;
 };
 
-function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelection }: ManageStepsPanelProps) {
+export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelection }: ManageStepsPanelProps) {
   const qc = useQueryClient();
 
   // Inline Deletion Confirmation State

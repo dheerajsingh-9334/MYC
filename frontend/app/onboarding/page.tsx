@@ -5,7 +5,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Check, X, Info, ChevronDown, ChevronRight, UserPlus } from 'lucide-react';
+import { Check, X, Info, UserPlus } from 'lucide-react';
 import { useFormDraft } from '@/lib/useFormDraft';
 import { useViewPreference } from '@/lib/useViewPreference';
 
@@ -175,7 +175,16 @@ function ApplicationRow({ app, onAction }: { app: any; onAction: () => void }) {
             {s.label}
           </span>
         </div>
-        <div style={{ color: 'var(--muted)' }}>{expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</div>
+        <div style={{ color: 'var(--muted)', display: 'flex', alignItems: 'center' }}>
+          <span style={{ 
+            display: 'inline-block',
+            fontSize: 9, 
+            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', 
+            transition: 'transform 0.2s',
+            color: 'var(--muted)',
+            flexShrink: 0 
+          }}>▶</span>
+        </div>
       </div>
 
       {/* Expanded */}

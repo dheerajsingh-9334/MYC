@@ -551,7 +551,7 @@ export default function ClientsPage() {
                   overflowX: 'auto',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius)',
-                  background: 'var(--surface-2)',
+                  background: 'var(--surface)',
                 }}
               >                 <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                   <thead>
@@ -590,9 +590,8 @@ export default function ClientsPage() {
                       return (
                         <tr key={client.id}
                           onClick={() => router.push(`/clients/${client.id}`)}
-                          style={{ position: 'relative', cursor: 'pointer', transition: 'background 0.1s', borderBottom: '1px solid var(--border)' }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--olive-50)')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                          className={`standup-row ${client.isPinned ? 'highlighted' : ''}`}
+                          style={{ position: 'relative', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
                           <td style={{ position: 'relative', padding: '10px 18px', verticalAlign: 'middle', ...colStyles.client }}>
                             <span style={{ position: 'absolute', top: 0, left: 0, width: 2, height: '100%', background: 'var(--olive)', transform: 'scaleY(0)', transformOrigin: 'top', transition: 'transform 0.1s' }} className="row-stripe" />
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

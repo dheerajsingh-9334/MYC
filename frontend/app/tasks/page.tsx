@@ -16,7 +16,7 @@ import {
   Search, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown,
   ArrowUpDown, CircleCheck, Clock, TriangleAlert, Eye,
   Check, X, FolderOpen, Link2, Upload, FileText, Plus, ExternalLink, AlertCircle,
-  Play, Pause, Pin, Ban,
+  Play, Pause, Pin, Ban, Filter,
 } from 'lucide-react';
 
 const AUTO_REFRESH_MS = 30_000;
@@ -39,6 +39,8 @@ export default function TasksPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>('');
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
+  const [showHoverFilters, setShowHoverFilters] = useState(false);
+  const [adminTasksScope, setAdminTasksScope] = useState<'all' | 'mine'>('all');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -207,6 +209,9 @@ export default function TasksPage() {
 
   const filtered = useMemo(() => {
     let list = tasks;
+    if (isAdmin && adminTasksScope === 'mine') {
+      list = list.filter((t) => (t.assignedToId || t.assignedTo?.id) === user?.id);
+    }
     if (teamFilter) list = list.filter((t) => t.step?.owningTeamName === teamFilter || t.assignedTo?.teamName === teamFilter);
     if (clientFilter) list = list.filter((t) => t.client?.id === clientFilter);
     if (priorityFilter) list = list.filter((t) => t.priority === priorityFilter);
@@ -247,7 +252,7 @@ export default function TasksPage() {
       return 0;
     };
     return [...list].sort(cmp);
-  }, [tasks, search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir]);
+  }, [tasks, search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir, adminTasksScope, user, isAdmin]);
 
   const scrollableTasks = useMemo(() => {
     return filtered.slice(0, taskLimit);
@@ -545,158 +550,230 @@ export default function TasksPage() {
         {/* Filter bar */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-
-          {/* Custom Status Dropdown Menu */}
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
-              style={{
-                ...selectStyle,
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                userSelect: 'none',
-                minWidth: 155,
-                textAlign: 'left',
-              }}
-            >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {chips.find(c => c.key === chipFilter)?.color && (
-                  <span style={{
-                    width: 7, height: 7, borderRadius: '50%',
-                    background: chips.find(c => c.key === chipFilter)?.color, display: 'inline-block'
-                  }} />
-                )}
-                {chips.find(c => c.key === chipFilter)?.label || 'All'}
-              </span>
-              <ChevronDown size={13} style={{ opacity: 0.7 }} />
-            </button>
             
-            {isStatusDropdownOpen && (
-              <>
-                <div
-                  onClick={() => setIsStatusDropdownOpen(false)}
-                  style={{
-                    position: 'fixed',
-                    inset: 0,
-                    zIndex: 998,
-                  }}
-                />
+            {/* Hover Filter Button & Popover */}
+            <div 
+              onMouseEnter={() => setShowHoverFilters(true)}
+              onMouseLeave={() => setShowHoverFilters(false)}
+              style={{ position: 'relative', display: 'inline-block' }}
+            >
+              <button
+                style={{
+                  ...selectStyle,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--ink-2)',
+                }}
+              >
+                <Filter size={14} />
+                <span>Filters</span>
+                <ChevronDown size={12} style={{ opacity: 0.7 }} />
+              </button>
+
+              {showHoverFilters && (
                 <div style={{
                   position: 'absolute',
                   top: '100%',
                   left: 0,
-                  marginTop: 4,
-                  width: 220,
+                  marginTop: 6,
+                  width: 260,
                   background: 'var(--surface)',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius)',
                   boxShadow: 'var(--shadow-lg)',
                   zIndex: 999,
-                  padding: '4px 0',
+                  padding: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12,
                 }}>
-                  {chips.map((c) => {
-                    const isSelected = c.key === chipFilter;
-                    return (
-                      <button
-                        key={c.label}
-                        onClick={() => {
-                          setChipFilter(c.key);
-                          setIsStatusDropdownOpen(false);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          background: isSelected ? 'var(--olive-50)' : 'transparent',
-                          color: isSelected ? 'var(--olive-dark)' : 'var(--ink)',
-                          border: 'none',
-                          fontSize: 12.5,
-                          fontWeight: isSelected ? 600 : 500,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          textAlign: 'left',
-                          transition: 'background 0.1s',
-                        }}
-                        onMouseEnter={e => {
-                          if (!isSelected) e.currentTarget.style.background = 'var(--surface-2)';
-                        }}
-                        onMouseLeave={e => {
-                          if (!isSelected) e.currentTarget.style.background = 'transparent';
-                        }}
+                  {/* Admin Tasks Scope Toggle (All vs My Tasks) */}
+                  {isAdmin && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
+                        Task Visibility
+                      </label>
+                      <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+                        <button
+                          onClick={() => setAdminTasksScope('all')}
+                          style={{
+                            flex: 1,
+                            padding: '6px 0',
+                            border: 'none',
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            background: adminTasksScope === 'all' ? 'var(--olive)' : 'transparent',
+                            color: adminTasksScope === 'all' ? '#fff' : 'var(--ink-2)',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          All Tasks
+                        </button>
+                        <button
+                          onClick={() => setAdminTasksScope('mine')}
+                          style={{
+                            flex: 1,
+                            padding: '6px 0',
+                            border: 'none',
+                            fontSize: 11.5,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            background: adminTasksScope === 'mine' ? 'var(--olive)' : 'transparent',
+                            color: adminTasksScope === 'mine' ? '#fff' : 'var(--ink-2)',
+                            transition: 'all 0.15s',
+                          }}
+                        >
+                          My Tasks
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status Filter */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
+                      Status
+                    </label>
+                    <select 
+                      value={chipFilter} 
+                      onChange={(e) => setChipFilter(e.target.value as ChipKind)} 
+                      style={{ ...selectStyle, width: '100%' }}
+                    >
+                      {chips.map(c => (
+                        <option key={c.key} value={c.key}>{c.label} ({c.count})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Team Filter */}
+                  {isAdmin && (
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
+                        Team
+                      </label>
+                      <select 
+                        value={teamFilter} 
+                        onChange={(e) => setTeamFilter(e.target.value)} 
+                        style={{ ...selectStyle, width: '100%' }}
                       >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {c.color ? (
-                            <span style={{
-                              width: 7, height: 7, borderRadius: '50%',
-                              background: c.color, display: 'inline-block'
-                            }} />
-                          ) : (
-                            <span style={{
-                              width: 7, height: 7, borderRadius: '50%',
-                              background: 'var(--muted)', display: 'inline-block'
-                            }} />
-                          )}
-                          {c.label}
-                        </span>
-                        <span style={{
-                          fontSize: 10.5,
-                          fontWeight: 700,
-                          color: isSelected ? 'var(--olive)' : 'var(--muted)',
-                          background: isSelected ? 'rgba(0,0,0,0.04)' : 'var(--surface-2)',
-                          padding: '1px 6px',
-                          borderRadius: 999,
-                        }}>
-                          {c.count}
-                        </span>
-                      </button>
-                    );
-                  })}
+                        <option value="">All teams</option>
+                        {teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Client Filter */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
+                      Client
+                    </label>
+                    <ClientCombobox
+                      value={clientFilter}
+                      onChange={setClientFilter}
+                      options={clientOptions}
+                      placeholder="All clients"
+                    />
+                  </div>
+
+                  {/* Assignee Filter */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
+                      Assignee
+                    </label>
+                    <select 
+                      value={assigneeFilter} 
+                      onChange={(e) => setAssigneeFilter(e.target.value)} 
+                      style={{ ...selectStyle, width: '100%' }}
+                    >
+                      <option value="">All assignees</option>
+                      {assigneeOptions.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Priority Filter */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
+                      Priority
+                    </label>
+                    <select 
+                      value={priorityFilter} 
+                      onChange={(e) => setPriorityFilter(e.target.value)} 
+                      style={{ ...selectStyle, width: '100%' }}
+                    >
+                      <option value="">All priorities</option>
+                      <option value="high">High priority</option>
+                      <option value="medium">Medium priority</option>
+                      <option value="low">Low priority</option>
+                    </select>
+                  </div>
                 </div>
-              </>
-            )}
-          </div>
-          {isAdmin && (
-            <select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} style={selectStyle}>
-              <option value="">All teams</option>
-              {teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          )}
-          <ClientCombobox
-            value={clientFilter}
-            onChange={setClientFilter}
-            options={clientOptions}
-            placeholder="All clients"
-          />
-          <select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} style={selectStyle}>
-            <option value="">All assignees</option>
-            {assigneeOptions.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} style={selectStyle}>
-            <option value="">All priorities</option>
-            <option value="high">High priority</option>
-            <option value="medium">Medium priority</option>
-            <option value="low">Low priority</option>
-          </select>
+              )}
+            </div>
+
+            {/* Active filters badges row */}
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginLeft: 8 }}>
+              {chipFilter && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
+                  Status: {chips.find(c => c.key === chipFilter)?.label}
+                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setChipFilter('')} />
+                </span>
+              )}
+              {teamFilter && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
+                  Team: {teamFilter}
+                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setTeamFilter('')} />
+                </span>
+              )}
+              {clientFilter && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
+                  Client: {clientOptions.find(c => c.id === clientFilter)?.label}
+                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setClientFilter('')} />
+                </span>
+              )}
+              {assigneeFilter && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
+                  Assignee: {assigneeOptions.find(a => a.id === assigneeFilter)?.name}
+                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setAssigneeFilter('')} />
+                </span>
+              )}
+              {priorityFilter && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
+                  Priority: {priorityFilter}
+                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setPriorityFilter('')} />
+                </span>
+              )}
+              {adminTasksScope === 'mine' && isAdmin && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
+                  My Tasks Only
+                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setAdminTasksScope('all')} />
+                </span>
+              )}
+              {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || (adminTasksScope === 'mine' && isAdmin)) && (
+                <button
+                  onClick={() => {
+                    setChipFilter('');
+                    setTeamFilter('');
+                    setClientFilter('');
+                    setAssigneeFilter('');
+                    setPriorityFilter('');
+                    setAdminTasksScope('all');
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
+
           </div>
           {isAdmin && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              {/* <button
-                onClick={() => setShowCSVModal(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  color: 'var(--ink-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-              >
-                Upload CSV
-              </button> */}
               <button
                 onClick={() => setShowAddTask(true)}
                 style={{
@@ -730,28 +807,27 @@ export default function TasksPage() {
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius)',
                   margin: '16px 20px 20px',
-                  background: 'var(--surface-2)',
+                  background: 'var(--surface)',
                 }}
               >
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10 }}>
-                      <Th onClick={() => toggleSort('title')} active={sortKey === 'title'} dir={sortDir}>Task</Th>
-                      <Th onClick={() => toggleSort('client')} active={sortKey === 'client'} dir={sortDir}>Client</Th>
-                      <Th onClick={() => toggleSort('team')} active={sortKey === 'team'} dir={sortDir}>Team</Th>
-                      <Th onClick={() => toggleSort('status')} active={sortKey === 'status'} dir={sortDir}>Status</Th>
-                      <Th onClick={() => toggleSort('dueDate')} active={sortKey === 'dueDate'} dir={sortDir}>When (due)</Th>
-                      <Th align="center">Actions</Th>
-                      <Th align="center">Vault</Th>
+                      <Th onClick={() => toggleSort('title')} active={sortKey === 'title'} dir={sortDir} width="35%">Client</Th>
+                      <Th onClick={() => toggleSort('team')} active={sortKey === 'team'} dir={sortDir} width="15%">Team</Th>
+                      <Th onClick={() => toggleSort('status')} active={sortKey === 'status'} dir={sortDir} width="15%">Status</Th>
+                      <Th onClick={() => toggleSort('dueDate')} active={sortKey === 'dueDate'} dir={sortDir} width="15%">When (due)</Th>
+                      <Th align="center" width="15%">Actions</Th>
+                      <Th align="center" width="5%">Vault</Th>
                     </tr>
                   </thead>
                   <tbody>
                     {scrollableTasks.length === 0 ? (
-                      <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks match your filters.</td></tr>
+                      <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks match your filters.</td></tr>
                     ) : groupedByClient.map((group) => {
                       const client = group.client;
                       const clientTasks = group.tasks;
-                      const isExpanded = expandedClients[client.id] ?? true;
+                      const isExpanded = expandedClients[client.id] ?? false;
 
                       const statusCounts = {
                         pending: clientTasks.filter(t => t.status === 'pending').length,
@@ -775,16 +851,26 @@ export default function TasksPage() {
                           <tr
                             onClick={() => toggleClientExpand(client.id)}
                             style={{
-                              background: 'var(--surface-3)',
+                              background: 'var(--surface-2)',
                               borderBottom: '1px solid var(--border)',
                               cursor: 'pointer',
                               userSelect: 'none',
+                              transition: 'background 0.15s'
                             }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                           >
-                            <td colSpan={7} style={{ padding: '10px 18px', fontWeight: 600 }}>
+                            <td colSpan={6} style={{ padding: '10px 18px', fontWeight: 600 }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  {isExpanded ? <ChevronDown size={14} style={{ color: 'var(--ink-2)' }} /> : <ChevronRight size={14} style={{ color: 'var(--ink-2)' }} />}
+                                  <span style={{ 
+                                    display: 'inline-block',
+                                    fontSize: 9, 
+                                    transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', 
+                                    transition: 'transform 0.2s',
+                                    color: 'var(--muted)',
+                                    flexShrink: 0 
+                                  }}>▶</span>
                                   <span style={{ fontSize: 13, color: 'var(--ink)' }}>
                                     {client.brandName || client.fullName || 'No Client'}
                                   </span>
@@ -1225,10 +1311,9 @@ function StaffTaskRow({
   };
 
   return (
-    <tr style={{ borderBottom: '1px solid var(--surface-2)', background: rej ? '#FBEEF105' : 'transparent' }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = rej ? '#FBEEF105' : 'transparent'; }}>
-      <td style={{ padding: '10px 18px', paddingLeft: isNested ? 28 : 18, verticalAlign: 'middle', minWidth: 240 }}>
+    <tr className={`standup-row ${t.isAlerted || t.isPinned ? 'highlighted' : ''}`}
+      style={{ borderBottom: '1px solid var(--surface-2)' }}>
+      <td style={{ padding: '10px 18px', paddingLeft: isNested ? 28 : 18, verticalAlign: 'middle', minWidth: 240, width: '35%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isAdmin && !hidePin ? (
             <button
@@ -1292,16 +1377,13 @@ function StaffTaskRow({
           </div>
         </div>
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)' }}>
-        {t.client?.brandName || t.client?.fullName || '—'}
-      </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle' }}>
+      <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '15%' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--muted)' }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--olive-light)' }} />
           {t.step?.owningTeamName || t.assignedTo?.teamName || '—'}
         </span>
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle' }}>
+      <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '15%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -1348,12 +1430,12 @@ function StaffTaskRow({
           )}
         </div>
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: whenColor, fontWeight: overdue ? 600 : 400, whiteSpace: 'nowrap' }}>
+      <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: whenColor, fontWeight: overdue ? 600 : 400, whiteSpace: 'nowrap', width: '15%' }}>
         {done && <CircleCheck size={11} style={{ display: 'inline', marginRight: 4 }} />}
         {!done && !rej && (overdue ? <TriangleAlert size={11} style={{ display: 'inline', marginRight: 4 }} /> : today ? <Clock size={11} style={{ display: 'inline', marginRight: 4 }} /> : null)}
         {whenLabel}
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center' }}>
+      <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', width: '15%' }}>
         <div style={{ display: 'inline-flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
           {!isAdmin && !done && (
             <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
@@ -1409,7 +1491,7 @@ function StaffTaskRow({
           <IconBtn title="Open client" onClick={() => window.location.assign(`/clients/${t.client?.id}`)}><Eye size={11} /></IconBtn>
         </div>
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center' }}>
+      <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', width: '5%' }}>
         <div style={{ display: 'inline-flex', justifyContent: 'center', width: '100%' }}>
           <IconBtn title="Documents" onClick={onOpenVault}>
             <FolderOpen size={11} />
@@ -1496,13 +1578,15 @@ function TaskTimer({
   );
 }
 
-function Th({ children, onClick, active, dir, align = 'left' }: { children: React.ReactNode; onClick?: () => void; active?: boolean; dir?: 'asc' | 'desc'; align?: 'left' | 'center' | 'right' }) {
+function Th({ children, onClick, active, dir, align = 'left', width }: { children: React.ReactNode; onClick?: () => void; active?: boolean; dir?: 'asc' | 'desc'; align?: 'left' | 'center' | 'right'; width?: string }) {
   return (
     <th onClick={onClick}
       style={{
+        position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)',
         textAlign: align, fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase',
         color: active ? 'var(--olive)' : 'var(--muted)', padding: '10px 18px', borderBottom: '1px solid var(--border)',
         cursor: onClick ? 'pointer' : 'default', userSelect: 'none', whiteSpace: 'nowrap',
+        width: width,
       }}>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: align === 'center' ? 'center' : 'flex-start', width: align === 'center' ? '100%' : 'auto' }}>
         {children}

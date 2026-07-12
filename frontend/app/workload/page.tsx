@@ -251,6 +251,7 @@ export default function AdminDashboard() {
   const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all');
   const [taskClientFilter, setTaskClientFilter] = useState('all');
   const [taskTeamFilter, setTaskTeamFilter] = useState('all');
+  const [collapsedTeams, setCollapsedTeams] = useState<Record<string, boolean>>({});
 
   const [workloadLimit, setWorkloadLimit] = useState(15);
   const [pendingLimit, setPendingLimit] = useState(15);
@@ -349,6 +350,18 @@ export default function AdminDashboard() {
     }
     return list;
   }, [tasksList, user, workloadSearch, taskStatusFilter, taskAssigneeFilter, taskClientFilter, taskTeamFilter]);
+
+  const groupedTasks = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    filteredTasks.forEach((t: any) => {
+      const teamName = t.step?.owningTeamName || t.assignedTo?.teamName || 'Unassigned';
+      if (!groups[teamName]) {
+        groups[teamName] = [];
+      }
+      groups[teamName].push(t);
+    });
+    return groups;
+  }, [filteredTasks]);
 
   // Recent Activity computations
   const filteredActivity = useMemo(() => {
@@ -532,17 +545,17 @@ export default function AdminDashboard() {
                     </div>
 
                     {/* List */}
-                    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}>
+                    <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 290px)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
                         <thead>
-                          <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10, textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Team</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Members</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: 200 }}>Capacity Load</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center' }}>Active</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center' }}>Late</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center' }}>Blocked</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center' }}>Done</th>
+                          <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Team</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Members</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: 200 }}>Capacity Load</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center' }}>Active</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center' }}>Late</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center' }}>Blocked</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center' }}>Done</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -607,9 +620,9 @@ export default function AdminDashboard() {
                 {opTab === 'Team Tasks' && (
                   <div>
                     {/* Filters Row */}
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 4, width: '100%', alignItems: 'center' }}>
                       {/* Search Input */}
-                      <div style={{ position: 'relative', flex: '1 1 200px' }}>
+                      <div style={{ position: 'relative', flex: '1 1 auto', minWidth: 200 }}>
                         <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
                         <input
                           value={workloadSearch}
@@ -642,7 +655,8 @@ export default function AdminDashboard() {
                           fontSize: 12.5,
                           outline: 'none',
                           cursor: 'pointer',
-                          minWidth: 140
+                          minWidth: 140,
+                          flexShrink: 0
                         }}
                       >
                         <option value="all">All Statuses</option>
@@ -667,7 +681,8 @@ export default function AdminDashboard() {
                           fontSize: 12.5,
                           outline: 'none',
                           cursor: 'pointer',
-                          minWidth: 140
+                          minWidth: 140,
+                          flexShrink: 0
                         }}
                       >
                         <option value="all">All Assignees</option>
@@ -700,7 +715,8 @@ export default function AdminDashboard() {
                             fontSize: 12.5,
                             outline: 'none',
                             cursor: 'pointer',
-                            minWidth: 140
+                            minWidth: 140,
+                            flexShrink: 0
                           }}
                         >
                           <option value="all">All Clients</option>
@@ -724,7 +740,8 @@ export default function AdminDashboard() {
                             fontSize: 12.5,
                             outline: 'none',
                             cursor: 'pointer',
-                            minWidth: 140
+                            minWidth: 140,
+                            flexShrink: 0
                           }}
                         >
                           <option value="all">All Teams</option>
@@ -736,81 +753,132 @@ export default function AdminDashboard() {
                     </div>
 
                     {/* Table of Tasks */}
-                    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}>
+                    <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 290px)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
                         <thead>
-                          <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10, textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Task</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Client</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Due Date</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Status</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Assignee (Direct Action)</th>
+                          <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '35%' }}>Task</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '15%' }}>Client</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '15%' }}>Due Date</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '15%' }}>Status</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '20%' }}>Assignee (Direct Action)</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {filteredTasks.length === 0 ? (
+                          {Object.keys(groupedTasks).length === 0 ? (
                             <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks found.</td></tr>
                           ) : (
-                            filteredTasks.map((t: any) => {
-                              const isAlerted = t.isAlerted;
+                            Object.entries(groupedTasks).map(([teamName, tasks]) => {
+                              const isCollapsed = collapsedTeams[teamName] === true;
                               return (
-                                <tr
-                                  key={t.id}
-                                  style={{
-                                    borderBottom: '1px solid var(--surface-2)',
-                                    background: isAlerted ? 'var(--red-bg)' : 'transparent',
-                                    position: 'relative'
-                                  }}
-                                >
-                                  <td style={{ padding: '10px 18px', verticalAlign: 'middle' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                      {isAlerted && <span style={{ color: 'var(--red)' }}>⚠️</span>}
-                                      <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{t.title}</div>
-                                    </div>
-                                    {t.description && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{t.description}</div>}
-                                  </td>
-                                  <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)' }}>
-                                    {t.client?.brandName || t.client?.fullName || '—'}
-                                  </td>
-                                  <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)' }}>
-                                    {t.dueDate ? format(new Date(t.dueDate), 'd MMM yyyy') : '—'}
-                                  </td>
-                                  <td style={{ padding: '10px 18px', verticalAlign: 'middle' }}>
-                                    <span className={`status-badge status-${t.status === 'complete' ? 'ontrack' : t.status === 'blocked' ? 'blocked' : 'due'}`}>
-                                      {t.status}
-                                    </span>
-                                  </td>
-                                  <td style={{ padding: '10px 18px', verticalAlign: 'middle' }}>
-                                    <select
-                                      value={t.assignedToId || t.assignedTo?.id || ''}
-                                      onChange={(e) => assignTaskMut.mutate({ taskId: t.id, assignedToId: e.target.value || null })}
-                                      style={{
-                                        padding: '6px 10px',
-                                        borderRadius: 'var(--radius-sm)',
-                                        border: '1px solid var(--border)',
-                                        background: 'var(--surface)',
-                                        color: 'var(--ink)',
-                                        fontSize: 12.5,
-                                        outline: 'none',
-                                        cursor: 'pointer',
-                                      }}
-                                    >
-                                      <option value="">Unassigned</option>
-                                      {user?.role === 'admin' ? (
-                                        usersList.map((u: any) => (
-                                          <option key={u.id} value={u.id}>{u.fullName} ({u.teamName || 'No Team'})</option>
-                                        ))
-                                      ) : (
-                                        <>
-                                          <option value={user.id}>{user.fullName} (Lead)</option>
-                                          {usersList.filter((u: any) => u.teamName === user.teamName && u.id !== user.id).map((u: any) => (
-                                            <option key={u.id} value={u.id}>{u.fullName}</option>
-                                          ))}
-                                        </>
-                                      )}
-                                    </select>
-                                  </td>
-                                </tr>
+                                <>
+                                  <tr 
+                                    key={`team-header-${teamName}`}
+                                    onClick={() => {
+                                      setCollapsedTeams(prev => ({
+                                        ...prev,
+                                        [teamName]: !prev[teamName]
+                                      }));
+                                    }}
+                                    style={{
+                                      background: 'var(--surface-2)',
+                                      cursor: 'pointer',
+                                      borderBottom: '1px solid var(--border)',
+                                      transition: 'background 0.15s'
+                                    }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                                  >
+                                    <td colSpan={5} style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--ink)' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                          <span style={{ 
+                                            display: 'inline-block',
+                                            fontSize: 9, 
+                                            transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)', 
+                                            transition: 'transform 0.2s',
+                                            color: 'var(--muted)'
+                                          }}>▶</span>
+                                          <span>{teamName}</span>
+                                          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4, fontWeight: 500 }}>
+                                            {tasks.length} task{tasks.length !== 1 ? 's' : ''}
+                                          </span>
+                                        </div>
+                                        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>
+                                          {isCollapsed ? 'Click to expand' : 'Click to collapse'}
+                                        </span>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                  {!isCollapsed && tasks.map((t: any) => {
+                                    const isAlerted = t.isAlerted;
+                                    return (
+                                      <tr
+                                        key={t.id}
+                                        className={`standup-row ${isAlerted ? 'highlighted' : ''}`}
+                                        style={{
+                                          borderBottom: '1px solid var(--surface-2)',
+                                          position: 'relative',
+                                        }}
+                                      >
+                                        <td style={{ padding: '10px 18px 10px 32px', verticalAlign: 'middle', width: '35%' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            {isAlerted && <span style={{ color: 'var(--red)' }}>⚠️</span>}
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{t.title}</div>
+                                          </div>
+                                          {t.step ? (
+                                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Step {String(t.step.stepNumber).padStart(2, '0')} · {t.step.name}</div>
+                                          ) : t.description ? (
+                                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
+                                          ) : (
+                                            <div style={{ fontSize: 11, color: 'transparent', marginTop: 2 }}>No Details</div>
+                                          )}
+                                        </td>
+                                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)', width: '15%' }}>
+                                          {t.client?.brandName || t.client?.fullName || '—'}
+                                        </td>
+                                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)', width: '15%' }}>
+                                          {t.dueDate ? format(new Date(t.dueDate), 'd MMM yyyy') : '—'}
+                                        </td>
+                                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '15%' }}>
+                                          <span className={`status-badge status-${t.status === 'complete' ? 'ontrack' : t.status === 'blocked' ? 'blocked' : 'due'}`}>
+                                            {t.status}
+                                          </span>
+                                        </td>
+                                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '20%' }}>
+                                          <select
+                                            value={t.assignedToId || t.assignedTo?.id || ''}
+                                            onChange={(e) => assignTaskMut.mutate({ taskId: t.id, assignedToId: e.target.value || null })}
+                                            style={{
+                                              padding: '6px 10px',
+                                              borderRadius: 'var(--radius-sm)',
+                                              border: '1px solid var(--border)',
+                                              background: 'var(--surface)',
+                                              color: 'var(--ink)',
+                                              fontSize: 12.5,
+                                              outline: 'none',
+                                              cursor: 'pointer',
+                                            }}
+                                          >
+                                            <option value="">Unassigned</option>
+                                            {user?.role === 'admin' ? (
+                                              usersList.map((u: any) => (
+                                                <option key={u.id} value={u.id}>{u.fullName} ({u.teamName || 'No Team'})</option>
+                                              ))
+                                            ) : (
+                                              <>
+                                                <option value={user.id}>{user.fullName} (Lead)</option>
+                                                {usersList.filter((u: any) => u.teamName === user.teamName && u.id !== user.id).map((u: any) => (
+                                                  <option key={u.id} value={u.id}>{u.fullName}</option>
+                                                ))}
+                                              </>
+                                            )}
+                                          </select>
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </>
                               );
                             })
                           )}
@@ -829,15 +897,15 @@ export default function AdminDashboard() {
                     </div>
 
                     {/* List */}
-                    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}>
+                    <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 290px)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}>
                       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                         <thead>
-                          <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10, textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Task & Details</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Client & Step</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Team & Assignee</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Dates</th>
-                            <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Actions</th>
+                          <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Task & Details</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Client & Step</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Team & Assignee</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Dates</th>
+                            <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
