@@ -391,7 +391,7 @@ export default function ReportsPage() {
           <div style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(20,25,12,0.4)',
+            background: 'rgba(20,25,12,0.45)',
             backdropFilter: 'blur(3px)',
             zIndex: 1000,
             display: 'flex',

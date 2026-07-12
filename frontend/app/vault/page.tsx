@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Folder, FolderOpen, FileText, Search, Lock,
@@ -262,98 +262,133 @@ export default function VaultPage() {
           <div style={{ maxHeight: 'calc(100vh - 200px)', minHeight: 500, overflowY: 'auto', overflowX: 'auto' }}>
             {filteredFolders.length === 0 ? (
               <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)' }}>
-              <Lock size={28} style={{ marginBottom: 8, opacity: 0.6 }} />
-              <div style={{ fontSize: 14 }}>{search ? 'No matches.' : 'No items yet. Click "Add Drive Link" to get started.'}</div>
-            </div>
-          ) : (
-            <div style={{ padding: '8px 0' }}>
-              {filteredFolders.map((client: DocNode) => {
-                const clientOpen = expandedClients.has(client.id) || !!search.trim();
-                return (
-                  <div key={client.id}>
-                    {/* Client row */}
-                    <div onClick={() => toggleClient(client.id)}
-                      className="standup-row"
-                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', cursor: 'pointer', userSelect: 'none' }}>
-                      <span style={{ 
-                        display: 'inline-block',
-                        fontSize: 9, 
-                        transform: clientOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
-                        transition: 'transform 0.2s',
-                        color: 'var(--muted)',
-                        flexShrink: 0
-                      }}>▶</span>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{client.name}</span>
-                      <span style={{ fontSize: 11.5, color: 'var(--muted)', marginLeft: 4 }}>· {client.fullName}</span>
-                      <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface-2)', padding: '2px 8px', borderRadius: 10 }}>
-                        {client.childCount} item{client.childCount !== 1 ? 's' : ''} · {client.stepCount} step{client.stepCount !== 1 ? 's' : ''}
-                      </span>
-                    </div>
+                <Lock size={28} style={{ marginBottom: 8, opacity: 0.6 }} />
+                <div style={{ fontSize: 14 }}>{search ? 'No matches.' : 'No items yet. Click "Add Drive Link" to get started.'}</div>
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)', position: 'sticky', top: 0, zIndex: 10 }}>
+                    <th style={{ ...thStyleBase, width: '35%' }}>Name / Item</th>
+                    <th style={{ ...thStyleBase, width: '15%' }}>Type</th>
+                    <th style={{ ...thStyleBase, width: '25%' }}>Details / Notes</th>
+                    <th style={{ ...thStyleBase, width: '15%' }}>Size / Date</th>
+                    <th style={{ ...thStyleBase, width: '10%', textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredFolders.map((client: DocNode) => {
+                    const clientOpen = expandedClients.has(client.id) || !!search.trim();
+                    return (
+                      <Fragment key={client.id}>
+                        {/* Client row */}
+                        <tr onClick={() => toggleClient(client.id)}
+                          className="standup-row"
+                          style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                        >
+                          <td colSpan={5} style={{ padding: '10px 18px', fontWeight: 600, color: 'var(--ink)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ 
+                                display: 'inline-block',
+                                fontSize: 9, 
+                                transform: clientOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
+                                transition: 'transform 0.2s',
+                                color: 'var(--muted)',
+                                flexShrink: 0
+                              }}>▶</span>
+                              <span style={{ fontSize: 14, fontWeight: 600 }}>{client.name}</span>
+                              <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>· {client.fullName}</span>
+                              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface)', padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border)', fontWeight: 500 }}>
+                                {client.childCount} item{client.childCount !== 1 ? 's' : ''} · {client.stepCount} step{client.stepCount !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
 
-                    {/* Step rows */}
-                    {clientOpen && (client.children || []).map((step: DocNode) => {
-                      const stepOpen = expandedSteps.has(step.id) || !!search.trim();
-                      return (
-                        <div key={step.id}>
-                          <div onClick={() => toggleStep(step.id)}
-                            className="standup-row"
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 44px', cursor: 'pointer', userSelect: 'none' }}>
-                            <span style={{ 
-                              display: 'inline-block',
-                              fontSize: 9, 
-                              transform: stepOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
-                              transition: 'transform 0.2s',
-                              color: 'var(--muted)',
-                              flexShrink: 0
-                            }}>▶</span>
-                            <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink-2)' }}>{step.name}</span>
-                            <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--muted)' }}>{step.childCount}</span>
-                          </div>
-
-                          {/* Task / Doc rows */}
-                          {stepOpen && (step.children || []).map((child: DocNode) => {
-                            if (child.type === 'task') {
-                              // Task group: expandable with doc children
-                              const taskOpen = expandedSteps.has(child.id) || !!search.trim();
-                              return (
-                                <div key={child.id}>
-                                  <div onClick={() => toggleStep(child.id)}
-                                    className="standup-row"
-                                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 68px', cursor: 'pointer', userSelect: 'none' }}>
+                        {/* Step rows */}
+                        {clientOpen && (client.children || []).map((step: DocNode) => {
+                          const stepOpen = expandedSteps.has(step.id) || !!search.trim();
+                          return (
+                            <Fragment key={step.id}>
+                              <tr onClick={() => toggleStep(step.id)}
+                                className="standup-row"
+                                style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                              >
+                                <td colSpan={5} style={{ padding: '8px 18px 8px 36px', fontWeight: 500, color: 'var(--ink-2)' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ 
                                       display: 'inline-block',
                                       fontSize: 9, 
-                                      transform: taskOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
+                                      transform: stepOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
                                       transition: 'transform 0.2s',
                                       color: 'var(--muted)',
                                       flexShrink: 0
                                     }}>▶</span>
-                                    <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--ink-2)' }}>{child.name}</span>
-                                    <span style={{ marginLeft: 'auto', fontSize: 10.5, color: 'var(--muted)' }}>{child.childCount}</span>
+                                    <span>{step.name}</span>
+                                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                                      {step.childCount} item{step.childCount !== 1 ? 's' : ''}
+                                    </span>
                                   </div>
-                                  {taskOpen && (child.children || []).map((doc: DocNode) => (
-                                    <DocRow key={doc.id} doc={doc} isAdmin={isAdmin}
-                                      onPreview={() => setPreviewDoc(doc)}
-                                      onDelete={() => doc.rawId && deleteDoc.mutate(doc.rawId)} />
-                                  ))}
-                                </div>
-                              );
-                            }
-                            // Direct doc under step (no task)
-                            return (
-                              <DocRow key={child.id} doc={child} isAdmin={isAdmin}
-                                onPreview={() => setPreviewDoc(child)}
-                                onDelete={() => child.rawId && deleteDoc.mutate(child.rawId)} />
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                                </td>
+                              </tr>
+
+                              {/* Task / Doc rows */}
+                              {stepOpen && (step.children || []).map((child: DocNode) => {
+                                if (child.type === 'task') {
+                                  const taskOpen = expandedSteps.has(child.id) || !!search.trim();
+                                  return (
+                                    <Fragment key={child.id}>
+                                      <tr onClick={() => toggleStep(child.id)}
+                                        className="standup-row"
+                                        style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                                      >
+                                        <td colSpan={5} style={{ padding: '8px 18px 8px 58px', fontWeight: 500, color: 'var(--ink-2)' }}>
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{ 
+                                              display: 'inline-block',
+                                              fontSize: 9, 
+                                              transform: taskOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
+                                              transition: 'transform 0.2s',
+                                              color: 'var(--muted)',
+                                              flexShrink: 0
+                                            }}>▶</span>
+                                            <span style={{ fontSize: 12.5 }}>{child.name}</span>
+                                            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                                              {child.childCount} item{child.childCount !== 1 ? 's' : ''}
+                                            </span>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                      {taskOpen && (child.children || []).map((doc: DocNode) => (
+                                        <DocRow key={doc.id} doc={doc} isAdmin={isAdmin}
+                                          onPreview={() => setPreviewDoc(doc)}
+                                          onDelete={() => doc.rawId && deleteDoc.mutate(doc.rawId)} />
+                                      ))}
+                                    </Fragment>
+                                  );
+                                }
+                                // Direct doc under step (no task)
+                                return (
+                                  <DocRow key={child.id} doc={child} isAdmin={isAdmin}
+                                    onPreview={() => setPreviewDoc(child)}
+                                    onDelete={() => child.rawId && deleteDoc.mutate(child.rawId)} />
+                                );
+                              })}
+                            </Fragment>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
         </SectionCard>
 
@@ -502,72 +537,104 @@ function DocRow({ doc, isAdmin, onPreview, onDelete }: {
   onPreview: () => void; onDelete: () => void;
 }) {
   const isDrive = doc.docType === 'drive_link';
-
+  const displayType = isDrive ? (doc.driveUrl?.includes('spreadsheets') ? 'Google Sheet' : doc.driveUrl?.includes('document') ? 'Google Doc' : 'Drive Link') : 'File';
+  
   return (
-    <div className="standup-row"
-      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 6px 72px', borderTop: '1px solid transparent' }}>
-
-      {/* icon */}
-      <span style={{ fontSize: 15 }}>{isDrive ? driveIcon(doc.driveUrl) : '📄'}</span>
-
-      {/* name + badge */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
-          <span style={{ fontSize: 12.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
+    <tr className="standup-row" style={{ borderBottom: '1px solid var(--surface-2)' }}>
+      <td style={{ ...tdStyle, paddingLeft: 76 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 15 }}>{isDrive ? driveIcon(doc.driveUrl) : '📄'}</span>
+          <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{doc.name}</span>
+        </div>
+      </td>
+      <td style={tdStyle}>
+        <span style={{
+          display: 'inline-flex',
+          padding: '2px 6px',
+          borderRadius: 4,
+          fontSize: 11,
+          fontWeight: 600,
+          background: 'var(--surface-2)',
+          color: 'var(--ink-2)',
+          border: '1px solid var(--border)'
+        }}>
+          {displayType}
+        </span>
+      </td>
+      <td style={tdStyle}>
+        <div style={{ maxWidth: 280, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--soft)' }} title={doc.notes || doc.description || ''}>
+          {doc.notes || doc.description || '—'}
+        </div>
+      </td>
+      <td style={tdStyle}>
+        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+          {doc.fileSize ? formatSize(doc.fileSize) : '—'}
+          {doc.createdAt && ` · ${new Date(doc.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
+        </div>
+      </td>
+      <td style={{ ...tdStyle, textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           {isDrive && (
-            <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 600, background: '#e8f0fe', color: '#1a73e8', padding: '1px 6px', borderRadius: 4, letterSpacing: 0.3 }}>DRIVE</span>
+            <button title="Preview Link" onClick={onPreview}
+              style={{
+                width: 26, height: 26, display: 'inline-flex', alignItems: 'center',
+                justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 5,
+                background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}
+            >
+              <Eye size={13} />
+            </button>
+          )}
+          <a href={doc.driveUrl || doc.fileUrl} target="_blank" rel="noreferrer" title="Open External"
+            style={{
+              width: 26, height: 26, display: 'inline-flex', alignItems: 'center',
+              justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 5,
+              background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer',
+              textDecoration: 'none'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}
+          >
+            <ExternalLink size={13} />
+          </a>
+          {isAdmin && (
+            <button title="Delete Item" onClick={onDelete}
+              style={{
+                width: 26, height: 26, display: 'inline-flex', alignItems: 'center',
+                justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 5,
+                background: 'var(--surface)', color: 'var(--soft)', cursor: 'pointer'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--soft)'; }}
+            >
+              <Trash2 size={13} />
+            </button>
           )}
         </div>
-        {(doc.description || doc.notes) && (
-          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 16, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {doc.description && <div><span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>Description:</span> {doc.description}</div>}
-            {doc.notes && <div><span style={{ color: 'var(--ink-2)', fontWeight: 500 }}>Notes:</span> {doc.notes}</div>}
-          </div>
-        )}
-      </div>
-
-      {/* meta */}
-      {!isDrive && <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'JetBrains Mono, monospace' }}>{formatSize(doc.fileSize)}</span>}
-      {doc.createdAt && (
-        <span style={{ fontSize: 11, color: 'var(--muted)', minWidth: 60, textAlign: 'right' }}>
-          {new Date(doc.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-        </span>
-      )}
-
-      {/* actions */}
-      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-        {isDrive && (
-          <button onClick={onPreview} title="Preview in popup"
-            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#1a73e8', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 500 }}>
-            <Eye size={11} /> Preview
-          </button>
-        )}
-        {isDrive && (
-          <a href={doc.driveUrl} target="_blank" rel="noreferrer" title="Open in Drive"
-            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: 'var(--ink-2)', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, textDecoration: 'none' }}>
-            <ExternalLink size={11} />
-          </a>
-        )}
-        {!isDrive && doc.fileUrl && (
-          <a href={doc.fileUrl} target="_blank" rel="noreferrer"
-            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: 'var(--ink-2)', display: 'flex', alignItems: 'center', fontSize: 11, textDecoration: 'none' }}>
-            <FileText size={11} />
-          </a>
-        )}
-        {isAdmin && (
-          <button onClick={onDelete} title="Delete"
-            style={{ background: 'none', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 6px', cursor: 'pointer', color: '#dc2626', display: 'flex', alignItems: 'center' }}>
-            <Trash2 size={11} />
-          </button>
-        )}
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }
 
 /* ─── Styles ─────────────────────────────────────────────────────────────── */
+const thStyleBase: React.CSSProperties = {
+  padding: '10px 18px',
+  fontSize: 11.5,
+  fontWeight: 600,
+  color: 'var(--muted)',
+  textTransform: 'uppercase',
+  letterSpacing: '0.4px',
+};
+const tdStyle: React.CSSProperties = {
+  padding: '10px 18px',
+  fontSize: 13,
+  color: 'var(--ink-2)',
+  verticalAlign: 'middle',
+};
 const overlayStyle: React.CSSProperties = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+  position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)',
   display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: 24,
 };
 const labelStyle: React.CSSProperties = {

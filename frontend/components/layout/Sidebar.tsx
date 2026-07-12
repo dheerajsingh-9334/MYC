@@ -67,7 +67,12 @@ export default function Sidebar() {
   const visibleItems = (section: string) =>
     navItems.filter((i) => i.section === section && i.roles.includes(role));
 
-  const workspaceItems = visibleItems('workspace');
+  const workspaceItems = visibleItems('workspace').map(item => {
+    if (item.label === 'Dashboard' && role === 'admin') {
+      return { ...item, href: '/admin' };
+    }
+    return item;
+  });
   const manageItems = visibleItems('manage');
 
   const NavLink = ({ item, index }: { item: typeof navItems[0]; index: number }) => {

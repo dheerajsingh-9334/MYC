@@ -80,7 +80,7 @@ export default function CSVImportModal({
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.4)',
+        position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)',
         backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center',
         justifyContent: 'center', zIndex: 100, padding: 20,
       }}

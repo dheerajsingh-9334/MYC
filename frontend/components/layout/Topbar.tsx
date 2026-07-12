@@ -107,6 +107,77 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
     enabled: !USE_MOCK && !!user,
   });
 
+  const { data: teamsList = EMPTY_ARRAY } = useQuery<string[]>({
+    queryKey: ['teams'],
+    queryFn: () => apiFetch('/api/teams'),
+    retry: false,
+    enabled: !USE_MOCK && !!user,
+  });
+
+  const { data: usersList = EMPTY_ARRAY } = useQuery<any[]>({
+    queryKey: ['users'],
+    queryFn: () => apiFetch('/api/users'),
+    retry: false,
+    enabled: !USE_MOCK && !!user,
+  });
+
+  // Broadcast States
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [broadcastTarget, setBroadcastTarget] = useState<'all' | 'team' | 'user'>('all');
+  const [broadcastTeam, setBroadcastTeam] = useState('');
+  const [broadcastUser, setBroadcastUser] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastSending, setBroadcastSending] = useState(false);
+  const [broadcastError, setBroadcastError] = useState('');
+  const [broadcastSuccess, setBroadcastSuccess] = useState('');
+
+  const handleSendBroadcast = async () => {
+    if (!broadcastMessage.trim()) {
+      setBroadcastError('Please enter a message.');
+      return;
+    }
+    if (broadcastTarget === 'team' && !broadcastTeam) {
+      setBroadcastError('Please select a team.');
+      return;
+    }
+    if (broadcastTarget === 'user' && !broadcastUser) {
+      setBroadcastError('Please select a user.');
+      return;
+    }
+
+    setBroadcastSending(true);
+    setBroadcastError('');
+    setBroadcastSuccess('');
+    try {
+      const body: any = {
+        message: broadcastMessage.trim(),
+        target: broadcastTarget,
+      };
+      if (broadcastTarget === 'team') {
+        body.teamName = broadcastTeam;
+      } else if (broadcastTarget === 'user') {
+        body.userId = broadcastUser;
+      }
+
+      await apiFetch('/api/notifications/admin-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      setBroadcastSuccess('Broadcast announcement sent successfully!');
+      setBroadcastMessage('');
+      setTimeout(() => {
+        setShowBroadcastModal(false);
+        setBroadcastSuccess('');
+      }, 1500);
+    } catch (e: any) {
+      setBroadcastError(e.message || 'Failed to send broadcast announcement.');
+    } finally {
+      setBroadcastSending(false);
+    }
+  };
+
   const updatePinned = () => {
     try {
       const clientIds = JSON.parse(localStorage.getItem('pinned_clients') || '[]');
@@ -266,30 +337,55 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
           </div>
           <NotificationBell />
           {user?.role === 'admin' && (
-            <Link
-              href="/admin"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                height: 32,
-                padding: '0 12px',
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--olive)',
-                border: 'none',
-                color: '#fff',
-                fontSize: 12.5,
-                fontWeight: 600,
-                textDecoration: 'none',
-                cursor: 'pointer',
-                transition: 'background 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
-            >
-              <Shield size={13} /> Admin Panel
-            </Link>
+            <>
+              <button
+                onClick={() => setShowBroadcastModal(true)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  height: 32,
+                  padding: '0 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'rgba(220, 38, 38, 0.08)',
+                  border: '1px solid rgba(220, 38, 38, 0.2)',
+                  color: 'var(--red)',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
+              >
+                <Megaphone size={13} /> Broadcast
+              </button>
+              <Link
+                href="/admin"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  height: 32,
+                  padding: '0 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--olive)',
+                  border: 'none',
+                  color: '#fff',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
+              >
+                <Shield size={13} /> Admin Panel
+              </Link>
+            </>
           )}
           {/* Theme Toggle */}
           <button
@@ -602,6 +698,117 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+      {showBroadcastModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: 24 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowBroadcastModal(false); }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.2)', overflow: 'hidden', padding: 24, gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
+                <Megaphone size={18} style={{ color: 'var(--olive)' }} />
+                <span>Send Broadcast Announcement</span>
+              </div>
+              <button onClick={() => setShowBroadcastModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={18} /></button>
+            </div>
+
+            {broadcastError && (
+              <div style={{ background: '#FDF2F2', border: '1px solid #FDE8E8', borderRadius: 6, padding: '10px 14px', color: '#9B1C1C', fontSize: 13, fontWeight: 500 }}>
+                {broadcastError}
+              </div>
+            )}
+
+            {broadcastSuccess && (
+              <div style={{ background: 'var(--green-bg)', border: '1px solid var(--green-100)', borderRadius: 6, padding: '10px 14px', color: 'var(--green)', fontSize: 13, fontWeight: 500 }}>
+                {broadcastSuccess}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Target Audience</label>
+              <select
+                value={broadcastTarget}
+                onChange={(e: any) => {
+                  setBroadcastTarget(e.target.value);
+                  setBroadcastError('');
+                }}
+                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5 }}
+              >
+                <option value="all">Broadcast to All Users</option>
+                <option value="team">Specific Team</option>
+                <option value="user">Specific User</option>
+              </select>
+            </div>
+
+            {broadcastTarget === 'team' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Select Team</label>
+                <select
+                  value={broadcastTeam}
+                  onChange={(e) => setBroadcastTeam(e.target.value)}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5 }}
+                >
+                  <option value="">-- Choose Team --</option>
+                  {(teamsList as string[]).map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {broadcastTarget === 'user' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Select User</label>
+                <select
+                  value={broadcastUser}
+                  onChange={(e) => setBroadcastUser(e.target.value)}
+                  style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5 }}
+                >
+                  <option value="">-- Choose User --</option>
+                  {(usersList as any[]).filter((u: any) => u.isActive !== false).map(u => (
+                    <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase' }}>Announcement Message</label>
+              <textarea
+                placeholder="Type your broadcast announcement here..."
+                value={broadcastMessage}
+                onChange={(e) => setBroadcastMessage(e.target.value)}
+                rows={4}
+                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink)', outline: 'none', fontSize: 13.5, resize: 'none' }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button
+                onClick={() => setShowBroadcastModal(false)}
+                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink-2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendBroadcast}
+                disabled={broadcastSending}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'var(--olive)',
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  opacity: broadcastSending ? 0.7 : 1
+                }}
+              >
+                {broadcastSending ? 'Sending...' : 'Send Announcement'}
+              </button>
+            </div>
           </div>
         </div>
       )}
