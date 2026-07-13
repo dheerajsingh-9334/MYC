@@ -30,6 +30,7 @@ import {
   Sun,
   Moon,
   Users,
+  Filter,
 } from 'lucide-react';
 import {
   differenceInCalendarDays,
@@ -531,18 +532,24 @@ export default function StaffDashboard() {
   }, [tab, grouped, teamTasks]);
 
   const [taskSearch, setTaskSearch] = useState('');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const [staffTaskPriority, setStaffTaskPriority] = useState<'all' | 'high' | 'normal'>('all');
   useEffect(() => { setTaskLimit(15); }, [tab, taskSearch]);
 
   const filteredTasks = useMemo(() => {
-    if (!taskSearch.trim()) return allVisible;
+    let list = allVisible;
+    if (staffTaskPriority !== 'all') {
+      list = list.filter((t: any) => t.priority === staffTaskPriority);
+    }
+    if (!taskSearch.trim()) return list;
     const q = taskSearch.toLowerCase();
-    return allVisible.filter((t: any) => {
+    return list.filter((t: any) => {
       const titleMatch = t.title?.toLowerCase().includes(q);
       const clientMatch = (t.client?.brandName || t.client?.fullName || '').toLowerCase().includes(q);
       const stepMatch = t.step?.name?.toLowerCase().includes(q);
       return titleMatch || clientMatch || stepMatch;
     });
-  }, [allVisible, taskSearch]);
+  }, [allVisible, taskSearch, staffTaskPriority]);
 
   const [taskLimit, setTaskLimit] = useState(15);
   const scrollableTasks = useMemo(() => {
@@ -612,7 +619,7 @@ export default function StaffDashboard() {
         title="Dashboard"
         subtitle={`${user?.fullName || 'You'} · ${grouped.active.length} active · ${grouped.completed.length} completed`}
       />
-      <div style={{ padding: '16px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, boxSizing: 'border-box' }}>
+      <div style={{ padding: '16px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, boxSizing: 'border-box', overflowY: 'auto', minHeight: 0 }}>
 
         {/* Top metrics row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
@@ -704,7 +711,8 @@ export default function StaffDashboard() {
             <SectionCard
               title="My Tasks"
               subtitle="Overdue, due today, and upcoming"
-              style={{ height: '100%', minHeight: 500, display: 'flex', flexDirection: 'column' }}
+              style={{ height: '100%', minHeight: 500, display:'block', flexDirection: 'column' }}
+              padding={0}
               action={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 140 }}>
@@ -714,30 +722,57 @@ export default function StaffDashboard() {
                       placeholder="Search tasks..."
                       value={taskSearch}
                       onChange={(e) => setTaskSearch(e.target.value)}
-                      style={{
-                        padding: '5px 8px 5px 26px',
-                        fontSize: 12,
-                        border: '1px solid var(--border)',
-                        borderRadius: 6,
-                        outline: 'none',
-                        background: 'var(--surface-2)',
-                        color: 'var(--ink)',
-                        width: '100%',
-                        transition: 'all 0.15s',
-                      }}
+                      style={{ padding: '5px 8px 5px 26px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, outline: 'none', background: 'var(--surface-2)', color: 'var(--ink)', width: '100%' }}
                     />
                   </div>
-                  <button
-                    onClick={() => router.push('/tasks')}
-                    style={{ fontSize: 12, fontWeight: 500, color: 'var(--olive)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+
+                  {/* Hover Filter Button */}
+                  <div
+                    style={{ position: 'relative' }}
+                    onMouseEnter={() => setShowFilterMenu(true)}
+                    onMouseLeave={() => setShowFilterMenu(false)}
                   >
+                    <button
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        height: 28, padding: '0 10px', borderRadius: 6,
+                        border: '1px solid var(--border)', background: 'var(--surface)',
+                        color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                      }}
+                    >
+                      <Filter size={12} />
+                      Filter
+                    </button>
+                    {showFilterMenu && (
+                      <div style={{
+                        position: 'absolute', top: '100%', right: 0, zIndex: 100,
+                        marginTop: 4, width: 200, padding: 12,
+                        background: 'var(--surface)', border: '1px solid var(--border)',
+                        borderRadius: 8, boxShadow: 'var(--shadow-lg)',
+                        display: 'flex', flexDirection: 'column', gap: 12,
+                      }}>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Priority</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {(['all', 'high', 'normal'] as const).map(p => (
+                              <label key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
+                                <input type="radio" checked={staffTaskPriority === p} onChange={() => setStaffTaskPriority(p)} style={{ cursor: 'pointer' }} />
+                                {p === 'all' ? 'All Priorities' : p === 'high' ? 'High Only' : 'Normal Only'}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button onClick={() => router.push('/tasks')} style={{ fontSize: 12, fontWeight: 500, color: 'var(--olive)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                     Open full task manager <ArrowRight size={12} />
                   </button>
                 </div>
               }
-              padding={0}
             >
-              {/* Filter tabs inside the task box */}
+              {/* Filter Tabs sub-row */}
               <div style={{ display: 'flex', gap: 8, padding: '14px 20px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
                 {tabs.map((t) => {
                   const isActive = t.key === tab;
@@ -747,13 +782,11 @@ export default function StaffDashboard() {
                       onClick={() => setTab(t.key)}
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6,
-                        padding: '6px 12px',
-                        borderRadius: 999,
+                        padding: '6px 12px', borderRadius: 999,
                         border: `1px solid ${isActive ? t.accent : 'var(--border)'}`,
                         background: isActive ? t.accent : 'var(--surface)',
                         color: isActive ? '#fff' : 'var(--ink-2)',
-                        fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                        transition: 'all 0.15s',
+                        fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
                       }}
                     >
                       <t.icon size={13} />
@@ -761,8 +794,7 @@ export default function StaffDashboard() {
                       <span style={{
                         background: isActive ? 'rgba(255,255,255,0.25)' : t.bg,
                         color: isActive ? '#fff' : t.accent,
-                        fontSize: 10, fontWeight: 700,
-                        padding: '1px 6px', borderRadius: 999,
+                        fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
                       }}>
                         {t.count}
                       </span>

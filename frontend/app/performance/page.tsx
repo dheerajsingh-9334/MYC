@@ -373,29 +373,7 @@ export default function PerformancePage() {
                 )}
               </SectionCard>
 
-              <SectionCard title="Client Lifecycle Timeline Comparison" subtitle="Days spent in onboarding pipeline">
-                {clientPerformance.list.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: 48, color: 'var(--muted)' }}>No data to visualize.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 18, padding: '10px 0' }}>
-                    {clientPerformance.list.slice(0, 8).map((c: any, idx: number) => {
-                      const maxVal = Math.max(...clientPerformance.list.map((x: any) => x.days), 1);
-                      const pct = Math.min(100, Math.max(8, (c.days / maxVal) * 100));
-                      return (
-                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, fontWeight: 600 }}>
-                            <span style={{ color: 'var(--ink)' }}>{c.name}</span>
-                            <span style={{ color: 'var(--olive)' }}>{c.daysStr}</span>
-                          </div>
-                          <div style={{ height: 16, width: '100%', background: 'var(--surface-3)', borderRadius: 999, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                            <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #A7C5EB, #2860A1)', borderRadius: 999, transition: 'width 0.4s ease' }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </SectionCard>
+           
             </div>
           )}
 

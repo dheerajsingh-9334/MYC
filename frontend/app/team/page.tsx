@@ -114,8 +114,13 @@ export default function TeamPage() {
 
   const allTeamNames = useMemo(() => {
     const merged = new Set([...TEAMS, ...dbTeams, ...team.map(t => t.teamName).filter(Boolean)]);
-    return Array.from(merged).sort() as string[];
-  }, [team, dbTeams]);
+    const all = Array.from(merged).sort() as string[];
+    // Team leaders only see their own team
+    if (user?.role === 'team_leader' && user.teamName) {
+      return [user.teamName];
+    }
+    return all;
+  }, [team, dbTeams, user]);
 
   const [search, setSearch] = useState('');
 
@@ -331,49 +336,80 @@ export default function TeamPage() {
       <Topbar 
         title="Team" 
         subtitle={`${active.length} active member${active.length !== 1 ? 's' : ''}`} 
-        search={search}
-        setSearch={setSearch}
       />
       <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
 
-        {/* Actions bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
+        {/* Toolbar — all controls on the right */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+          padding: '8px 14px', marginBottom: 14, width: '100%', boxSizing: 'border-box',
+        }}>
+          {/* Left spacer */}
+          <div style={{ flex: 1 }} />
+
+          {/* Right: Search + Expand / Collapse / New Team / Add Member */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            {/* Search (~25%) */}
+            <div style={{ position: 'relative', width: 220, minWidth: 140 }}>
+              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)', pointerEvents: 'none' }} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search teams or members..."
+                style={{
+                  width: '100%',
+                  padding: '5px 10px 5px 28px',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: 12,
+                  background: 'var(--surface-2)',
+                  color: 'var(--ink)',
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px' }} />
+
             <button onClick={expandAll} style={btnSecondary}>Expand all</button>
             <button onClick={collapseAll} style={btnSecondary}>Collapse all</button>
+
+            {isAdmin && (
+              <>
+                <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px' }} />
+                <button
+                  onClick={() => setShowCreateTeam(true)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    height: 30, padding: '0 12px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--surface)', border: '1px solid var(--border)',
+                    color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    transition: 'background 0.15s', whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+                >
+                  <Plus size={13} /> New Team
+                </button>
+                <button
+                  onClick={() => setShowModal(true)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    height: 30, padding: '0 12px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--olive)', color: '#fff', border: 'none',
+                    fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    transition: 'background 0.15s', whiteSpace: 'nowrap',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
+                >
+                  <Plus size={13} /> Add Member
+                </button>
+              </>
+            )}
           </div>
-          {isAdmin && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
-                onClick={() => setShowCreateTeam(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  color: 'var(--ink-2)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-              >
-                <Plus size={13} /> New Team
-              </button>
-              <button
-                onClick={() => setShowModal(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--olive)', color: '#fff', border: 'none',
-                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
-              >
-                <Plus size={13} /> Add Member
-              </button>
-            </div>
-          )}
         </div>
 
         {/* File-based tree */}
@@ -584,11 +620,22 @@ export default function TeamPage() {
                             </div>
                           </td>
                         </tr>
-                        {isOpen && members.map((m) => {
+                        {isOpen && members.map((m, memberIdx) => {
                           const activeTasks = (m.active ?? m._count?.assignedTasks) || 0;
+                          const isLast = memberIdx === members.length - 1;
                           return (
-                            <tr key={m.id} className="standup-row" style={{ borderBottom: '1px solid var(--surface-2)' }}>
-                              <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'middle', ...colStyles.member }}>
+                            <tr key={m.id} className="standup-row" style={{ borderBottom: isLast ? '2px solid var(--border)' : '1px solid var(--surface-2)' }}>
+                              <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'middle', position: 'relative', ...colStyles.member }}>
+                                {/* Tree connector lines */}
+                                <div style={{
+                                  position: 'absolute', left: 20, top: 0,
+                                  bottom: isLast ? '50%' : 0,
+                                  width: 1, background: 'var(--border)',
+                                }} />
+                                <div style={{
+                                  position: 'absolute', left: 20, top: '50%',
+                                  width: 12, height: 1, background: 'var(--border)',
+                                }} />
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                   <div style={{ position: 'relative', width: 28, height: 28, flexShrink: 0 }}>
                                     {m.avatarUrl ? (

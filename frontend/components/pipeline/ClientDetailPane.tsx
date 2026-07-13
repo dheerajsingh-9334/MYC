@@ -411,8 +411,7 @@ export default function ClientDetailPane({
   // Apply filters on computed tasks
   const filteredAndSearchedTasks = useMemo(() => {
     return processedTasks.filter((t: any) => {
-      if (t.isPinned || t.isAlerted) return true;
-
+      // Team-scope enforcement: team leaders only see their team's tasks
       if (!isAdmin && currentUser) {
         const uTeam = currentUser.teamName || '';
         const tTeam = t._teamName || '';
@@ -758,13 +757,16 @@ export default function ClientDetailPane({
 
 
   const clientActions = [
-    {
-      label: 'View vault',
-      icon: <FileText size={13} />,
-      onClick: () => {
-        router.push(`/vault?search=${encodeURIComponent(client.brandName || client.fullName)}`);
+    // Vault link: admin-only
+    ...(isAdmin ? [
+      {
+        label: 'View vault',
+        icon: <FileText size={13} />,
+        onClick: () => {
+          router.push(`/vault?search=${encodeURIComponent(client.brandName || client.fullName)}`);
+        },
       },
-    },
+    ] : []),
     ...(isAdmin ? [
       {
         label: 'Move step',

@@ -24,7 +24,7 @@ import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
 const AUTO_REFRESH_MS = 30_000;
 const PAGE_SIZE = 15;
 
-// Chip filter kinds — virtual filters that don't map 1:1 to a status enum
+// Chip filter kinds — virtual filters that don't map 1:1 to a status enum Are you sure you want to delete
 type ChipKind = '' | 'overdue' | 'today' | 'rejected' | 'complete' | 'extension_requested' | 'in_progress';
 
 export default function TasksPage() {
@@ -32,8 +32,9 @@ export default function TasksPage() {
   const [user, setUser] = useState<any>(null);
   const [showCSVModal, setShowCSVModal] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
 
-  // Filters
+  // Filters alert
   const [search, setSearch] = useState('');
   const [teamFilter, setTeamFilter] = useState<string>('');
   const [clientFilter, setClientFilter] = useState<string>('');
@@ -226,6 +227,14 @@ export default function TasksPage() {
     if (isAdmin && adminTasksScope === 'mine') {
       list = list.filter((t) => (t.assignedToId || t.assignedTo?.id) === user?.id);
     }
+    // Team leaders only see tasks belonging to their team
+    if (isLeader && user?.teamName) {
+      const userTeam = user.teamName;
+      list = list.filter((t) =>
+        t.step?.owningTeamName === userTeam ||
+        t.assignedTo?.teamName === userTeam
+      );
+    }
     if (teamFilter) list = list.filter((t) => t.step?.owningTeamName === teamFilter || t.assignedTo?.teamName === teamFilter);
     if (clientFilter) list = list.filter((t) => t.client?.id === clientFilter);
     if (priorityFilter) list = list.filter((t) => t.priority === priorityFilter);
@@ -266,7 +275,7 @@ export default function TasksPage() {
       return 0;
     };
     return [...list].sort(cmp);
-  }, [tasks, search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir, adminTasksScope, user, isAdmin]);
+  }, [tasks, search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir, adminTasksScope, user, isAdmin, isLeader]);
 
   const scrollableTasks = useMemo(() => {
     return filtered.slice(0, taskLimit);
@@ -518,7 +527,7 @@ export default function TasksPage() {
       driveUrl: vaultLinkUrl.trim(),
       notes: vaultLinkNotes,
     });
-  };
+  }; 
 
   const closeVaultModal = () => {
     setVaultTask(null);
@@ -528,7 +537,7 @@ export default function TasksPage() {
     setVaultLinkErr('');
   };
 
-  // Status counts — derived from the full task list, ignoring current filters
+  // Status counts — derived from the full task list, ignoring current filters items
   const counts = useMemo(() => {
     return {
       total: tasks.length,
@@ -598,47 +607,59 @@ export default function TasksPage() {
       />
       <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
 
-        {/* Unified Toolbar */}
+        {/* Toolbar — filter pills left, controls right */}
         <div style={{
-          display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+          display: 'flex', alignItems: 'center', gap: 6,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-          padding: '10px 16px', marginBottom: 14,
+          padding: '8px 14px', marginBottom: 14, boxSizing: 'border-box',
         }}>
-          <button onClick={() => { const next: Record<string, boolean> = {}; groupedByClient.forEach(g => { next[g.client.id] = true; }); setExpandedClients(next); }}
-            style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', transition: 'all 0.15s' }}>
-            Expand all
-          </button>
-          <button onClick={() => setExpandedClients({})}
-            style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', transition: 'all 0.15s' }}>
-            Collapse all
-          </button>
-          <div style={{ position: 'relative', flex: 1, minWidth: 180, maxWidth: 320 }}>
-            <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-            <input type="text" placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)}
-              style={{ width: '100%', padding: '6px 10px 6px 30px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', transition: 'all 0.15s', boxSizing: 'border-box' }} />
+          {/* Left: task count + active filter pills */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' }}>
+            {/* <span style={{ fontSize: 25, fontWeight: 700, color: 'var(--ink)', background: 'var(--surface-2)', padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>
+              {scrollableTasks.length} {scrollableTasks.length === 1 ? 'task' : 'tasks'}
+            </span> */}
+            {chipFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{chips.find(c => c.key === chipFilter)?.label}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setChipFilter('')} /></span>)}
+            {teamFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{teamFilter}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setTeamFilter('')} /></span>)}
+            {clientFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{clientOptions.find(c => c.id === clientFilter)?.label}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setClientFilter('')} /></span>)}
+            {assigneeFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{assigneeOptions.find(a => a.id === assigneeFilter)?.name}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setAssigneeFilter('')} /></span>)}
+            {priorityFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{priorityFilter}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setPriorityFilter('')} /></span>)}
+            {adminTasksScope === 'mine' && isAdmin && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>My Tasks<X size={10} style={{ cursor: 'pointer' }} onClick={() => setAdminTasksScope('all')} /></span>)}
+            {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || (adminTasksScope === 'mine' && isAdmin)) && (
+              <button onClick={() => { setChipFilter(''); setTeamFilter(''); setClientFilter(''); setAssigneeFilter(''); setPriorityFilter(''); setAdminTasksScope('all'); }}
+                style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Clear all</button>
+            )}
           </div>
 
-          {/* Active filter badges */}
-          {chipFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>Status: {chips.find(c => c.key === chipFilter)?.label}<X size={11} style={{ cursor: 'pointer' }} onClick={() => setChipFilter('')} /></span>)}
-          {teamFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>Team: {teamFilter}<X size={11} style={{ cursor: 'pointer' }} onClick={() => setTeamFilter('')} /></span>)}
-          {clientFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>Client: {clientOptions.find(c => c.id === clientFilter)?.label}<X size={11} style={{ cursor: 'pointer' }} onClick={() => setClientFilter('')} /></span>)}
-          {assigneeFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>Assignee: {assigneeOptions.find(a => a.id === assigneeFilter)?.name}<X size={11} style={{ cursor: 'pointer' }} onClick={() => setAssigneeFilter('')} /></span>)}
-          {priorityFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>Priority: {priorityFilter}<X size={11} style={{ cursor: 'pointer' }} onClick={() => setPriorityFilter('')} /></span>)}
-          {adminTasksScope === 'mine' && isAdmin && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>My Tasks Only<X size={11} style={{ cursor: 'pointer' }} onClick={() => setAdminTasksScope('all')} /></span>)}
-          {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || (adminTasksScope === 'mine' && isAdmin)) && (
-            <button onClick={() => { setChipFilter(''); setTeamFilter(''); setClientFilter(''); setAssigneeFilter(''); setPriorityFilter(''); setAdminTasksScope('all'); }}
-              style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>Clear all</button>
-          )}
-
-          {/* Right side: Filter + Add Task */}
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
-            <div onMouseEnter={() => setShowHoverFilters(true)} onMouseLeave={() => setShowHoverFilters(false)} style={{ position: 'relative', display: 'inline-block' }}>
-              <button style={{ ...selectStyle, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontWeight: 600, background: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) ? 'var(--olive-50)' : 'var(--surface)', border: '1px solid var(--border)', color: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) ? 'var(--olive-dark)' : 'var(--ink-2)' }}>
-                <Filter size={14} /><span>Filters</span><ChevronDown size={12} style={{ opacity: 0.7 }} />
+          {/* Right: Search | Expand | Collapse | Filters | Add Task */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <div style={{ position: 'relative', width: 180 }}>
+              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+              <input type="text" placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)}
+                style={{ width: '100%', padding: '5px 10px 5px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+            <button onClick={() => { const next: Record<string, boolean> = {}; groupedByClient.forEach(g => { next[g.client.id] = true; }); setExpandedClients(next); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
+              Expand all
+            </button>
+            <button onClick={() => setExpandedClients({})}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
+              Collapse all
+            </button>
+            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+            <div onMouseEnter={() => setShowHoverFilters(true)} onMouseLeave={() => setShowHoverFilters(false)} style={{ position: 'relative' }}>
+              <button style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) ? 'var(--olive-50)' : 'var(--surface)', color: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) ? 'var(--olive-dark)' : 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                <Filter size={13} /> Filters
+                {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) && (<span style={{ background: 'var(--olive)', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700, padding: '1px 5px', marginLeft: 2 }}>{[chipFilter, teamFilter, clientFilter, assigneeFilter, priorityFilter].filter(Boolean).length}</span>)}
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
               </button>
               {showHoverFilters && (
                 <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 260, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 999, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {isAdmin && (<div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Task Visibility</label><div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}><button onClick={() => setAdminTasksScope('all')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: adminTasksScope === 'all' ? 'var(--olive)' : 'transparent', color: adminTasksScope === 'all' ? '#fff' : 'var(--ink-2)', transition: 'all 0.15s' }}>All Tasks</button><button onClick={() => setAdminTasksScope('mine')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: adminTasksScope === 'mine' ? 'var(--olive)' : 'transparent', color: adminTasksScope === 'mine' ? '#fff' : 'var(--ink-2)', transition: 'all 0.15s' }}>My Tasks</button></div></div>)}
+                  {isAdmin && (<div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Task Visibility</label><div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}><button onClick={() => setAdminTasksScope('all')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: adminTasksScope === 'all' ? 'var(--olive)' : 'transparent', color: adminTasksScope === 'all' ? '#fff' : 'var(--ink-2)' }}>All Tasks</button><button onClick={() => setAdminTasksScope('mine')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: adminTasksScope === 'mine' ? 'var(--olive)' : 'transparent', color: adminTasksScope === 'mine' ? '#fff' : 'var(--ink-2)' }}>My Tasks</button></div></div>)}
                   <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Status</label><select value={chipFilter} onChange={(e) => setChipFilter(e.target.value as ChipKind)} style={{ ...selectStyle, width: '100%' }}>{chips.map(c => (<option key={c.key} value={c.key}>{c.label} ({c.count})</option>))}</select></div>
                   {isAdmin && (<div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Team</label><select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All teams</option>{teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>)}
                   <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Client</label><ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="All clients" /></div>
@@ -648,7 +669,7 @@ export default function TasksPage() {
               )}
             </div>
             {isAdmin && (
-              <button onClick={() => setShowAddTask(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)', background: 'var(--olive)', color: '#fff', border: 'none', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s' }}
+              <button onClick={() => setShowAddTask(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)', background: 'var(--olive)', color: '#fff', border: 'none', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}>
                 <Plus size={14} /> Add Task
               </button>
@@ -715,60 +736,59 @@ export default function TasksPage() {
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                           >
                             <td colSpan={5} style={{ padding: '10px 18px', fontWeight: 600 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <span style={{ 
-                                    display: 'inline-block',
-                                    fontSize: 9, 
-                                    transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', 
-                                    transition: 'transform 0.2s',
-                                    color: 'var(--muted)',
-                                    flexShrink: 0 
-                                  }}>▶</span>
-                                  <span style={{
-                                    fontSize: 13.5, fontWeight: 700, color: 'var(--olive-dark)',
-                                    background: 'var(--olive-50)', padding: '3px 10px', borderRadius: 6,
-                                    border: '1px solid var(--olive-100)', letterSpacing: '0.2px',
-                                  }}>
-                                    {client.brandName || client.fullName || 'No Client'}
-                                  </span>
-                                  <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>
-                                    {clientTasks.length} {clientTasks.length === 1 ? 'task' : 'tasks'}
-                                  </span>
-                                </div>
-                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                  {statusCounts.pending > 0 && (
-                                    <span style={statusBadgeStyle('pending')}>{statusCounts.pending} Pending</span>
-                                  )}
-                                  {statusCounts.in_progress > 0 && (
-                                    <span style={statusBadgeStyle('in_progress')}>{statusCounts.in_progress} In Progress</span>
-                                  )}
-                                  {statusCounts.complete > 0 && (
-                                    <span style={statusBadgeStyle('complete')}>{statusCounts.complete} Complete</span>
-                                  )}
-                                  {statusCounts.blocked > 0 && (
-                                    <span style={statusBadgeStyle('blocked')}>{statusCounts.blocked} Blocked</span>
-                                  )}
-                                  {statusCounts.extension_requested > 0 && (
-                                    <span style={statusBadgeStyle('extension_requested')}>{statusCounts.extension_requested} Extension</span>
-                                  )}
-                                  {statusCounts.rejected > 0 && (
-                                    <span style={statusBadgeStyle('rejected')}>{statusCounts.rejected} Rejected</span>
-                                  )}
-                                  {statusCounts.cancelled > 0 && (
-                                    <span style={statusBadgeStyle('cancelled')}>{statusCounts.cancelled} Cancelled</span>
-                                  )}
-                                </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                <span style={{ 
+                                  display: 'inline-block',
+                                  fontSize: 9, 
+                                  transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', 
+                                  transition: 'transform 0.2s',
+                                  color: 'var(--muted)',
+                                  flexShrink: 0 
+                                }}>▶</span>
+                                <span style={{
+                                  fontSize: 13.5, fontWeight: 700, color: 'var(--olive-dark)',
+                                  background: 'var(--olive-50)', padding: '3px 10px', borderRadius: 6,
+                                  border: '1px solid var(--olive-100)', letterSpacing: '0.2px',
+                                }}>
+                                  {client.brandName || client.fullName || 'No Client'}
+                                </span>
+                                <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>
+                                  {clientTasks.length} {clientTasks.length === 1 ? 'task' : 'tasks'}
+                                </span>
+                                <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 4px' }} />
+                                {statusCounts.pending > 0 && (
+                                  <span style={statusBadgeStyle('pending')}>{statusCounts.pending} Pending</span>
+                                )}
+                                {statusCounts.in_progress > 0 && (
+                                  <span style={statusBadgeStyle('in_progress')}>{statusCounts.in_progress} In Progress</span>
+                                )}
+                                {statusCounts.complete > 0 && (
+                                  <span style={statusBadgeStyle('complete')}>{statusCounts.complete} Complete</span>
+                                )}
+                                {statusCounts.blocked > 0 && (
+                                  <span style={statusBadgeStyle('blocked')}>{statusCounts.blocked} Blocked</span>
+                                )}
+                                {statusCounts.extension_requested > 0 && (
+                                  <span style={statusBadgeStyle('extension_requested')}>{statusCounts.extension_requested} Extension</span>
+                                )}
+                                {statusCounts.rejected > 0 && (
+                                  <span style={statusBadgeStyle('rejected')}>{statusCounts.rejected} Rejected</span>
+                                )}
+                                {statusCounts.cancelled > 0 && (
+                                  <span style={statusBadgeStyle('cancelled')}>{statusCounts.cancelled} Cancelled</span>
+                                )}
                               </div>
                             </td>
                           </tr>
-                          {isExpanded && clientTasks.map((t) => (
+                          {isExpanded && clientTasks.map((t, taskIndex) => (
                             <StaffTaskRow
                               key={t.id}
                               task={t}
                               isAdmin={isAdmin}
                               isLeader={isLeader}
                               isNested={true}
+                              taskIndex={taskIndex}
+                              totalTasks={clientTasks.length}
                               onPinToggle={(id, pin) => pinMut.mutate({ id, pin })}
                               onAlertToggle={(id, alert) => alertMut.mutate({ id, alert })}
                               onComplete={() => setCompleteTaskId(t.id)}
@@ -782,7 +802,7 @@ export default function TasksPage() {
                               onStopTimer={() => stopTimerMut.mutate(t.id)}
                               onStatusChange={(id, status) => statusMut.mutate({ id, status })}
                               onUpdateTask={(task) => setEditingTask(task)}
-                              onDeleteTask={(id) => deleteTaskMut.mutate(id)}
+                              onDeleteTask={(id) => { const t = clientTasks.find(t => t.id === id); setDeleteConfirm({ id, title: t?.title || 'this task' }); }}
                             />
                           ))}
                         </Fragment>
@@ -796,7 +816,45 @@ export default function TasksPage() {
         </SectionCard>
       </div>
 
+      {/* ── Delete Confirm Modal ────────────────────────────────────── */}
+      {deleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 24 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 420, boxShadow: 'var(--shadow-lg)', animation: 'modalIn 0.2s ease-out', overflow: 'hidden' }}>
+            <div style={{ padding: '24px 24px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(220,38,38,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Trash2 size={18} color="var(--red, #dc2626)" />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)', fontFamily: 'Instrument Serif, serif' }}>Delete Task</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>This action cannot be undone</div>
+                </div>
+              </div>
+              <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '10px 14px', marginBottom: 20 }}>
+                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 3 }}>Task to be deleted</div>
+                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{deleteConfirm.title}</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, padding: '0 24px 24px', justifyContent: 'flex-end' }}>
+              <button onClick={() => setDeleteConfirm(null)}
+                style={{ padding: '8px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}>
+                Cancel
+              </button>
+              <button
+                onClick={() => { deleteTaskMut.mutate(deleteConfirm.id); setDeleteConfirm(null); }}
+                disabled={deleteTaskMut.isPending}
+                style={{ padding: '8px 18px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: '#dc2626', color: '#fff', cursor: 'pointer', opacity: deleteTaskMut.isPending ? 0.7 : 1 }}>
+                {deleteTaskMut.isPending ? 'Deleting…' : 'Delete Task'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Task Vault Modal ─────────────────────────────────────── */}
+
       {vaultTask && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}
           onClick={(e) => { if (e.target === e.currentTarget) closeVaultModal(); }}>
@@ -1164,9 +1222,10 @@ export default function TasksPage() {
 // ── Staff / admin task row ────────────────────────────────────────────────
 
 function StaffTaskRow({
-  task: t, isAdmin, isLeader, isNested, onPinToggle, onAlertToggle, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend, onStartTimer, onStopTimer, onStatusChange, onUpdateTask, onDeleteTask,
+  task: t, isAdmin, isLeader, isNested, taskIndex, totalTasks, onPinToggle, onAlertToggle, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend, onStartTimer, onStopTimer, onStatusChange, onUpdateTask, onDeleteTask,
 }: {
   task: any; isAdmin: boolean; isLeader?: boolean; isNested?: boolean;
+  taskIndex?: number; totalTasks?: number;
   onPinToggle?: (id: string, pin: boolean) => void;
   onAlertToggle?: (id: string, alert: boolean) => void;
   onComplete: () => void;
@@ -1208,8 +1267,22 @@ function StaffTaskRow({
 
   return (
     <tr className={`standup-row ${t.isAlerted || t.isPinned ? 'highlighted' : ''}`}
-      style={{ borderBottom: '1px solid var(--surface-2)' }}>
-      <td style={{ padding: '10px 18px', paddingLeft: isNested ? 28 : 18, verticalAlign: 'middle', minWidth: 240, width: '35%' }}>
+      style={{ borderBottom: taskIndex !== undefined && taskIndex === (totalTasks ?? 1) - 1 ? '2px solid var(--border)' : '1px solid var(--surface-2)' }}>
+      <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'middle', minWidth: 240, width: '35%', position: 'relative' }}>
+        {/* Tree connector lines */}
+        {isNested && (
+          <>
+            <div style={{
+              position: 'absolute', left: 20, top: 0,
+              bottom: taskIndex !== undefined && taskIndex === (totalTasks ?? 1) - 1 ? '50%' : 0,
+              width: 1, background: 'var(--border)',
+            }} />
+            <div style={{
+              position: 'absolute', left: 20, top: '50%',
+              width: 12, height: 1, background: 'var(--border)',
+            }} />
+          </>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isAdmin && !hidePin ? (
             <button
@@ -1405,11 +1478,7 @@ function StaffTaskRow({
             dropdownActions.push({
               label: 'Delete',
               icon: <Trash2 size={13} />,
-              onClick: () => {
-                if (confirm(`Are you sure you want to delete task "${t.title}"?`)) {
-                  onDeleteTask?.(t.id);
-                }
-              },
+              onClick: () => { onDeleteTask?.(t.id); },
               danger: true,
             });
           }

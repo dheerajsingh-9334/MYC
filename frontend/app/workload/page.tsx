@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
@@ -7,8 +7,8 @@ import { apiFetch, getUser } from '@/lib/api';
 import { USE_MOCK, MOCK_TEAM, MOCK_TASKS, MOCK_CLIENTS, MOCK_STEPS } from '@/lib/mockData';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity, ArrowRight, BarChart3, Search, Bell, Check, X, Download, Play } from 'lucide-react';
-import { format } from 'date-fns';
+import { Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity, ArrowRight, BarChart3, Search, Bell, Check, X, Download, Play, Pin, AlertCircle, Filter, ChevronDown, Pause } from 'lucide-react';
+import { format, isPast, isToday, differenceInDays } from 'date-fns';
 import DashboardHeader from '@/components/ui/DashboardHeader';
 import StatCard from '@/components/ui/StatCard';
 import SectionCard from '@/components/ui/SectionCard';
@@ -201,6 +201,36 @@ export default function AdminDashboard() {
     },
   });
 
+  const pinMut = useMutation({
+    mutationFn: ({ id, pin }: { id: string; pin: boolean }) => {
+      if (USE_MOCK) return Promise.resolve();
+      return apiFetch(`/api/tasks/${id}/pin`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPinned: pin }),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['admin-dashboard'] });
+    },
+  });
+
+  const alertMut = useMutation({
+    mutationFn: ({ id, alert }: { id: string; alert: boolean }) => {
+      if (USE_MOCK) return Promise.resolve();
+      return apiFetch(`/api/tasks/${id}/alert`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isAlerted: alert }),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['admin-dashboard'] });
+    },
+  });
+
   const data: AdminData = useMemo(() => {
     if (USE_MOCK) return MOCK_ADMIN_DATA;
     return {
@@ -253,6 +283,7 @@ export default function AdminDashboard() {
   const [taskClientFilter, setTaskClientFilter] = useState('all');
   const [taskTeamFilter, setTaskTeamFilter] = useState('all');
   const [collapsedTeams, setCollapsedTeams] = useState<Record<string, boolean>>({});
+  const [showHoverFiltersTeam, setShowHoverFiltersTeam] = useState(false);
 
   const [workloadLimit, setWorkloadLimit] = useState(15);
   const [pendingLimit, setPendingLimit] = useState(15);
@@ -620,137 +651,193 @@ export default function AdminDashboard() {
                 {/* 2. TEAM TASKS TAB (Leader Assignment View) */}
                 {opTab === 'Team Tasks' && (
                   <div>
-                    {/* Filters Row */}
-                    <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 4, width: '100%', alignItems: 'center' }}>
-                      {/* Search Input */}
-                      <div style={{ position: 'relative', flex: '1 1 auto', minWidth: 200 }}>
-                        <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-                        <input
-                          value={workloadSearch}
-                          onChange={(e) => setWorkloadSearch(e.target.value)}
-                          placeholder="Search team tasks or clients..."
-                          style={{
-                            width: '100%',
-                            padding: '8px 12px 8px 30px',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: 12.5,
-                            background: 'var(--surface)',
-                            color: 'var(--ink)',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                        />
+                    {/* Toolbar — filter pill left, controls right */}
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                      padding: '8px 14px', marginBottom: 16, width: '100%', boxSizing: 'border-box',
+                    }}>
+                      {/* Left: active filter pills */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                        {taskStatusFilter !== 'all' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>
+                            Status: {taskStatusFilter}
+                            <X size={10} style={{ cursor: 'pointer' }} onClick={() => setTaskStatusFilter('all')} />
+                          </span>
+                        )}
+                        {taskAssigneeFilter !== 'all' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>
+                            Assignee: {taskAssigneeFilter === 'unassigned' ? 'Unassigned' : usersList.find((u: any) => u.id === taskAssigneeFilter)?.fullName || 'Selected'}
+                            <X size={10} style={{ cursor: 'pointer' }} onClick={() => setTaskAssigneeFilter('all')} />
+                          </span>
+                        )}
+                        {user?.role === 'admin' && taskClientFilter !== 'all' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>
+                            Client: {clientsList.find((c: any) => c.id === taskClientFilter)?.brandName || 'Selected'}
+                            <X size={10} style={{ cursor: 'pointer' }} onClick={() => setTaskClientFilter('all')} />
+                          </span>
+                        )}
+                        {user?.role === 'admin' && taskTeamFilter !== 'all' && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>
+                            Team: {taskTeamFilter}
+                            <X size={10} style={{ cursor: 'pointer' }} onClick={() => setTaskTeamFilter('all')} />
+                          </span>
+                        )}
                       </div>
 
-                      {/* Status Filter */}
-                      <select
-                        value={taskStatusFilter}
-                        onChange={(e) => setTaskStatusFilter(e.target.value)}
-                        style={{
-                          padding: '8px 12px',
-                          borderRadius: 'var(--radius-sm)',
-                          border: '1px solid var(--border)',
-                          background: 'var(--surface)',
-                          color: 'var(--ink)',
-                          fontSize: 12.5,
-                          outline: 'none',
-                          cursor: 'pointer',
-                          minWidth: 140,
-                          flexShrink: 0
-                        }}
-                      >
-                        <option value="all">All Statuses</option>
-                        <option value="todo">Pending / Todo</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="blocked">Blocked</option>
-                        <option value="complete">Complete</option>
-                        <option value="extension_requested">Extension Requested</option>
-                        <option value="rejected_cancelled">Rejected / Cancelled</option>
-                      </select>
+                      {/* Right: Search | Filters */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <div style={{ position: 'relative', width: 220 }}>
+                          <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+                          <input
+                            value={workloadSearch}
+                            onChange={(e) => setWorkloadSearch(e.target.value)}
+                            placeholder="Search team tasks or clients..."
+                            style={{
+                              width: '100%',
+                              padding: '5px 10px 5px 28px',
+                              border: '1px solid var(--border)',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: 12,
+                              background: 'var(--surface-2)',
+                              color: 'var(--ink)',
+                              outline: 'none',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
 
-                      {/* Assignee Filter */}
-                      <select
-                        value={taskAssigneeFilter}
-                        onChange={(e) => setTaskAssigneeFilter(e.target.value)}
-                        style={{
-                          padding: '8px 12px',
-                          borderRadius: 'var(--radius-sm)',
-                          border: '1px solid var(--border)',
-                          background: 'var(--surface)',
-                          color: 'var(--ink)',
-                          fontSize: 12.5,
-                          outline: 'none',
-                          cursor: 'pointer',
-                          minWidth: 140,
-                          flexShrink: 0
-                        }}
-                      >
-                        <option value="all">All Assignees</option>
-                        <option value="unassigned">Unassigned</option>
-                        {user?.role === 'admin' ? (
-                          usersList.map((u: any) => (
-                            <option key={u.id} value={u.id}>{u.fullName} ({u.teamName || 'No Team'})</option>
-                          ))
-                        ) : (
-                          <>
-                            <option value={user?.id}>{user?.fullName} (Lead)</option>
-                            {usersList.filter((u: any) => u.teamName === user?.teamName && u.id !== user?.id).map((u: any) => (
-                              <option key={u.id} value={u.id}>{u.fullName}</option>
-                            ))}
-                          </>
-                        )}
-                      </select>
-
-                      {/* Client Filter (Admin Only) */}
-                      {user?.role === 'admin' && (
-                        <select
-                          value={taskClientFilter}
-                          onChange={(e) => setTaskClientFilter(e.target.value)}
-                          style={{
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--border)',
-                            background: 'var(--surface)',
-                            color: 'var(--ink)',
-                            fontSize: 12.5,
-                            outline: 'none',
-                            cursor: 'pointer',
-                            minWidth: 140,
-                            flexShrink: 0
-                          }}
+                        {/* Filter dropdown */}
+                        <div
+                          onMouseEnter={() => setShowHoverFiltersTeam(true)}
+                          onMouseLeave={() => setShowHoverFiltersTeam(false)}
+                          style={{ position: 'relative' }}
                         >
-                          <option value="all">All Clients</option>
-                          {clientsList.map((c: any) => (
-                            <option key={c.id} value={c.id}>{c.brandName || c.fullName}</option>
-                          ))}
-                        </select>
-                      )}
+                          <button
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              height: 30,
+                              padding: '0 10px',
+                              border: '1px solid var(--border)',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: 11.5,
+                              fontWeight: 600,
+                              background: (taskStatusFilter !== 'all' || taskAssigneeFilter !== 'all' || taskClientFilter !== 'all' || taskTeamFilter !== 'all') ? 'var(--olive-50)' : 'var(--surface)',
+                              color: (taskStatusFilter !== 'all' || taskAssigneeFilter !== 'all' || taskClientFilter !== 'all' || taskTeamFilter !== 'all') ? 'var(--olive-dark)' : 'var(--ink-2)',
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            <Filter size={13} />
+                            <span>Filters</span>
+                            {(() => {
+                              let count = 0;
+                              if (taskStatusFilter !== 'all') count++;
+                              if (taskAssigneeFilter !== 'all') count++;
+                              if (taskClientFilter !== 'all') count++;
+                              if (taskTeamFilter !== 'all') count++;
+                              return count > 0 ? (
+                                <span style={{ background: 'var(--olive)', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700, padding: '1px 5px', marginLeft: 2 }}>{count}</span>
+                              ) : null;
+                            })()}
+                            <ChevronDown size={11} style={{ opacity: 0.6 }} />
+                          </button>
 
-                      {/* Team Filter (Admin Only) */}
-                      {user?.role === 'admin' && (
-                        <select
-                          value={taskTeamFilter}
-                          onChange={(e) => setTaskTeamFilter(e.target.value)}
-                          style={{
-                            padding: '8px 12px',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--border)',
-                            background: 'var(--surface)',
-                            color: 'var(--ink)',
-                            fontSize: 12.5,
-                            outline: 'none',
-                            cursor: 'pointer',
-                            minWidth: 140,
-                            flexShrink: 0
-                          }}
-                        >
-                          <option value="all">All Teams</option>
-                          {teamsList.map((t: any) => (
-                            <option key={t.id || t.name} value={t.name}>{t.name}</option>
-                          ))}
-                        </select>
-                      )}
+                          {showHoverFiltersTeam && (
+                            <div style={{
+                              position: 'absolute',
+                              top: '100%',
+                              right: 0,
+                              marginTop: 6,
+                              width: 240,
+                              background: 'var(--surface)',
+                              border: '1px solid var(--border)',
+                              borderRadius: 'var(--radius)',
+                              boxShadow: 'var(--shadow-lg)',
+                              zIndex: 999,
+                              padding: 12,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: 10,
+                            }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', padding: '0 4px' }}>Status</div>
+                                <select
+                                  value={taskStatusFilter}
+                                  onChange={(e) => setTaskStatusFilter(e.target.value)}
+                                  style={{ width: '100%', padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: 12, outline: 'none', background: 'var(--surface)', color: 'var(--ink)' }}
+                                >
+                                  <option value="all">All Statuses</option>
+                                  <option value="todo">Pending / Todo</option>
+                                  <option value="in_progress">In Progress</option>
+                                  <option value="blocked">Blocked</option>
+                                  <option value="complete">Complete</option>
+                                  <option value="extension_requested">Extension Requested</option>
+                                  <option value="rejected_cancelled">Rejected / Cancelled</option>
+                                </select>
+                              </div>
+
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', padding: '0 4px' }}>Assignee</div>
+                                <select
+                                  value={taskAssigneeFilter}
+                                  onChange={(e) => setTaskAssigneeFilter(e.target.value)}
+                                  style={{ width: '100%', padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: 12, outline: 'none', background: 'var(--surface)', color: 'var(--ink)' }}
+                                >
+                                  <option value="all">All Assignees</option>
+                                  <option value="unassigned">Unassigned</option>
+                                  {user?.role === 'admin' ? (
+                                    usersList.map((u: any) => (
+                                      <option key={u.id} value={u.id}>{u.fullName}</option>
+                                    ))
+                                  ) : (
+                                    <>
+                                      <option value={user?.id}>{user?.fullName} (Lead)</option>
+                                      {usersList.filter((u: any) => u.teamName === user?.teamName && u.id !== user?.id).map((u: any) => (
+                                        <option key={u.id} value={u.id}>{u.fullName}</option>
+                                      ))}
+                                    </>
+                                  )}
+                                </select>
+                              </div>
+
+                              {user?.role === 'admin' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', padding: '0 4px' }}>Client</div>
+                                  <select
+                                    value={taskClientFilter}
+                                    onChange={(e) => setTaskClientFilter(e.target.value)}
+                                    style={{ width: '100%', padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: 12, outline: 'none', background: 'var(--surface)', color: 'var(--ink)' }}
+                                  >
+                                    <option value="all">All Clients</option>
+                                    {clientsList.map((c: any) => (
+                                      <option key={c.id} value={c.id}>{c.brandName || c.fullName}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+
+                              {user?.role === 'admin' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', padding: '0 4px' }}>Team</div>
+                                  <select
+                                    value={taskTeamFilter}
+                                    onChange={(e) => setTaskTeamFilter(e.target.value)}
+                                    style={{ width: '100%', padding: '5px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: 12, outline: 'none', background: 'var(--surface)', color: 'var(--ink)' }}
+                                  >
+                                    <option value="all">All Teams</option>
+                                    {teamsList.map((t: any) => (
+                                      <option key={t.id || t.name} value={t.name}>{t.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Table of Tasks */}
@@ -771,10 +858,10 @@ export default function AdminDashboard() {
                           ) : (
                             Object.entries(groupedTasks).map(([teamName, tasks]) => {
                               const isCollapsed = collapsedTeams[teamName] === true;
+                              const isOpen = !isCollapsed;
                               return (
-                                <>
+                                <Fragment key={`team-group-${teamName}`}>
                                   <tr 
-                                    key={`team-header-${teamName}`}
                                     onClick={() => {
                                       setCollapsedTeams(prev => ({
                                         ...prev,
@@ -782,26 +869,27 @@ export default function AdminDashboard() {
                                       }));
                                     }}
                                     style={{
-                                      background: 'var(--surface-2)',
+                                      background: isOpen ? 'var(--olive-50)' : 'var(--surface-2)',
                                       cursor: 'pointer',
+                                      borderLeft: isOpen ? '4px solid var(--olive)' : '1px solid var(--border)',
                                       borderBottom: '1px solid var(--border)',
-                                      transition: 'background 0.15s'
+                                      transition: 'all 0.15s'
                                     }}
                                     onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.background = isOpen ? 'var(--olive-50)' : 'var(--surface-2)'; }}
                                   >
-                                    <td colSpan={5} style={{ padding: '12px 18px', fontWeight: 600, color: 'var(--ink)' }}>
+                                    <td colSpan={5} style={{ padding: isOpen ? '14px 18px' : '10px 18px', fontWeight: 600, color: isOpen ? 'var(--olive-dark)' : 'var(--ink)' }}>
                                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                           <span style={{ 
                                             display: 'inline-block',
                                             fontSize: 9, 
-                                            transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)', 
+                                            transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
                                             transition: 'transform 0.2s',
                                             color: 'var(--muted)'
                                           }}>▶</span>
-                                          <span>{teamName}</span>
-                                          <span style={{ fontSize: 11, color: 'var(--muted)', background: 'var(--surface-2)', padding: '2px 6px', borderRadius: 4, fontWeight: 500 }}>
+                                          <span style={{ fontSize: 13.5 }}>{teamName}</span>
+                                          <span style={{ fontSize: 11, color: 'var(--muted)', background: isOpen ? 'var(--surface)' : 'var(--surface-2)', padding: '2px 6px', borderRadius: 4, fontWeight: 500, border: '1px solid var(--border)' }}>
                                             {tasks.length} task{tasks.length !== 1 ? 's' : ''}
                                           </span>
                                         </div>
@@ -811,39 +899,129 @@ export default function AdminDashboard() {
                                       </div>
                                     </td>
                                   </tr>
-                                  {!isCollapsed && tasks.map((t: any) => {
-                                    const isAlerted = t.isAlerted;
+                                  {isOpen && <tr style={{ height: 6, background: 'transparent' }}><td colSpan={5} style={{ padding: 0 }} /></tr>}
+                                  {isOpen && tasks.map((t: any, taskIdx: number) => {
+                                    const done = t.status === 'complete';
+                                    const rej = t.status === 'rejected' || t.status === 'cancelled';
+                                    const overdue = !done && !rej && t.dueDate && isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate));
+                                    const today = !done && !rej && t.dueDate && isToday(new Date(t.dueDate));
+                                    const overdueDays = overdue ? differenceInDays(new Date(), new Date(t.dueDate)) : 0;
+                                    const completedAt = t.completedAt ? format(new Date(t.completedAt), "d MMM, h:mma") : null;
+                                    const whenLabel = done && completedAt
+                                      ? `Done ${completedAt}`
+                                      : overdue
+                                      ? `Due ${format(new Date(t.dueDate), 'd MMM')} (${overdueDays}d late)`
+                                      : t.dueDate
+                                      ? `Due ${format(new Date(t.dueDate), 'd MMM')}`
+                                      : '—';
+                                    const whenColor = done ? 'var(--green)' : rej ? '#B0436A' : overdue ? 'var(--red)' : today ? 'var(--amber)' : 'var(--muted)';
+                                    const isLast = taskIdx === tasks.length - 1;
+
+                                    const statusColor: Record<string, string> = {
+                                      pending: 'var(--muted)', in_progress: 'var(--olive)', complete: 'var(--green)',
+                                      blocked: '#6B3FA0', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--muted)',
+                                    };
+                                    const statusLabel: Record<string, string> = {
+                                      pending: 'Pending', in_progress: 'In Progress', complete: 'Complete',
+                                      blocked: 'Blocked', extension_requested: 'Extension', rejected: 'Rejected', cancelled: 'Cancelled',
+                                    };
+
                                     return (
                                       <tr
                                         key={t.id}
-                                        className={`standup-row ${isAlerted ? 'highlighted' : ''}`}
+                                        className={`standup-row ${t.isAlerted || t.isPinned ? 'highlighted' : ''}`}
                                         style={{
-                                          borderBottom: '1px solid var(--surface-2)',
+                                          borderBottom: isLast ? '2px solid var(--border)' : '1px solid var(--surface-2)',
                                           position: 'relative',
                                         }}
                                       >
-                                        <td style={{ padding: '10px 18px 10px 32px', verticalAlign: 'middle', width: '35%' }}>
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            {isAlerted && <span style={{ color: 'var(--red)' }}>⚠️</span>}
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{t.title}</div>
+                                        <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'middle', width: '35%', position: 'relative' }}>
+                                          {/* Tree connector lines */}
+                                          <div style={{
+                                            position: 'absolute', left: 20, top: 0,
+                                            bottom: isLast ? '50%' : 0,
+                                            width: 1, background: 'var(--border)',
+                                          }} />
+                                          <div style={{
+                                            position: 'absolute', left: 20, top: '50%',
+                                            width: 12, height: 1, background: 'var(--border)',
+                                          }} />
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            {user?.role === 'admin' ? (
+                                              <button
+                                                onClick={(e) => { e.stopPropagation(); pinMut.mutate({ id: t.id, pin: !t.isPinned }); }}
+                                                style={{
+                                                  border: 'none',
+                                                  background: 'none',
+                                                  padding: 4,
+                                                  cursor: 'pointer',
+                                                  color: t.isPinned ? 'var(--olive)' : 'var(--muted)',
+                                                  display: 'flex',
+                                                  alignItems: 'center',
+                                                  justifyContent: 'center',
+                                                  transition: 'color 0.15s',
+                                                }}
+                                                title={t.isPinned ? "Unpin task" : "Pin task"}
+                                              >
+                                                <Pin size={15} style={{ fill: t.isPinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+                                              </button>
+                                            ) : null}
+
+                                            {(user?.role === 'admin' || user?.role === 'team_leader') ? (
+                                              <button
+                                                onClick={(e) => { e.stopPropagation(); alertMut.mutate({ id: t.id, alert: !t.isAlerted }); }}
+                                                style={{
+                                                  border: 'none',
+                                                  background: 'none',
+                                                  padding: 4,
+                                                  cursor: 'pointer',
+                                                  color: t.isAlerted ? 'var(--red)' : 'var(--muted)',
+                                                  display: 'flex',
+                                                  alignItems: 'center',
+                                                  justifyContent: 'center',
+                                                  transition: 'color 0.15s',
+                                                }}
+                                                title={t.isAlerted ? "Remove alert" : "Alert task"}
+                                              >
+                                                <AlertCircle size={15} style={{ fill: t.isAlerted ? 'var(--red-bg)' : 'none' }} />
+                                              </button>
+                                            ) : null}
+
+                                            {t.priority === 'high' && <span style={{ width: 4, height: 22, borderRadius: 2, background: 'var(--red)' }} />}
+                                            
+                                            <div style={{ minWidth: 0 }}>
+                                              <div style={{ fontSize: 13, fontWeight: 600, color: done ? 'var(--muted)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none' }}>
+                                                {t.title}
+                                              </div>
+                                              {t.step && (
+                                                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Step {String(t.step.stepNumber).padStart(2, '0')} · {t.step.name}</div>
+                                              )}
+                                            </div>
                                           </div>
-                                          {t.step ? (
-                                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Step {String(t.step.stepNumber).padStart(2, '0')} · {t.step.name}</div>
-                                          ) : t.description ? (
-                                            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</div>
-                                          ) : (
-                                            <div style={{ fontSize: 11, color: 'transparent', marginTop: 2 }}>No Details</div>
-                                          )}
                                         </td>
                                         <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)', width: '15%' }}>
                                           {t.client?.brandName || t.client?.fullName || '—'}
                                         </td>
-                                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)', width: '15%' }}>
-                                          {t.dueDate ? format(new Date(t.dueDate), 'd MMM yyyy') : '—'}
+                                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: whenColor, fontWeight: overdue ? 600 : 400, whiteSpace: 'nowrap', width: '15%' }}>
+                                          {done && <CircleCheck size={11} style={{ display: 'inline', marginRight: 4 }} />}
+                                          {!done && !rej && (overdue ? <TriangleAlert size={11} style={{ display: 'inline', marginRight: 4 }} /> : today ? <Clock size={11} style={{ display: 'inline', marginRight: 4 }} /> : null)}
+                                          {whenLabel}
                                         </td>
                                         <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '15%' }}>
-                                          <span className={`status-badge status-${t.status === 'complete' ? 'ontrack' : t.status === 'blocked' ? 'blocked' : 'due'}`}>
-                                            {t.status}
+                                          <span style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 5,
+                                            padding: '3px 9px', borderRadius: 999,
+                                            fontSize: 11.5, fontWeight: 600,
+                                            background: t.status === 'complete' ? 'var(--green-bg)'
+                                              : t.status === 'blocked' ? '#F0E8FA'
+                                              : t.status === 'rejected' ? '#FBEEF1'
+                                              : t.status === 'extension_requested' ? 'var(--amber-bg)'
+                                              : t.status === 'in_progress' ? 'var(--olive-50)'
+                                              : 'var(--surface-2)',
+                                            color: statusColor[t.status] || 'var(--muted)',
+                                          }}>
+                                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor[t.status] || 'var(--muted)' }} />
+                                            {statusLabel[t.status] || t.status}
                                           </span>
                                         </td>
                                         <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '20%' }}>
@@ -879,7 +1057,8 @@ export default function AdminDashboard() {
                                       </tr>
                                     );
                                   })}
-                                </>
+                                  {isOpen && <tr style={{ height: 10, background: 'transparent' }}><td colSpan={5} style={{ padding: 0 }} /></tr>}
+                                </Fragment>
                               );
                             })
                           )}

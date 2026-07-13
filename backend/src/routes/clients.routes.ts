@@ -94,7 +94,27 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     const { role, userId, orgId } = req.user;
     let docWhere: any = undefined;
 
-    if (role !== 'admin') {
+    if (role === 'team_leader' && req.user.teamName) {
+      const teamMemberIds = await prisma.user
+        .findMany({ where: { organisationId: orgId, teamName: req.user.teamName, isActive: true }, select: { id: true } })
+        .then((rows) => rows.map((r) => r.id));
+
+      const teamTaskIds = await prisma.task
+        .findMany({ where: { organisationId: orgId, clientId: req.params.id, assignedToId: { in: teamMemberIds } }, select: { id: true } })
+        .then((rows) => rows.map((r) => r.id));
+
+      const teamStepIds = await prisma.step
+        .findMany({ where: { organisationId: orgId, owningTeamName: req.user.teamName }, select: { id: true } })
+        .then((rows) => rows.map((r) => r.id));
+
+      docWhere = {
+        OR: [
+          { uploadedById: { in: teamMemberIds } },
+          { taskId: { in: teamTaskIds } },
+          { stepId: { in: teamStepIds } },
+        ]
+      };
+    } else if (role === 'team_member') {
       const myTasks = await prisma.task.findMany({
         where: { assignedToId: userId, organisationId: orgId, clientId: req.params.id },
         select: { id: true, stepId: true },
@@ -315,7 +335,29 @@ router.get('/:id/documents', requireAuth, async (req: Request, res: Response) =>
     const { role, userId, orgId } = req.user;
     let docWhere: any = { clientId: req.params.id, organisationId: orgId };
 
-    if (role !== 'admin') {
+    if (role === 'team_leader' && req.user.teamName) {
+      const teamMemberIds = await prisma.user
+        .findMany({ where: { organisationId: orgId, teamName: req.user.teamName, isActive: true }, select: { id: true } })
+        .then((rows) => rows.map((r) => r.id));
+
+      const teamTaskIds = await prisma.task
+        .findMany({ where: { organisationId: orgId, clientId: req.params.id, assignedToId: { in: teamMemberIds } }, select: { id: true } })
+        .then((rows) => rows.map((r) => r.id));
+
+      const teamStepIds = await prisma.step
+        .findMany({ where: { organisationId: orgId, owningTeamName: req.user.teamName }, select: { id: true } })
+        .then((rows) => rows.map((r) => r.id));
+
+      docWhere = {
+        clientId: req.params.id,
+        organisationId: orgId,
+        OR: [
+          { uploadedById: { in: teamMemberIds } },
+          { taskId: { in: teamTaskIds } },
+          { stepId: { in: teamStepIds } },
+        ]
+      };
+    } else if (role === 'team_member') {
       const myTasks = await prisma.task.findMany({
         where: { assignedToId: userId, organisationId: orgId, clientId: req.params.id },
         select: { id: true, stepId: true },

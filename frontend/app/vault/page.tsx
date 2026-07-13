@@ -80,6 +80,8 @@ export default function VaultPage() {
     setUser(getUser());
   }, []);
   const isAdmin = user?.role === 'admin';
+  const isLeader = user?.role === 'team_leader';
+  const isMember = user?.role === 'team_member';
 
   const [search, setSearch] = useState('');
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
@@ -100,7 +102,7 @@ export default function VaultPage() {
     queryFn: () => apiFetch('/api/vault'),
   });
 
-  // Fetch all tasks for dropdown derivation if staff
+  // Fetch all tasks for dropdown derivation if non-admin
   const { data: allUserTasks = [] } = useQuery<any[]>({
     queryKey: ['vault-user-tasks'],
     queryFn: () => apiFetch('/api/tasks'),
@@ -142,6 +144,14 @@ export default function VaultPage() {
     if (isAdmin) {
       return clients;
     }
+    if (isLeader) {
+      // Team leaders: use the vault folders returned by the scoped backend
+      return (vault.folders as DocNode[]).map((c) => ({
+        id: c.id.replace('client_', ''),
+        name: c.name,
+      }));
+    }
+    // Team members: derive from their assigned tasks
     const map = new Map<string, string>();
     allUserTasks
       .filter(t => (t.assignedToId || t.assignedTo?.id) === user?.id)
@@ -151,23 +161,30 @@ export default function VaultPage() {
         }
       });
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [clients, allUserTasks, isAdmin, user?.id]);
+  }, [clients, allUserTasks, vault.folders, isAdmin, isLeader, user?.id]);
 
   // Derive steps based on role and selected client
   const stepOptions = useMemo(() => {
     if (isAdmin) {
       return steps;
     }
+    // For team_leader and team_member: derive from their tasks
     const map = new Map<string, { name: string; stepNumber: number }>();
     allUserTasks
-      .filter(t => (t.assignedToId || t.assignedTo?.id) === user?.id && t.clientId === form.clientId)
+      .filter(t => {
+        // team_leader sees all team tasks; team_member sees only their own
+        const byTeam = isLeader
+          ? (t.assignedTo?.teamName === user?.teamName)
+          : ((t.assignedToId || t.assignedTo?.id) === user?.id);
+        return byTeam && (t.clientId === form.clientId || t.client?.id === form.clientId);
+      })
       .forEach(t => {
         if (t.step) {
           map.set(t.step.id, { name: t.step.name, stepNumber: t.step.stepNumber });
         }
       });
     return Array.from(map.entries()).map(([id, s]) => ({ id, name: s.name, stepNumber: s.stepNumber }));
-  }, [steps, allUserTasks, form.clientId, isAdmin, user?.id]);
+  }, [steps, allUserTasks, form.clientId, isAdmin, isLeader, user?.id, user?.teamName]);
 
   // Derive tasks based on role, selected client, and step
   const taskOptions = useMemo(() => {
@@ -175,9 +192,16 @@ export default function VaultPage() {
       return tasks;
     }
     return allUserTasks
-      .filter(t => (t.assignedToId || t.assignedTo?.id) === user?.id && t.clientId === form.clientId && t.stepId === form.stepId)
+      .filter(t => {
+        const byTeam = isLeader
+          ? (t.assignedTo?.teamName === user?.teamName)
+          : ((t.assignedToId || t.assignedTo?.id) === user?.id);
+        return byTeam
+          && (t.clientId === form.clientId || t.client?.id === form.clientId)
+          && (t.stepId === form.stepId || t.step?.id === form.stepId);
+      })
       .map(t => ({ id: t.id, title: t.title }));
-  }, [tasks, allUserTasks, form.clientId, form.stepId, isAdmin, user?.id]);
+  }, [tasks, allUserTasks, form.clientId, form.stepId, isAdmin, isLeader, user?.id, user?.teamName]);
 
   /* ── Mutations ── */
   const addLink = useMutation({
@@ -203,7 +227,7 @@ export default function VaultPage() {
       setFormErr('Client, step, and Drive URL are required.');
       return;
     }
-    if (!isAdmin && !form.taskId) {
+    if (isMember && !form.taskId) {
       setFormErr('Selecting a task is required.');
       return;
     }
@@ -242,25 +266,55 @@ export default function VaultPage() {
     <AppLayout>
       <Topbar title="Vault" subtitle={`${vault.totalDocs} item${vault.totalDocs !== 1 ? 's' : ''} across all clients — Proof of work organised by client → step`} />
       <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
-        {/* Toolbar: Expand/Collapse, Search, Add — all in one row */}
+        {/* Toolbar — count left, controls right */}
         <div style={{
-          display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+          display: 'flex', alignItems: 'center', gap: 6,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-          padding: '10px 16px', marginBottom: 16,
+          padding: '8px 14px', marginBottom: 16, boxSizing: 'border-box',
         }}>
-          <button onClick={() => { setExpandedClients(new Set(filteredFolders.map(f => f.id))); setExpandedSteps(new Set(filteredFolders.flatMap(f => (f.children || []).map(s => s.id)))); }} style={btnSecondary}>Expand all</button>
-          <button onClick={() => { setExpandedClients(new Set()); setExpandedSteps(new Set()); }} style={btnSecondary}>Collapse all</button>
-
-          {/* Search — pushed to the right */}
-          <div style={{ position: 'relative', flex: 1, minWidth: 200, marginLeft: 'auto' }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients, steps, or files…"
-              style={{ width: '100%', padding: '6px 12px 6px 32px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box', transition: 'all 0.15s' }} />
+          {/* Left: count + active search pill */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+            {/* <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', background: 'var(--surface-2)', padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>
+              {vault.totalDocs} {vault.totalDocs === 1 ? 'item' : 'items'}
+            </span> */}
+            {search.trim() && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>
+                "{search}"
+                <X size={10} style={{ cursor: 'pointer' }} onClick={() => setSearch('')} />
+              </span>
+            )}
           </div>
 
-          <button onClick={() => setShowAddModal(true)} style={btnPrimary}>
-            <Plus size={13} /> Add Drive Link
-          </button>
+          {/* Right: Search | Expand | Collapse | Add Drive Link */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <div style={{ position: 'relative', width: 200 }}>
+              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients, steps, files…"
+                style={{ width: '100%', padding: '5px 10px 5px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+            <button
+              onClick={() => { setExpandedClients(new Set(filteredFolders.map(f => f.id))); setExpandedSteps(new Set(filteredFolders.flatMap(f => (f.children || []).map(s => s.id)))); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
+              Expand all
+            </button>
+            <button
+              onClick={() => { setExpandedClients(new Set()); setExpandedSteps(new Set()); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
+              Collapse all
+            </button>
+            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+            <button onClick={() => setShowAddModal(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 12px', borderRadius: 'var(--radius-sm)', background: 'var(--olive)', color: '#fff', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}>
+              <Plus size={13} /> Add Drive Link
+            </button>
+          </div>
         </div>
 
         {/* Tree */}
@@ -314,8 +368,9 @@ export default function VaultPage() {
                         </tr>
 
                         {/* Step rows */}
-                        {clientOpen && (client.children || []).map((step: DocNode) => {
+                        {clientOpen && (client.children || []).map((step: DocNode, stepIdx: number) => {
                           const stepOpen = expandedSteps.has(step.id) || !!search.trim();
+                          const isLastStep = stepIdx === (client.children || []).length - 1;
                           return (
                             <Fragment key={step.id}>
                               <tr onClick={() => toggleStep(step.id)}
@@ -324,7 +379,17 @@ export default function VaultPage() {
                                 onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
                                 onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                               >
-                                <td colSpan={5} style={{ padding: '8px 18px 8px 36px', fontWeight: 500, color: 'var(--ink-2)' }}>
+                                <td colSpan={5} style={{ padding: '8px 18px 8px 40px', fontWeight: 500, color: 'var(--ink-2)', position: 'relative' }}>
+                                  {/* Tree connector lines: client → step */}
+                                  <div style={{
+                                    position: 'absolute', left: 20, top: 0,
+                                    bottom: isLastStep && !stepOpen ? '50%' : 0,
+                                    width: 1, background: 'var(--border)',
+                                  }} />
+                                  <div style={{
+                                    position: 'absolute', left: 20, top: '50%',
+                                    width: 12, height: 1, background: 'var(--border)',
+                                  }} />
                                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <span style={{ 
                                       display: 'inline-block',
@@ -343,7 +408,8 @@ export default function VaultPage() {
                               </tr>
 
                               {/* Task / Doc rows */}
-                              {stepOpen && (step.children || []).map((child: DocNode) => {
+                              {stepOpen && (step.children || []).map((child: DocNode, childIdx: number) => {
+                                const isLastChild = childIdx === (step.children || []).length - 1;
                                 if (child.type === 'task') {
                                   const taskOpen = expandedSteps.has(child.id) || !!search.trim();
                                   return (
@@ -354,7 +420,17 @@ export default function VaultPage() {
                                         onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
                                         onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                                       >
-                                        <td colSpan={5} style={{ padding: '8px 18px 8px 58px', fontWeight: 500, color: 'var(--ink-2)' }}>
+                                        <td colSpan={5} style={{ padding: '8px 18px 8px 62px', fontWeight: 500, color: 'var(--ink-2)', position: 'relative' }}>
+                                          {/* Tree connector lines: step → task */}
+                                          <div style={{
+                                            position: 'absolute', left: 40, top: 0,
+                                            bottom: isLastChild && !taskOpen ? '50%' : 0,
+                                            width: 1, background: 'var(--border)',
+                                          }} />
+                                          <div style={{
+                                            position: 'absolute', left: 40, top: '50%',
+                                            width: 12, height: 1, background: 'var(--border)',
+                                          }} />
                                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                             <span style={{ 
                                               display: 'inline-block',
@@ -408,22 +484,22 @@ export default function VaultPage() {
       {/* ── Add Drive Link Modal ─────────────────────────────────── */}
       {showAddModal && (
         <div style={overlayStyle} onClick={e => e.target === e.currentTarget && closeModal()}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: 480, maxWidth: '94vw', boxShadow: 'var(--shadow-lg)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 560, maxHeight: '88vh', boxShadow: 'var(--shadow-lg)', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'modalIn 0.2s ease-out' }}>
             {/* Modal header */}
             <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, background: 'linear-gradient(135deg,#4285F4,#34A853)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Link2 size={16} color="#fff" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg,#4285F4,#34A853)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Link2 size={18} color="#fff" />
                 </div>
                 <div>
                   <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Add Drive Link</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Paste a Google Drive URL as proof of work</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>Paste a Google Drive URL as proof of work</div>
                 </div>
               </div>
               <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
             </div>
 
-            {/* Form */}
+            {/* Form — scrollable */}
             <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
               {formErr && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#b91c1c' }}>
@@ -448,13 +524,7 @@ export default function VaultPage() {
               </label>
 
               <label style={labelStyle}>
-                {isAdmin ? (
-                  <>
-                    Task <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional — attach to a specific task)</span>
-                  </>
-                ) : (
-                  <>Task *</>
-                )}
+                {isAdmin ? (<>Task <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional — attach to a specific task)</span></>) : (<>Task *</>)}
                 <select value={form.taskId} onChange={e => setForm(f => ({ ...f, taskId: e.target.value }))} style={inputStyle} disabled={!form.stepId}>
                   <option value="">{isAdmin ? '— No specific task —' : '— Select assigned task —'}</option>
                   {taskOptions.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}

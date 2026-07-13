@@ -358,192 +358,89 @@ export default function ClientsPage() {
       />
       <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
-        {/* Unified Toolbar: Filter, Search, Export, Upload, Add Client, View Toggle — all in one row */}
+        {/* Toolbar — filter pill left, controls right */}
         <div style={{
-          display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+          display: 'flex', alignItems: 'center', gap: 6,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-          padding: '10px 16px', marginBottom: 16
+          padding: '8px 14px', marginBottom: 16,
         }}>
-          {/* Filter Dropdown (hover, like tasks page) */}
-          <div 
-            onMouseEnter={() => setShowHoverFilters(true)}
-            onMouseLeave={() => setShowHoverFilters(false)}
-            style={{ position: 'relative', display: 'inline-block' }}
-          >
-            <button
-              style={{
-                padding: '6px 12px',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 12.5,
-                fontWeight: 600,
-                background: filter !== 'all' ? 'var(--olive-50)' : 'var(--surface)',
-                color: filter !== 'all' ? 'var(--olive-dark)' : 'var(--ink-2)',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                transition: 'all 0.15s',
-                height: 32,
-              }}
-            >
-              <Filter size={14} />
-              <span>Filter</span>
-              <ChevronDown size={12} style={{ opacity: 0.7 }} />
-            </button>
-
-            {showHoverFilters && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                marginTop: 6,
-                width: 220,
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--radius)',
-                boxShadow: 'var(--shadow-lg)',
-                zIndex: 999,
-                padding: 12,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-              }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 4, padding: '0 8px' }}>Status</div>
-                {chips.map((chip) => (
-                  <button
-                    key={chip.key}
-                    onClick={() => setFilter(chip.key)}
-                    style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '7px 10px', borderRadius: 'var(--radius-sm)',
-                      fontSize: 12.5, fontWeight: filter === chip.key ? 600 : 500,
-                      border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left',
-                      background: filter === chip.key ? 'var(--olive-50)' : 'transparent',
-                      color: filter === chip.key ? 'var(--olive-dark)' : 'var(--ink-2)',
-                      transition: 'all 0.12s',
-                    }}
-                    onMouseEnter={e => { if (filter !== chip.key) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                    onMouseLeave={e => { if (filter !== chip.key) e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <span>{chip.label}</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 10 }}>{chip.count}</span>
-                  </button>
-                ))}
-              </div>
+          {/* Left: active filter pill */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+            {filter !== 'all' && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>
+                {chips.find(c => c.key === filter)?.label}
+                <X size={10} style={{ cursor: 'pointer' }} onClick={() => setFilter('all')} />
+              </span>
             )}
           </div>
 
-          {/* Active filter badge */}
-          {filter !== 'all' && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
-              {chips.find(c => c.key === filter)?.label}
-              <X size={11} style={{ cursor: 'pointer' }} onClick={() => setFilter('all')} />
-            </span>
-          )}
-
-          {/* Search */}
-          <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-            <input
-              type="text"
-              placeholder="Search clients..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: '100%', padding: '6px 10px 6px 30px', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface-2)', color: 'var(--ink)',
-                outline: 'none', transition: 'all 0.15s', height: 32, boxSizing: 'border-box',
-              }}
-            />
-          </div>
-
-          {/* Separator */}
-          <div style={{ width: 1, height: 24, background: 'var(--border)', margin: '0 2px' }} />
-
-          {isAdmin && (
-            <>
-              <button
-                onClick={() => {
-                  setExportType('clients');
-                  setShowExportModal(true);
-                }}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s, border-color 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-              >
-                Export
+          {/* Right: Search | Export | Upload CSV | Filter | Add Client */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <div style={{ position: 'relative', width: 180 }}>
+              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+              <input
+                type="text"
+                placeholder="Search clients..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: '100%', padding: '5px 10px 5px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }}
+              />
+            </div>
+            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+            {isAdmin && (
+              <>
+                <button
+                  onClick={() => { setExportType('clients'); setShowExportModal(true); }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 10px', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink-2)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
+                  Export
+                </button>
+                <button
+                  onClick={() => setShowCSVModal(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 10px', borderRadius: 'var(--radius-sm)', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--ink-2)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
+                  Upload CSV
+                </button>
+              </>
+            )}
+            {/* Filter Dropdown */}
+            <div
+              onMouseEnter={() => setShowHoverFilters(true)}
+              onMouseLeave={() => setShowHoverFilters(false)}
+              style={{ position: 'relative' }}
+            >
+              <button style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: filter !== 'all' ? 'var(--olive-50)' : 'var(--surface)', color: filter !== 'all' ? 'var(--olive-dark)' : 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                <Filter size={13} /> Filter
+                {filter !== 'all' && (<span style={{ background: 'var(--olive)', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700, padding: '1px 5px', marginLeft: 2 }}>1</span>)}
+                <ChevronDown size={11} style={{ opacity: 0.6 }} />
               </button>
-              <button
-                onClick={() => setShowCSVModal(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--surface)', border: '1px solid var(--border)',
-                  color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s, border-color 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-              >
-                Upload CSV
-              </button>
+              {showHoverFilters && (
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 220, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 999, padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 4, padding: '0 8px' }}>Status</div>
+                  {chips.map((chip) => (
+                    <button key={chip.key} onClick={() => setFilter(chip.key)}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: filter === chip.key ? 600 : 500, border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', background: filter === chip.key ? 'var(--olive-50)' : 'transparent', color: filter === chip.key ? 'var(--olive-dark)' : 'var(--ink-2)', transition: 'all 0.12s' }}
+                      onMouseEnter={e => { if (filter !== chip.key) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                      onMouseLeave={e => { if (filter !== chip.key) e.currentTarget.style.background = 'transparent'; }}>
+                      <span>{chip.label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 10 }}>{chip.count}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {isAdmin && (
               <button
                 onClick={() => setShowAddModal(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--olive)', color: '#fff', border: 'none',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 12px', borderRadius: 'var(--radius-sm)', background: 'var(--olive)', color: '#fff', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
-              >
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}>
                 <Plus size={13} /> Add Client
               </button>
-            </>
-          )}
-
-          {/* View toggle */}
-          {/* <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', background: 'var(--surface-2)' }}>
-            <button
-              onClick={() => setViewMode('table')}
-              style={{
-                padding: '6px 12px',
-                border: 'none',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: viewMode === 'table' ? 'var(--olive)' : 'transparent',
-                color: viewMode === 'table' ? '#fff' : 'var(--ink-2)',
-                transition: 'all 0.15s',
-              }}
-            >
-              Table
-            </button>
-            <button
-              onClick={() => setViewMode('grid')}
-              style={{
-                padding: '6px 12px',
-                border: 'none',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: viewMode === 'grid' ? 'var(--olive)' : 'transparent',
-                color: viewMode === 'grid' ? '#fff' : 'var(--ink-2)',
-                transition: 'all 0.15s',
-              }}
-            >
-              Cards
-            </button>
-          </div> */}
+            )}
+          </div>
         </div>
 
         {/* Table card */}

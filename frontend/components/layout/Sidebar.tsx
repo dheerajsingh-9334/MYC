@@ -30,7 +30,7 @@ const navItems = [
   // Manage section
   { label: 'Reports',         icon: BarChart3,        href: '/reports',         section: 'manage',    roles: ['admin', 'team_leader'] },
   { label: 'Team',            icon: Users,            href: '/team',            section: 'manage',    roles: ['admin', 'team_leader'] },
-  { label: 'Performance',     icon: TrendingUp,       href: '/performance',     section: 'manage',    roles: ['admin'] },
+  // { label: 'Performance',     icon: TrendingUp,       href: '/performance',     section: 'manage',    roles: ['admin'] },
 
 ];
 
