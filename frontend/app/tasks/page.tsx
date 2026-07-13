@@ -16,8 +16,10 @@ import {
   Search, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown,
   ArrowUpDown, CircleCheck, Clock, TriangleAlert, Eye,
   Check, X, FolderOpen, Link2, Upload, FileText, Plus, ExternalLink, AlertCircle,
-  Play, Pause, Pin, Ban, Filter,
+  Play, Pause, Pin, Ban, Filter, Edit2, Trash2
 } from 'lucide-react';
+import ActionDropdown from '@/components/ui/ActionDropdown';
+import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
 
 const AUTO_REFRESH_MS = 30_000;
 const PAGE_SIZE = 15;
@@ -29,6 +31,7 @@ export default function TasksPage() {
   const qc = useQueryClient();
   const [user, setUser] = useState<any>(null);
   const [showCSVModal, setShowCSVModal] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -125,7 +128,7 @@ export default function TasksPage() {
   const { data: liveUsers = [] } = useQuery({
     queryKey: ['users'],
     queryFn: () => apiFetch('/api/users'),
-    enabled: !USE_MOCK && showAddTask && isAdmin,
+    enabled: !USE_MOCK && ((showAddTask && isAdmin) || (!!editingTask && isAdmin)),
     retry: false,
   });
 
@@ -156,6 +159,17 @@ export default function TasksPage() {
       setAddTaskError('');
     },
     onError: (e: any) => setAddTaskError(e.message || 'Failed to create task'),
+  });
+
+  const deleteTaskMut = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/tasks/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to delete task');
+    }
   });
 
   const addTaskTeamOptions = useMemo(() => {
@@ -539,6 +553,43 @@ export default function TasksPage() {
 
   return (
     <AppLayout>
+      {(deleteTaskMut.isPending || completeMut.isPending || rejectMut.isPending || blockMut.isPending || extendMut.isPending || reopenMut.isPending) && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(20,25,12,0.45)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+        }}>
+          <div style={{
+            width: 40,
+            height: 40,
+            border: '3px solid #E5E4DC',
+            borderTop: '3px solid var(--olive)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <p style={{ marginTop: 16, color: '#fff', fontSize: 14, fontWeight: 500 }}>
+            {deleteTaskMut.isPending ? 'Deleting task...' :
+             completeMut.isPending ? 'Completing task...' :
+             rejectMut.isPending ? 'Rejecting task...' :
+             blockMut.isPending ? 'Blocking task...' :
+             extendMut.isPending ? 'Requesting extension...' :
+             reopenMut.isPending ? 'Reopening task...' :
+             'Processing...'}
+          </p>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
       <Topbar
         title={isAdmin ? 'All Tasks' : 'My Tasks'}
         subtitle={isAdmin ? `Org-wide · ${counts.total} tasks` : `${user?.fullName || 'Team Member'} · ${user?.teamName || ''}`}
@@ -547,249 +598,62 @@ export default function TasksPage() {
       />
       <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
 
-        {/* Filter bar */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            
-            {/* Hover Filter Button & Popover */}
-            <div 
-              onMouseEnter={() => setShowHoverFilters(true)}
-              onMouseLeave={() => setShowHoverFilters(false)}
-              style={{ position: 'relative', display: 'inline-block' }}
-            >
-              <button
-                style={{
-                  ...selectStyle,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6,
-                  cursor: 'pointer',
-                  fontWeight: 600,
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--ink-2)',
-                }}
-              >
-                <Filter size={14} />
-                <span>Filters</span>
-                <ChevronDown size={12} style={{ opacity: 0.7 }} />
+        {/* Unified Toolbar */}
+        <div style={{
+          display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+          padding: '10px 16px', marginBottom: 14,
+        }}>
+          <button onClick={() => { const next: Record<string, boolean> = {}; groupedByClient.forEach(g => { next[g.client.id] = true; }); setExpandedClients(next); }}
+            style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', transition: 'all 0.15s' }}>
+            Expand all
+          </button>
+          <button onClick={() => setExpandedClients({})}
+            style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', transition: 'all 0.15s' }}>
+            Collapse all
+          </button>
+          <div style={{ position: 'relative', flex: 1, minWidth: 180, maxWidth: 320 }}>
+            <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+            <input type="text" placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)}
+              style={{ width: '100%', padding: '6px 10px 6px 30px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', transition: 'all 0.15s', boxSizing: 'border-box' }} />
+          </div>
+
+          {/* Active filter badges */}
+          {chipFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>Status: {chips.find(c => c.key === chipFilter)?.label}<X size={11} style={{ cursor: 'pointer' }} onClick={() => setChipFilter('')} /></span>)}
+          {teamFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>Team: {teamFilter}<X size={11} style={{ cursor: 'pointer' }} onClick={() => setTeamFilter('')} /></span>)}
+          {clientFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>Client: {clientOptions.find(c => c.id === clientFilter)?.label}<X size={11} style={{ cursor: 'pointer' }} onClick={() => setClientFilter('')} /></span>)}
+          {assigneeFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>Assignee: {assigneeOptions.find(a => a.id === assigneeFilter)?.name}<X size={11} style={{ cursor: 'pointer' }} onClick={() => setAssigneeFilter('')} /></span>)}
+          {priorityFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>Priority: {priorityFilter}<X size={11} style={{ cursor: 'pointer' }} onClick={() => setPriorityFilter('')} /></span>)}
+          {adminTasksScope === 'mine' && isAdmin && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>My Tasks Only<X size={11} style={{ cursor: 'pointer' }} onClick={() => setAdminTasksScope('all')} /></span>)}
+          {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || (adminTasksScope === 'mine' && isAdmin)) && (
+            <button onClick={() => { setChipFilter(''); setTeamFilter(''); setClientFilter(''); setAssigneeFilter(''); setPriorityFilter(''); setAdminTasksScope('all'); }}
+              style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>Clear all</button>
+          )}
+
+          {/* Right side: Filter + Add Task */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginLeft: 'auto' }}>
+            <div onMouseEnter={() => setShowHoverFilters(true)} onMouseLeave={() => setShowHoverFilters(false)} style={{ position: 'relative', display: 'inline-block' }}>
+              <button style={{ ...selectStyle, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontWeight: 600, background: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) ? 'var(--olive-50)' : 'var(--surface)', border: '1px solid var(--border)', color: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) ? 'var(--olive-dark)' : 'var(--ink-2)' }}>
+                <Filter size={14} /><span>Filters</span><ChevronDown size={12} style={{ opacity: 0.7 }} />
               </button>
-
               {showHoverFilters && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  marginTop: 6,
-                  width: 260,
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)',
-                  boxShadow: 'var(--shadow-lg)',
-                  zIndex: 999,
-                  padding: 16,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 12,
-                }}>
-                  {/* Admin Tasks Scope Toggle (All vs My Tasks) */}
-                  {isAdmin && (
-                    <div>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
-                        Task Visibility
-                      </label>
-                      <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-                        <button
-                          onClick={() => setAdminTasksScope('all')}
-                          style={{
-                            flex: 1,
-                            padding: '6px 0',
-                            border: 'none',
-                            fontSize: 11.5,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            background: adminTasksScope === 'all' ? 'var(--olive)' : 'transparent',
-                            color: adminTasksScope === 'all' ? '#fff' : 'var(--ink-2)',
-                            transition: 'all 0.15s',
-                          }}
-                        >
-                          All Tasks
-                        </button>
-                        <button
-                          onClick={() => setAdminTasksScope('mine')}
-                          style={{
-                            flex: 1,
-                            padding: '6px 0',
-                            border: 'none',
-                            fontSize: 11.5,
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            background: adminTasksScope === 'mine' ? 'var(--olive)' : 'transparent',
-                            color: adminTasksScope === 'mine' ? '#fff' : 'var(--ink-2)',
-                            transition: 'all 0.15s',
-                          }}
-                        >
-                          My Tasks
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Status Filter */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
-                      Status
-                    </label>
-                    <select 
-                      value={chipFilter} 
-                      onChange={(e) => setChipFilter(e.target.value as ChipKind)} 
-                      style={{ ...selectStyle, width: '100%' }}
-                    >
-                      {chips.map(c => (
-                        <option key={c.key} value={c.key}>{c.label} ({c.count})</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Team Filter */}
-                  {isAdmin && (
-                    <div>
-                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
-                        Team
-                      </label>
-                      <select 
-                        value={teamFilter} 
-                        onChange={(e) => setTeamFilter(e.target.value)} 
-                        style={{ ...selectStyle, width: '100%' }}
-                      >
-                        <option value="">All teams</option>
-                        {teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Client Filter */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
-                      Client
-                    </label>
-                    <ClientCombobox
-                      value={clientFilter}
-                      onChange={setClientFilter}
-                      options={clientOptions}
-                      placeholder="All clients"
-                    />
-                  </div>
-
-                  {/* Assignee Filter */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
-                      Assignee
-                    </label>
-                    <select 
-                      value={assigneeFilter} 
-                      onChange={(e) => setAssigneeFilter(e.target.value)} 
-                      style={{ ...selectStyle, width: '100%' }}
-                    >
-                      <option value="">All assignees</option>
-                      {assigneeOptions.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                  </div>
-
-                  {/* Priority Filter */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
-                      Priority
-                    </label>
-                    <select 
-                      value={priorityFilter} 
-                      onChange={(e) => setPriorityFilter(e.target.value)} 
-                      style={{ ...selectStyle, width: '100%' }}
-                    >
-                      <option value="">All priorities</option>
-                      <option value="high">High priority</option>
-                      <option value="medium">Medium priority</option>
-                      <option value="low">Low priority</option>
-                    </select>
-                  </div>
+                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 260, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 999, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {isAdmin && (<div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Task Visibility</label><div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}><button onClick={() => setAdminTasksScope('all')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: adminTasksScope === 'all' ? 'var(--olive)' : 'transparent', color: adminTasksScope === 'all' ? '#fff' : 'var(--ink-2)', transition: 'all 0.15s' }}>All Tasks</button><button onClick={() => setAdminTasksScope('mine')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: adminTasksScope === 'mine' ? 'var(--olive)' : 'transparent', color: adminTasksScope === 'mine' ? '#fff' : 'var(--ink-2)', transition: 'all 0.15s' }}>My Tasks</button></div></div>)}
+                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Status</label><select value={chipFilter} onChange={(e) => setChipFilter(e.target.value as ChipKind)} style={{ ...selectStyle, width: '100%' }}>{chips.map(c => (<option key={c.key} value={c.key}>{c.label} ({c.count})</option>))}</select></div>
+                  {isAdmin && (<div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Team</label><select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All teams</option>{teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>)}
+                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Client</label><ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="All clients" /></div>
+                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Assignee</label><select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All assignees</option>{assigneeOptions.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
+                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Priority</label><select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All priorities</option><option value="high">High priority</option><option value="medium">Medium priority</option><option value="low">Low priority</option></select></div>
                 </div>
               )}
             </div>
-
-            {/* Active filters badges row */}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginLeft: 8 }}>
-              {chipFilter && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
-                  Status: {chips.find(c => c.key === chipFilter)?.label}
-                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setChipFilter('')} />
-                </span>
-              )}
-              {teamFilter && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
-                  Team: {teamFilter}
-                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setTeamFilter('')} />
-                </span>
-              )}
-              {clientFilter && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
-                  Client: {clientOptions.find(c => c.id === clientFilter)?.label}
-                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setClientFilter('')} />
-                </span>
-              )}
-              {assigneeFilter && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
-                  Assignee: {assigneeOptions.find(a => a.id === assigneeFilter)?.name}
-                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setAssigneeFilter('')} />
-                </span>
-              )}
-              {priorityFilter && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
-                  Priority: {priorityFilter}
-                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setPriorityFilter('')} />
-                </span>
-              )}
-              {adminTasksScope === 'mine' && isAdmin && (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
-                  My Tasks Only
-                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setAdminTasksScope('all')} />
-                </span>
-              )}
-              {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || (adminTasksScope === 'mine' && isAdmin)) && (
-                <button
-                  onClick={() => {
-                    setChipFilter('');
-                    setTeamFilter('');
-                    setClientFilter('');
-                    setAssigneeFilter('');
-                    setPriorityFilter('');
-                    setAdminTasksScope('all');
-                  }}
-                  style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-
-          </div>
-          {isAdmin && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
-                onClick={() => setShowAddTask(true)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)',
-                  background: 'var(--olive)', color: '#fff', border: 'none',
-                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
-              >
+            {isAdmin && (
+              <button onClick={() => setShowAddTask(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)', background: 'var(--olive)', color: '#fff', border: 'none', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', transition: 'background 0.15s' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}>
                 <Plus size={14} /> Add Task
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <SectionCard padding={0}>
@@ -799,35 +663,25 @@ export default function TasksPage() {
             <>
               <div
                 onScroll={handleTaskScroll}
-                style={{
-                  maxHeight: 'calc(100vh - 200px)',
-                  minHeight: 500,
-                  overflowY: 'auto',
-                  overflowX: 'auto',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)',
-                  margin: '16px 20px 20px',
-                  background: 'var(--surface)',
-                }}
+                style={{ maxHeight: 'calc(100vh - 200px)', minHeight: 500, overflowY: 'auto', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', margin: '16px 20px 20px', background: 'var(--surface)' }}
               >
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10 }}>
-                      <Th onClick={() => toggleSort('title')} active={sortKey === 'title'} dir={sortDir} width="35%">Client</Th>
+                      <Th onClick={() => toggleSort('title')} active={sortKey === 'title'} dir={sortDir} width="40%">Task</Th>
                       <Th onClick={() => toggleSort('team')} active={sortKey === 'team'} dir={sortDir} width="15%">Team</Th>
                       <Th onClick={() => toggleSort('status')} active={sortKey === 'status'} dir={sortDir} width="15%">Status</Th>
                       <Th onClick={() => toggleSort('dueDate')} active={sortKey === 'dueDate'} dir={sortDir} width="15%">When (due)</Th>
                       <Th align="center" width="15%">Actions</Th>
-                      <Th align="center" width="5%">Vault</Th>
                     </tr>
                   </thead>
                   <tbody>
                     {scrollableTasks.length === 0 ? (
-                      <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks match your filters.</td></tr>
+                      <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks match your filters.</td></tr>
                     ) : groupedByClient.map((group) => {
                       const client = group.client;
                       const clientTasks = group.tasks;
-                      const isExpanded = expandedClients[client.id] ?? false;
+                      const isExpanded = expandedClients[client.id] ?? true;
 
                       const statusCounts = {
                         pending: clientTasks.filter(t => t.status === 'pending').length,
@@ -860,7 +714,7 @@ export default function TasksPage() {
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                           >
-                            <td colSpan={6} style={{ padding: '10px 18px', fontWeight: 600 }}>
+                            <td colSpan={5} style={{ padding: '10px 18px', fontWeight: 600 }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <span style={{ 
@@ -871,11 +725,15 @@ export default function TasksPage() {
                                     color: 'var(--muted)',
                                     flexShrink: 0 
                                   }}>▶</span>
-                                  <span style={{ fontSize: 13, color: 'var(--ink)' }}>
+                                  <span style={{
+                                    fontSize: 13.5, fontWeight: 700, color: 'var(--olive-dark)',
+                                    background: 'var(--olive-50)', padding: '3px 10px', borderRadius: 6,
+                                    border: '1px solid var(--olive-100)', letterSpacing: '0.2px',
+                                  }}>
                                     {client.brandName || client.fullName || 'No Client'}
                                   </span>
                                   <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>
-                                    ({clientTasks.length} {clientTasks.length === 1 ? 'task' : 'tasks'})
+                                    {clientTasks.length} {clientTasks.length === 1 ? 'task' : 'tasks'}
                                   </span>
                                 </div>
                                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -923,6 +781,8 @@ export default function TasksPage() {
                               onStartTimer={() => startTimerMut.mutate(t.id)}
                               onStopTimer={() => stopTimerMut.mutate(t.id)}
                               onStatusChange={(id, status) => statusMut.mutate({ id, status })}
+                              onUpdateTask={(task) => setEditingTask(task)}
+                              onDeleteTask={(id) => deleteTaskMut.mutate(id)}
                             />
                           ))}
                         </Fragment>
@@ -940,41 +800,41 @@ export default function TasksPage() {
       {vaultTask && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 24 }}
           onClick={(e) => { if (e.target === e.currentTarget) closeVaultModal(); }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 560, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 560, maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)', animation: 'modalIn 0.2s ease-out', overflow: 'hidden' }}>
 
             {/* Modal header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 22px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: 'linear-gradient(135deg,#4285F4,#34A853)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <FolderOpen size={17} color="#fff" />
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {vaultTask.title}
+            <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: 'linear-gradient(135deg,#4285F4,#34A853)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <FolderOpen size={17} color="#fff" />
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>
-                  {vaultTask.client?.brandName || vaultTask.client?.fullName} · Step {vaultTask.step?.stepNumber} — {vaultTask.step?.name}
+                <div>
+                  <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>{vaultTask.title}</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+                    {vaultTask.client?.brandName || vaultTask.client?.fullName} · Step {vaultTask.step?.stepNumber} — {vaultTask.step?.name}
+                  </div>
                 </div>
               </div>
-              <button onClick={closeVaultModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
+              <button onClick={closeVaultModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
             </div>
 
             {/* Add link form */}
-            <div style={{ padding: '16px 22px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 10, letterSpacing: '0.3px', textTransform: 'uppercase' }}>Add Drive link</div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <input placeholder="https://drive.google.com/…" value={vaultLinkUrl}
                     onChange={(e) => setVaultLinkUrl(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && submitVaultLink()}
-                    style={{ padding: '7px 11px', border: '1px solid var(--border)', borderRadius: 7, fontSize: 12.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: 'monospace' }} />
+                    style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', width: '100%', boxSizing: 'border-box', fontFamily: 'monospace' }} />
                 </div>
                 <div style={{ width: 160 }}>
                   <input placeholder="Title (optional)" value={vaultLinkTitle}
                     onChange={(e) => setVaultLinkTitle(e.target.value)}
-                    style={{ padding: '7px 11px', border: '1px solid var(--border)', borderRadius: 7, fontSize: 12.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+                    style={{ padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
                 </div>
                 <button onClick={submitVaultLink} disabled={addVaultLink.isPending}
-                  style={{ padding: '7px 14px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  style={{ padding: '8px 14px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, height: 37 }}>
                   <Link2 size={12} /> {addVaultLink.isPending ? 'Saving…' : 'Add'}
                 </button>
               </div>
@@ -986,7 +846,7 @@ export default function TasksPage() {
             </div>
 
             {/* Doc list */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 0' }} className="custom-scrollbar">
               {vaultDocsQuery.isLoading ? (
                 <div style={{ padding: 32, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Loading…</div>
               ) : (vaultDocsQuery.data as any[])?.length === 0 ? (
@@ -997,7 +857,7 @@ export default function TasksPage() {
                 </div>
               ) : (vaultDocsQuery.data as {id: string; title: string; driveUrl?: string; notes?: string}[])?.map((doc) => (
                 <div key={doc.id}
-                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 22px', borderBottom: '1px solid var(--surface-2)' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 24px', borderBottom: '1px solid var(--surface-2)' }}
                   onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
                   onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                   <span style={{ fontSize: 16 }}>{doc.driveUrl?.includes('spreadsheets') ? '📗' : doc.driveUrl?.includes('document') ? '📘' : '📁'}</span>
@@ -1022,8 +882,8 @@ export default function TasksPage() {
             </div>
 
             {/* Footer */}
-            <div style={{ padding: '12px 22px', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={closeVaultModal} style={{ padding: '7px 16px', border: '1px solid var(--border)', borderRadius: 7, fontSize: 13, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer' }}>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', flexShrink: 0, display: 'flex', justifyContent: 'flex-end', background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)' }}>
+              <button onClick={closeVaultModal} style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer' }}>
                 Done
               </button>
             </div>
@@ -1033,20 +893,25 @@ export default function TasksPage() {
 
       {/* Reject modal (admin only) */}
       {rejectTaskId && isAdmin && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
           onClick={(e) => { if (e.target === e.currentTarget) { setRejectTaskId(null); setRejectionNote(''); } }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 460, padding: '24px', boxShadow: 'var(--shadow-lg)' }}>
-            <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Modal header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 20, color: 'var(--ink)' }}>Reject task</div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>Tell the assignee what needs to change.</div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Reject task</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Tell the assignee what needs to change.</div>
               </div>
-              <button onClick={() => { setRejectTaskId(null); setRejectionNote(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)' }}><X size={18} /></button>
+              <button onClick={() => { setRejectTaskId(null); setRejectionNote(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
             </div>
-            <textarea value={rejectionNote} onChange={(e) => setRejectionNote(e.target.value)} autoFocus rows={4}
-              placeholder="e.g. Wrong client attached — this should be for Priya, not Vikram."
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical' }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+            {/* Modal body */}
+            <div style={{ padding: '20px 24px', flex: 1 }}>
+              <textarea value={rejectionNote} onChange={(e) => setRejectionNote(e.target.value)} autoFocus rows={4}
+                placeholder="e.g. Wrong client attached — this should be for Priya, not Vikram."
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+            </div>
+            {/* Modal footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
               <button onClick={() => { setRejectTaskId(null); setRejectionNote(''); }}
                 style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer' }}>
                 Cancel
@@ -1063,20 +928,25 @@ export default function TasksPage() {
 
       {/* Blocker modal (staff or leader) */}
       {blockerTaskId && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
           onClick={(e) => { if (e.target === e.currentTarget) { setBlockerTaskId(null); setBlockerNote(''); } }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 460, padding: '24px', boxShadow: 'var(--shadow-lg)' }}>
-            <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Modal header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 20, color: 'var(--ink)' }}>Raise Blocker</div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>Why is this task blocked?</div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Raise Blocker</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Why is this task blocked?</div>
               </div>
-              <button onClick={() => { setBlockerTaskId(null); setBlockerNote(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)' }}><X size={18} /></button>
+              <button onClick={() => { setBlockerTaskId(null); setBlockerNote(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
             </div>
-            <textarea value={blockerNote} onChange={(e) => setBlockerNote(e.target.value)} autoFocus rows={4}
-              placeholder="e.g. Waiting on client response for branding assets."
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical' }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+            {/* Modal body */}
+            <div style={{ padding: '20px 24px', flex: 1 }}>
+              <textarea value={blockerNote} onChange={(e) => setBlockerNote(e.target.value)} autoFocus rows={4}
+                placeholder="e.g. Waiting on client response for branding assets."
+                style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+            </div>
+            {/* Modal footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
               <button onClick={() => { setBlockerTaskId(null); setBlockerNote(''); }}
                 style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer' }}>
                 Cancel
@@ -1093,33 +963,36 @@ export default function TasksPage() {
 
       {/* Extend modal (staff or leader) */}
       {extendTaskId && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
           onClick={(e) => { if (e.target === e.currentTarget) { setExtendTaskId(null); setExtensionDate(''); setExtensionReason(''); } }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 460, padding: '24px', boxShadow: 'var(--shadow-lg)' }}>
-            <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 460, boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Modal header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 20, color: 'var(--ink)' }}>Request Extension</div>
-                <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>Request a new deadline for this task.</div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Request Extension</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Request a new deadline for this task.</div>
               </div>
-              <button onClick={() => { setExtendTaskId(null); setExtensionDate(''); setExtensionReason(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)' }}><X size={18} /></button>
+              <button onClick={() => { setExtendTaskId(null); setExtensionDate(''); setExtensionReason(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
             </div>
-            
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>New Requested Date</label>
-              <input type="date" value={extensionDate} onChange={(e) => setExtensionDate(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
-            </div>
+            {/* Modal body */}
+            <div style={{ padding: '20px 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>New Requested Date</label>
+                <input type="date" value={extensionDate} onChange={(e) => setExtensionDate(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
 
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Reason for Extension</label>
-              <textarea value={extensionReason} onChange={(e) => setExtensionReason(e.target.value)} rows={3}
-                placeholder="e.g. Client requested revisions that delayed completion."
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical' }} />
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Reason for Extension</label>
+                <textarea value={extensionReason} onChange={(e) => setExtensionReason(e.target.value)} rows={3}
+                  placeholder="e.g. Client requested revisions that delayed completion."
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+              </div>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
+            {/* Modal footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px', flexShrink: 0 }}>
               <button onClick={() => { setExtendTaskId(null); setExtensionDate(''); setExtensionReason(''); }}
-                style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer' }}>
+                style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
                 Cancel
               </button>
               <button onClick={() => extendMut.mutate({ id: extendTaskId, date: extensionDate, reason: extensionReason })}
@@ -1134,12 +1007,17 @@ export default function TasksPage() {
       {showAddTask && isAdmin && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowAddTask(false); }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 500, boxShadow: 'var(--shadow-lg)' }}>
-            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Create & Assign Task</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 500, boxShadow: 'var(--shadow-lg)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Modal header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Create & Assign Task</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Add a new task to a project or client onboarding pipeline.</div>
+              </div>
               <button onClick={() => setShowAddTask(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
             </div>
-            <div style={{ padding: '20px 24px' }}>
+            {/* Modal body */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Project / Client *</label>
                 <select value={addTaskForm.clientId} onChange={(e) => setAddTaskForm(f => ({ ...f, clientId: e.target.value, stepId: '' }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
@@ -1205,7 +1083,8 @@ export default function TasksPage() {
 
               {addTaskError && <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13, marginBottom: 12 }}>{addTaskError}</div>}
             </div>
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+            {/* Modal footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
               <button onClick={() => setShowAddTask(false)} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
               <button onClick={() => { setAddTaskError(''); addTaskMut.mutate(); }} disabled={addTaskMut.isPending || !addTaskForm.clientId || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId}
                 style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (addTaskMut.isPending || !addTaskForm.clientId || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId) ? 0.6 : 1 }}>
@@ -1230,23 +1109,29 @@ export default function TasksPage() {
       {completeTaskId && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
           onClick={(e) => { if (e.target === e.currentTarget) setCompleteTaskId(null); }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)' }}>
-            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Complete Task</div>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Modal header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Complete Task</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Submit proof of work details to mark this task as complete.</div>
+              </div>
               <button onClick={() => setCompleteTaskId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
             </div>
-            <div style={{ padding: '20px 24px' }}>
+            {/* Modal body */}
+            <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
               <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>Please provide proof of work details (optional but recommended) to upload to the Vault.</p>
               <div style={{ marginBottom: 14 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Proof Link (e.g. Drive, Loom, Figma)</label>
-                <input type="url" value={proofLink} onChange={e => setProofLink(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
+                <input type="url" value={proofLink} onChange={e => setProofLink(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', boxSizing: 'border-box' }} />
               </div>
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Comment / Description</label>
-                <textarea value={proofDescription} onChange={e => setProofDescription(e.target.value)} placeholder="Any additional details or comments..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical' }} />
+                <textarea value={proofDescription} onChange={e => setProofDescription(e.target.value)} placeholder="Any additional details or comments..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical', boxSizing: 'border-box' }} />
               </div>
             </div>
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+            {/* Modal footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
               <button onClick={() => { setCompleteTaskId(null); setProofLink(''); setProofDescription(''); }} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
               <button
                 onClick={() => {
@@ -1263,6 +1148,15 @@ export default function TasksPage() {
           </div>
         </div>
       )}
+      {editingTask && isAdmin && (
+        <UpdateTaskModal
+          open={!!editingTask}
+          onClose={() => setEditingTask(null)}
+          onSuccess={() => qc.invalidateQueries({ queryKey: ['tasks'] })}
+          task={editingTask}
+          users={liveUsers || []}
+        />
+      )}
     </AppLayout>
   );
 }
@@ -1270,7 +1164,7 @@ export default function TasksPage() {
 // ── Staff / admin task row ────────────────────────────────────────────────
 
 function StaffTaskRow({
-  task: t, isAdmin, isLeader, isNested, onPinToggle, onAlertToggle, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend, onStartTimer, onStopTimer, onStatusChange,
+  task: t, isAdmin, isLeader, isNested, onPinToggle, onAlertToggle, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend, onStartTimer, onStopTimer, onStatusChange, onUpdateTask, onDeleteTask,
 }: {
   task: any; isAdmin: boolean; isLeader?: boolean; isNested?: boolean;
   onPinToggle?: (id: string, pin: boolean) => void;
@@ -1285,6 +1179,8 @@ function StaffTaskRow({
   onStartTimer?: () => void;
   onStopTimer?: () => void;
   onStatusChange?: (id: string, status: string) => void;
+  onUpdateTask?: (task: any) => void;
+  onDeleteTask?: (id: string) => void;
 }) {
   const done = t.status === 'complete';
   const rej = t.status === 'rejected' || t.status === 'cancelled';
@@ -1436,67 +1332,99 @@ function StaffTaskRow({
         {whenLabel}
       </td>
       <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', width: '15%' }}>
-        <div style={{ display: 'inline-flex', gap: 4, alignItems: 'center', justifyContent: 'center' }}>
-          {!isAdmin && !done && (
-            <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-              <select
-                value={t.status}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === 'in_progress') {
-                    onStartTimer?.();
-                  } else if (val === 'pending') {
-                    onStatusChange?.(t.id, 'pending');
-                  } else if (val === 'complete') {
-                    onComplete();
-                  } else if (val === 'blocked') {
-                    onBlock?.();
-                  } else if (val === 'extension_requested') {
-                    onExtend?.();
-                  }
-                }}
-                style={{
-                  padding: '4px 8px',
-                  borderRadius: 6,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  color: 'var(--ink-2)',
-                  fontSize: 12,
-                  fontWeight: 500,
-                  outline: 'none',
-                  cursor: 'pointer',
-                }}
-              >
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="complete">Complete...</option>
-                <option value="extension_requested">Request Extension...</option>
-              </select>
-              {t.status !== 'extension_requested' && t.status !== 'blocked' && (
-                <IconBtn title="Request Extension" onClick={() => onExtend?.()}>
-                  <Clock size={11} />
-                </IconBtn>
-              )}
-            </div>
-          )}
-          {isAdmin && !done && t.status !== 'blocked' && (
-            <IconBtn title="Block Task" onClick={() => onBlock?.()}><Ban size={11} /></IconBtn>
-          )}
-          {isAdmin && !done && t.status === 'extension_requested' && (
-            <IconBtn title="Reject" onClick={onReject}><XCircle size={11} /></IconBtn>
-          )}
-          {isAdmin && t.status === 'blocked' && (
-            <IconBtn title="Reopen" onClick={onReopen}><RotateCcw size={11} /></IconBtn>
-          )}
-          <IconBtn title="Open client" onClick={() => window.location.assign(`/clients/${t.client?.id}`)}><Eye size={11} /></IconBtn>
-        </div>
-      </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', width: '5%' }}>
-        <div style={{ display: 'inline-flex', justifyContent: 'center', width: '100%' }}>
-          <IconBtn title="Documents" onClick={onOpenVault}>
-            <FolderOpen size={11} />
-          </IconBtn>
-        </div>
+        {(() => {
+          const dropdownActions = [];
+
+          // Staff status actions
+          if (!isAdmin && !done) {
+            if (t.status !== 'pending') {
+              dropdownActions.push({
+                label: 'Mark Pending',
+                icon: <Clock size={13} />,
+                onClick: () => onStatusChange?.(t.id, 'pending'),
+              });
+            }
+            if (t.status !== 'in_progress') {
+              dropdownActions.push({
+                label: 'Mark In Progress',
+                icon: <Play size={13} />,
+                onClick: () => onStartTimer?.(),
+              });
+            }
+            dropdownActions.push({
+              label: 'Complete Task',
+              icon: <Check size={13} />,
+              onClick: onComplete,
+            });
+            if (t.status !== 'extension_requested' && t.status !== 'blocked') {
+              dropdownActions.push({
+                label: 'Request Extension',
+                icon: <Clock size={13} />,
+                onClick: () => onExtend?.(),
+              });
+            }
+          }
+
+          // Admin actions
+          if (isAdmin && !done && t.status !== 'blocked') {
+            dropdownActions.push({
+              label: 'Block Task',
+              icon: <Ban size={13} />,
+              onClick: () => onBlock?.(),
+              danger: true,
+            });
+          }
+          if (isAdmin && !done && t.status === 'extension_requested') {
+            dropdownActions.push({
+              label: 'Reject Extension',
+              icon: <XCircle size={13} />,
+              onClick: onReject,
+              danger: true,
+            });
+          }
+          if (isAdmin && t.status === 'blocked') {
+            dropdownActions.push({
+              label: 'Reopen Task',
+              icon: <RotateCcw size={13} />,
+              onClick: onReopen,
+            });
+          }
+
+          // General actions
+          dropdownActions.push({
+            label: 'Open Client',
+            icon: <Eye size={13} />,
+            onClick: () => window.location.assign(`/clients/${t.client?.id}`),
+          });
+          if (isAdmin) {
+            dropdownActions.push({
+              label: 'Update',
+              icon: <Edit2 size={13} />,
+              onClick: () => onUpdateTask?.(t),
+            });
+            dropdownActions.push({
+              label: 'Delete',
+              icon: <Trash2 size={13} />,
+              onClick: () => {
+                if (confirm(`Are you sure you want to delete task "${t.title}"?`)) {
+                  onDeleteTask?.(t.id);
+                }
+              },
+              danger: true,
+            });
+          }
+
+          // Vault / Documents
+          dropdownActions.push({
+            label: 'View Documents',
+            icon: <FolderOpen size={13} />,
+            onClick: onOpenVault,
+          });
+
+          return (
+            <ActionDropdown align="right" actions={dropdownActions} />
+          );
+        })()}
       </td>
     </tr>
   );

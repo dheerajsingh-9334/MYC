@@ -311,6 +311,36 @@ router.delete('/:docId', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// PATCH /api/vault/:docId — update a document. Admin only.
+router.patch('/:docId', requireAuth, async (req: Request, res: Response) => {
+  try {
+    if (req.user.role !== 'admin') {
+      res.status(403).json({ error: 'Admin only' });
+      return;
+    }
+    const doc = await prisma.document.findFirst({
+      where: { id: req.params.docId, organisationId: req.user.orgId },
+    });
+    if (!doc) { res.status(404).json({ error: 'Document not found' }); return; }
+
+    const { title, description, notes, driveUrl } = req.body;
+    
+    const updated = await prisma.document.update({
+      where: { id: doc.id },
+      data: {
+        title: title !== undefined ? title : undefined,
+        description: description !== undefined ? description : undefined,
+        notes: notes !== undefined ? notes : undefined,
+        driveUrl: driveUrl !== undefined ? driveUrl : undefined,
+      }
+    });
+    res.json(updated);
+  } catch (err) {
+    console.error('[vault] PATCH error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Helper to format document for response
 function formatDocNode(d: any) {
   return {

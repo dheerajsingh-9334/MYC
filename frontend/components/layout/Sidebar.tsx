@@ -31,7 +31,7 @@ const navItems = [
   { label: 'Reports',         icon: BarChart3,        href: '/reports',         section: 'manage',    roles: ['admin', 'team_leader'] },
   { label: 'Team',            icon: Users,            href: '/team',            section: 'manage',    roles: ['admin', 'team_leader'] },
   { label: 'Performance',     icon: TrendingUp,       href: '/performance',     section: 'manage',    roles: ['admin'] },
-  { label: 'Step Config',     icon: Settings,         href: '/settings/steps',  section: 'manage',    roles: ['admin'] },
+
 ];
 
 const ROLE_BADGE: Record<string, { label: string; color: string; bg: string }> = {

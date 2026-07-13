@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { apiFetch, getUser } from '@/lib/api';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
@@ -8,11 +8,13 @@ import DashboardHeader from '@/components/ui/DashboardHeader';
 import StatCard from '@/components/ui/StatCard';
 import SectionCard from '@/components/ui/SectionCard';
 import { deriveSparkline } from '@/lib/sparkline';
-import { ArrowRight, ArrowUpDown, Search, UserPlus, CircleCheck, Clock, TriangleAlert, Sparkles, Users, Download, X, Pin, Plus } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, Search, UserPlus, CircleCheck, Clock, TriangleAlert, Sparkles, Users, Download, X, Pin, Plus, Eye, Edit2, Trash2, Filter, ChevronDown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { USE_MOCK, MOCK_CLIENTS, MOCK_STATS } from '@/lib/mockData';
 import AddClientModal from '@/components/pipeline/AddClientModal';
+import UpdateClientModal from '@/components/pipeline/UpdateClientModal';
 import CSVImportModal from '@/components/ui/CSVImportModal';
+import ActionDropdown from '@/components/ui/ActionDropdown';
 
 export default function ClientsPage() {
   const router = useRouter();
@@ -42,9 +44,12 @@ export default function ClientsPage() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [showHoverFilters, setShowHoverFilters] = useState(false);
   const qc = useQueryClient();
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingClient, setEditingClient] = useState<any>(null);
+  const [deletingClient, setDeletingClient] = useState<any>(null);
   const [showCSVModal, setShowCSVModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportType, setExportType] = useState('clients');
@@ -112,6 +117,17 @@ export default function ClientsPage() {
     queryFn: () => apiFetch('/api/tasks'),
     enabled: !USE_MOCK,
     retry: false,
+  });
+
+  const deleteClientMut = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/clients/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to delete client');
+    }
   });
 
   const stats = USE_MOCK ? MOCK_STATS : liveStats;
@@ -275,126 +291,266 @@ export default function ClientsPage() {
 
   return (
     <AppLayout>
+      {/* Global loading spinner for delete */}
+      {deleteClientMut.isPending && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.55)',
+          backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+        }}>
+          <div style={{
+            width: 44, height: 44,
+            border: '3px solid rgba(255,255,255,0.2)',
+            borderTop: '3px solid #fff',
+            borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+          }} />
+          <p style={{ marginTop: 16, color: '#fff', fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>Deleting client...</p>
+          <p style={{ marginTop: 4, color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Please wait, this may take a moment</p>
+          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deletingClient && !deleteClientMut.isPending && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setDeletingClient(null); }}
+        >
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', animation: 'modalIn 0.2s ease-out' }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Delete Client</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>This action cannot be undone.</div>
+              </div>
+              <button onClick={() => setDeletingClient(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <div style={{ padding: '12px 16px', background: 'var(--red-bg, #FDF2F2)', border: '1px solid var(--red, #E53E3E)22', borderRadius: 8, fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5 }}>
+                Are you sure you want to permanently delete <strong>{deletingClient.brandName || deletingClient.fullName}</strong>? All tasks, documents, and history will be removed.
+              </div>
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+              <button
+                onClick={() => setDeletingClient(null)}
+                style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const id = deletingClient.id;
+                  setDeletingClient(null);
+                  deleteClientMut.mutate(id);
+                }}
+                style={{ padding: '8px 18px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: '#C53030', color: '#fff', cursor: 'pointer' }}
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <Topbar
         title="Clients"
         subtitle={`${allClients.filter((c: any) => c.status === 'active').length} active clients · ${allClients.length} total`}
-        search={search}
-        setSearch={setSearch}
       />
       <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
-       
+        {/* Unified Toolbar: Filter, Search, Export, Upload, Add Client, View Toggle — all in one row */}
+        <div style={{
+          display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+          padding: '10px 16px', marginBottom: 16
+        }}>
+          {/* Filter Dropdown (hover, like tasks page) */}
+          <div 
+            onMouseEnter={() => setShowHoverFilters(true)}
+            onMouseLeave={() => setShowHoverFilters(false)}
+            style={{ position: 'relative', display: 'inline-block' }}
+          >
+            <button
+              style={{
+                padding: '6px 12px',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: 12.5,
+                fontWeight: 600,
+                background: filter !== 'all' ? 'var(--olive-50)' : 'var(--surface)',
+                color: filter !== 'all' ? 'var(--olive-dark)' : 'var(--ink-2)',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                transition: 'all 0.15s',
+                height: 32,
+              }}
+            >
+              <Filter size={14} />
+              <span>Filter</span>
+              <ChevronDown size={12} style={{ opacity: 0.7 }} />
+            </button>
+
+            {showHoverFilters && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                marginTop: 6,
+                width: 220,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                boxShadow: 'var(--shadow-lg)',
+                zIndex: 999,
+                padding: 12,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 4, padding: '0 8px' }}>Status</div>
+                {chips.map((chip) => (
+                  <button
+                    key={chip.key}
+                    onClick={() => setFilter(chip.key)}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '7px 10px', borderRadius: 'var(--radius-sm)',
+                      fontSize: 12.5, fontWeight: filter === chip.key ? 600 : 500,
+                      border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left',
+                      background: filter === chip.key ? 'var(--olive-50)' : 'transparent',
+                      color: filter === chip.key ? 'var(--olive-dark)' : 'var(--ink-2)',
+                      transition: 'all 0.12s',
+                    }}
+                    onMouseEnter={e => { if (filter !== chip.key) e.currentTarget.style.background = 'var(--surface-2)'; }}
+                    onMouseLeave={e => { if (filter !== chip.key) e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <span>{chip.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 10 }}>{chip.count}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Active filter badge */}
+          {filter !== 'all' && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
+              {chips.find(c => c.key === filter)?.label}
+              <X size={11} style={{ cursor: 'pointer' }} onClick={() => setFilter('all')} />
+            </span>
+          )}
+
+          {/* Search */}
+          <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+            <input
+              type="text"
+              placeholder="Search clients..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: '100%', padding: '6px 10px 6px 30px', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface-2)', color: 'var(--ink)',
+                outline: 'none', transition: 'all 0.15s', height: 32, boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          {/* Separator */}
+          <div style={{ width: 1, height: 24, background: 'var(--border)', margin: '0 2px' }} />
+
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => {
+                  setExportType('clients');
+                  setShowExportModal(true);
+                }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+              >
+                Export
+              </button>
+              <button
+                onClick={() => setShowCSVModal(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
+              >
+                Upload CSV
+              </button>
+              <button
+                onClick={() => setShowAddModal(true)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
+                  background: 'var(--olive)', color: '#fff', border: 'none',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
+              >
+                <Plus size={13} /> Add Client
+              </button>
+            </>
+          )}
+
+          {/* View toggle */}
+          {/* <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', background: 'var(--surface-2)' }}>
+            <button
+              onClick={() => setViewMode('table')}
+              style={{
+                padding: '6px 12px',
+                border: 'none',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: viewMode === 'table' ? 'var(--olive)' : 'transparent',
+                color: viewMode === 'table' ? '#fff' : 'var(--ink-2)',
+                transition: 'all 0.15s',
+              }}
+            >
+              Table
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              style={{
+                padding: '6px 12px',
+                border: 'none',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: viewMode === 'grid' ? 'var(--olive)' : 'transparent',
+                color: viewMode === 'grid' ? '#fff' : 'var(--ink-2)',
+                transition: 'all 0.15s',
+              }}
+            >
+              Cards
+            </button>
+          </div> */}
+        </div>
 
         {/* Table card */}
         <SectionCard
           style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
-          title={
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              Client Pipeline
-              <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                <ArrowUpDown size={11} /> Sorted by status
-              </span>
-            </span>
-          }
-          action={
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              {isAdmin && (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button
-                    onClick={() => {
-                      setExportType('clients');
-                      setShowExportModal(true);
-                    }}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
-                      background: 'var(--surface)', border: '1px solid var(--border)',
-                      color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      transition: 'background 0.15s, border-color 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-                  >
-                    Export Clients
-                  </button>
-                  <button
-                    onClick={() => setShowCSVModal(true)}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
-                      background: 'var(--surface)', border: '1px solid var(--border)',
-                      color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      transition: 'background 0.15s, border-color 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)'; }}
-                  >
-                    Upload CSV
-                  </button>
-                  <button
-                    onClick={() => setShowAddModal(true)}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 6,
-                      height: 32, padding: '0 12px', borderRadius: 'var(--radius-sm)',
-                      background: 'var(--olive)', color: '#fff', border: 'none',
-                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
-                  >
-                    <Plus size={13} /> Add Client
-                  </button>
-                </div>
-              )}
-
-              {/* View toggle */}
-              <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', background: 'var(--surface-2)' }}>
-                <button
-                  onClick={() => setViewMode('table')}
-                  style={{
-                    padding: '6px 12px',
-                    border: 'none',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: viewMode === 'table' ? 'var(--olive)' : 'transparent',
-                    color: viewMode === 'table' ? '#fff' : 'var(--ink-2)',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  Table
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  style={{
-                    padding: '6px 12px',
-                    border: 'none',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    background: viewMode === 'grid' ? 'var(--olive)' : 'transparent',
-                    color: viewMode === 'grid' ? '#fff' : 'var(--ink-2)',
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  Cards
-                </button>
-              </div>
-            </div>
-          }
           padding={0}
         >
-          {/* Filter chips */}
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {chips.map((chip) => (
-              <button key={chip.key} onClick={() => setFilter(chip.key)}
-                style={{ padding: '5px 11px', borderRadius: 999, fontSize: 12, fontWeight: 500, border: '1px solid', cursor: 'pointer', transition: 'background 0.12s, color 0.12s, border-color 0.12s', borderColor: filter === chip.key ? 'var(--olive)' : 'var(--border)', background: filter === chip.key ? 'var(--olive)' : 'var(--surface)', color: filter === chip.key ? '#fff' : 'var(--ink-2)' }}>
-                {chip.label}
-                <span style={{ background: filter === chip.key ? 'rgba(255,255,255,0.25)' : 'var(--surface-2)', padding: '1px 6px', borderRadius: 10, fontSize: 10.5, marginLeft: 4 }}>{chip.count}</span>
-              </button>
-            ))}
-          </div>
 
           {viewMode === 'grid' ? (
             <div 
@@ -562,7 +718,7 @@ export default function ClientsPage() {
                       <th style={{ ...thStyleBase, ...colStyles.status }}>Status</th>
                       <th style={{ ...thStyleBase, ...colStyles.daysInStep }}>Days in Step</th>
                       <th style={{ ...thStyleBase, ...colStyles.duration }}>Total Duration</th>
-                      <th style={{ ...thStyleBase, ...colStyles.actions }}></th>
+                      <th style={{ ...thStyleBase, ...colStyles.actions }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -656,14 +812,29 @@ export default function ClientsPage() {
                             </span>
                           </td>
                           <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.actions }}>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); router.push(`/clients/${client.id}`); }}
-                              style={{ padding: '5px 11px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'background 0.12s, border-color 0.12s, color 0.12s', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-                              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--olive)'; (e.currentTarget as HTMLElement).style.color = 'var(--olive)'; }}
-                              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.color = 'var(--ink-2)'; }}
-                            >
-                              View <ArrowRight size={11} />
-                            </button>
+                            <ActionDropdown
+                              align="right"
+                              actions={[
+                                {
+                                  label: 'View',
+                                  icon: <Eye size={13} />,
+                                  onClick: () => router.push(`/clients/${client.id}`),
+                                },
+                                {
+                                  label: 'Update',
+                                  icon: <Edit2 size={13} />,
+                                  onClick: () => setEditingClient(client),
+                                },
+                                {
+                                  label: 'Delete',
+                                  icon: <Trash2 size={13} />,
+                                  onClick: (e?: React.MouseEvent) => {
+                                    setDeletingClient(client);
+                                  },
+                                  danger: true,
+                                }
+                              ]}
+                            />
                           </td>
                         </tr>
                       );
@@ -680,6 +851,17 @@ export default function ClientsPage() {
       <AddClientModal
         open={showAddModal}
         onClose={() => setShowAddModal(false)}
+        onSuccess={() => {
+          qc.invalidateQueries({ queryKey: ['clients'] });
+          qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+        }}
+      />
+
+      {/* Global Update Client Modal */}
+      <UpdateClientModal
+        open={!!editingClient}
+        client={editingClient}
+        onClose={() => setEditingClient(null)}
         onSuccess={() => {
           qc.invalidateQueries({ queryKey: ['clients'] });
           qc.invalidateQueries({ queryKey: ['dashboard-stats'] });

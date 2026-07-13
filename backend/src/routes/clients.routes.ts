@@ -498,4 +498,64 @@ router.patch('/:id/unpin', requireAuth, requireRole('admin'), async (req: Reques
   }
 });
 
+// DELETE /api/clients/:id
+router.delete('/:id', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const client = await prisma.client.findFirst({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+    });
+    if (!client) { res.status(404).json({ error: 'Client not found' }); return; }
+
+    const steps = await prisma.step.findMany({
+      where: { clientId: req.params.id },
+      select: { id: true },
+    });
+    const stepIds = steps.map((s) => s.id);
+
+    const otherStep = await prisma.step.findFirst({
+      where: {
+        OR: [
+          { clientId: null },
+          { clientId: { not: req.params.id } }
+        ]
+      },
+      select: { id: true }
+    });
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete StepTaskTemplate records for this client's steps
+      if (stepIds.length > 0) {
+        await tx.stepTaskTemplate.deleteMany({ where: { stepId: { in: stepIds } } });
+      }
+
+      // 2. Delete document, stepHistory, task
+      await tx.document.deleteMany({ where: { clientId: req.params.id } });
+      await tx.stepHistory.deleteMany({ where: { clientId: req.params.id } });
+      await tx.task.deleteMany({ where: { clientId: req.params.id } });
+
+      if (otherStep) {
+        // Point currentStepId away from client's steps to prevent constraint violation
+        await tx.client.update({
+          where: { id: req.params.id },
+          data: { currentStepId: otherStep.id }
+        });
+        await tx.step.deleteMany({ where: { clientId: req.params.id } });
+        await tx.client.delete({
+          where: { id: req.params.id },
+        });
+      } else {
+        // If no other step exists, delete Client first to trigger cascading / drop constraint, then delete steps
+        await tx.client.delete({
+          where: { id: req.params.id },
+        });
+        await tx.step.deleteMany({ where: { clientId: req.params.id } });
+      }
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[clients] DELETE error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import DashboardHeader from '@/components/ui/DashboardHeader';
 import StatCard from '@/components/ui/StatCard';
 import SectionCard from '@/components/ui/SectionCard';
+import ActionDropdown from '@/components/ui/ActionDropdown';
 import { deriveSparkline } from '@/lib/sparkline';
 
 const TEAMS = ['Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 'Account Manager', 'Content Team'];
@@ -508,7 +509,7 @@ export default function AdminDashboard() {
               <div
                 onScroll={handleOpScroll}
                 style={{
-                  padding: '12px 16px',
+                  padding: '12px 16px 20px',
                   flex: 1,
                   minHeight: 0,
                   overflowY: 'auto',
@@ -943,38 +944,24 @@ export default function AdminDashboard() {
                                   </div>
                                 </td>
                                 <td style={{ padding: '10px 18px', verticalAlign: 'top' }}>
-                                  <div style={{ display: 'flex', gap: 6 }}>
-                                    <button
-                                      onClick={() => approveExtensionMut.mutate({ id: ext.id, approved: false })}
-                                      disabled={approveExtensionMut.isPending}
-                                      style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                                        padding: '12px 16px', borderRadius: 'var(--radius-sm)',
-                                        background: '#FBEEF1', border: '1px solid #F3D0D7',
-                                        color: 'var(--red)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-                                        transition: 'all 0.15s',
-                                      }}
-                                      onMouseEnter={e => { e.currentTarget.style.background = '#F9DFE2'; }}
-                                      onMouseLeave={e => { e.currentTarget.style.background = '#FBEEF1'; }}
-                                    >
-                                      <X size={12} /> Reject
-                                    </button>
-                                    <button
-                                      onClick={() => approveExtensionMut.mutate({ id: ext.id, approved: true })}
-                                      disabled={approveExtensionMut.isPending}
-                                      style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                                        padding: '12px 16px', borderRadius: 'var(--radius-sm)',
-                                        background: 'var(--green-bg)', border: '1px solid #CDEBD9',
-                                        color: 'var(--green)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-                                        transition: 'all 0.15s',
-                                      }}
-                                      onMouseEnter={e => { e.currentTarget.style.background = '#D7F1E1'; }}
-                                      onMouseLeave={e => { e.currentTarget.style.background = 'var(--green-bg)'; }}
-                                    >
-                                      <Check size={12} /> Approve
-                                    </button>
-                                  </div>
+                                  <ActionDropdown
+                                    align="right"
+                                    actions={[
+                                      {
+                                        label: 'Approve',
+                                        icon: <Check size={13} />,
+                                        onClick: () => approveExtensionMut.mutate({ id: ext.id, approved: true }),
+                                        disabled: approveExtensionMut.isPending,
+                                      },
+                                      {
+                                        label: 'Reject',
+                                        icon: <X size={13} />,
+                                        onClick: () => approveExtensionMut.mutate({ id: ext.id, approved: false }),
+                                        disabled: approveExtensionMut.isPending,
+                                        danger: true,
+                                      }
+                                    ]}
+                                  />
                                 </td>
                               </tr>
                             ))

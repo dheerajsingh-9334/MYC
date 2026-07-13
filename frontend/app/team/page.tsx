@@ -6,8 +6,10 @@ import { USE_MOCK, MOCK_TEAM } from '@/lib/mockData';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
-import { Folder, FolderOpen, Shield, UserCheck, Users, Plus, X, CircleAlert, Search } from 'lucide-react';
+import { Folder, FolderOpen, Shield, UserCheck, Users, Plus, X, CircleAlert, Search, Trash2, Edit2 } from 'lucide-react';
 import DashboardHeader from '@/components/ui/DashboardHeader';
+import ActionDropdown from '@/components/ui/ActionDropdown';
+import UpdateTeamMemberModal from '@/components/pipeline/UpdateTeamMemberModal';
 
 const TEAMS = ['Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 'Account Manager', 'Content Team'];
 
@@ -68,6 +70,13 @@ export default function TeamPage() {
     retry: false,
   });
 
+  const { data: dbTeams = [] } = useQuery<string[]>({
+    queryKey: ['teams'],
+    queryFn: () => apiFetch('/api/teams'),
+    enabled: !USE_MOCK,
+    retry: false,
+  });
+
   const team: Member[] = USE_MOCK ? MOCK_TEAM : liveTeam;
   const active = useMemo(() => {
     const list = team.filter((m) => m.isActive !== false && m.role !== 'admin');
@@ -101,10 +110,12 @@ export default function TeamPage() {
   const [showCreateTeam, setShowCreateTeam] = useState(false);
   const [newTeamName, setNewTeamName] = useState('');
 
-  const [changeTeamTarget, setChangeTeamTarget] = useState<Member | null>(null);
-  const [newTargetTeam, setNewTargetTeam] = useState('');
+  const [editingUser, setEditingUser] = useState<Member | null>(null);
 
-  const allTeamNames = useMemo(() => Array.from(new Set([...TEAMS, ...team.map(t => t.teamName).filter(Boolean)])).sort(), [team]);
+  const allTeamNames = useMemo(() => {
+    const merged = new Set([...TEAMS, ...dbTeams, ...team.map(t => t.teamName).filter(Boolean)]);
+    return Array.from(merged).sort() as string[];
+  }, [team, dbTeams]);
 
   const [search, setSearch] = useState('');
 
@@ -136,6 +147,13 @@ export default function TeamPage() {
   // Build tree: team → members
   const tree = useMemo(() => {
     const map = new Map<string, Member[]>();
+    for (const tName of allTeamNames) {
+      if (tName !== 'admin' && tName !== 'Administrators' && tName !== '(Unassigned)') {
+        map.set(tName, []);
+      }
+    }
+    map.set('(Unassigned)', []);
+
     for (const m of active) {
       const teams = m.teamName ? m.teamName.split(',').map(t => t.trim()).filter(Boolean) : ['(Unassigned)'];
       for (const key of teams) {
@@ -154,7 +172,7 @@ export default function TeamPage() {
       });
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [active]);
+  }, [active, allTeamNames]);
 
   const filteredTree = useMemo(() => {
     if (!search.trim()) return tree;
@@ -191,6 +209,25 @@ export default function TeamPage() {
   const deactivateMut = useMutation({
     mutationFn: (id: string) => apiFetch(`/api/users/${id}/deactivate`, { method: 'PATCH' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+
+  const deleteUserMut = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/users/${id}`, { method: 'DELETE' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+    onError: (err: any) => {
+      alert(err.message || 'Failed to delete member');
+    }
+  });
+
+  const deleteTeamMut = useMutation({
+    mutationFn: (name: string) => apiFetch(`/api/teams/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['teams'] });
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to delete team');
+    }
   });
 
   const activateMut = useMutation({
@@ -262,6 +299,35 @@ export default function TeamPage() {
 
   return (
     <AppLayout>
+      {(deleteUserMut.isPending || deleteTeamMut.isPending || deactivateMut.isPending || activateMut.isPending) && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(20,25,12,0.45)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+        }}>
+          <div style={{
+            width: 40,
+            height: 40,
+            border: '3px solid #E5E4DC',
+            borderTop: '3px solid var(--olive)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <p style={{ marginTop: 16, color: '#fff', fontSize: 14, fontWeight: 500 }}>Processing request...</p>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
       <Topbar 
         title="Team" 
         subtitle={`${active.length} active member${active.length !== 1 ? 's' : ''}`} 
@@ -416,14 +482,38 @@ export default function TeamPage() {
                             {m.avgCompletionTime ?? '—'}
                           </td>
                           {isAdmin && (
-                            <td style={{ padding: '10px 18px', verticalAlign: 'middle', ...colStyles.actions }}>
-                              <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                {m.id !== user?.id && (
-                                  <button onClick={() => { if (confirm(`Deactivate ${m.fullName}?`)) deactivateMut.mutate(m.id); }} style={{ ...btnMini, color: 'var(--red)', borderColor: 'rgba(220,38,38,0.2)' }}>
-                                    Deactivate
-                                  </button>
-                                )}
-                              </div>
+                            <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', ...colStyles.actions }}>
+                              {m.id !== user?.id && (
+                                <ActionDropdown
+                                  align="right"
+                                  actions={[
+                                    {
+                                      label: 'Update',
+                                      icon: <Edit2 size={13} />,
+                                      onClick: () => setEditingUser(m),
+                                    },
+                                    {
+                                      label: 'Deactivate',
+                                      icon: <Trash2 size={13} />,
+                                      onClick: () => {
+                                        if (confirm(`Deactivate ${m.fullName}?`)) {
+                                          deactivateMut.mutate(m.id);
+                                        }
+                                      },
+                                    },
+                                    {
+                                      label: 'Delete',
+                                      icon: <Trash2 size={13} />,
+                                      onClick: () => {
+                                        if (confirm(`Are you sure you want to permanently delete user ${m.fullName}?`)) {
+                                          deleteUserMut.mutate(m.id);
+                                        }
+                                      },
+                                      danger: true,
+                                    }
+                                  ]}
+                                />
+                              )}
                             </td>
                           )}
                         </tr>
@@ -456,10 +546,40 @@ export default function TeamPage() {
                               <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
                                 {leaderCount > 0 && `· ${leaderCount} lead${leaderCount !== 1 ? 's' : ''}`} · {members.length} member{members.length !== 1 ? 's' : ''}
                               </span>
-                              {totalActiveTasks > 0 && (
+                              {totalActiveTasks > 0 ? (
                                 <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface-2)', padding: '2px 8px', borderRadius: 10 }}>
                                   {totalActiveTasks} active task{totalActiveTasks !== 1 ? 's' : ''}
                                 </span>
+                              ) : (
+                                <div style={{ marginLeft: 'auto' }} />
+                              )}
+                              {isAdmin && teamName !== 'Administrators' && teamName !== '(Unassigned)' && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (confirm(`Are you sure you want to permanently delete the team "${teamName}"? This will set all its members to "No Team" and fallback step assignments.`)) {
+                                      deleteTeamMut.mutate(teamName);
+                                    }
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    color: 'var(--red)',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '4px 8px',
+                                    borderRadius: 4,
+                                    transition: 'background 0.15s',
+                                  }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--red-bg)'; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                                  title="Delete Team"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                               )}
                             </div>
                           </td>
@@ -527,22 +647,36 @@ export default function TeamPage() {
                                 {m.avgCompletionTime ?? '—'}
                               </td>
                               {isAdmin && (
-                                <td style={{ padding: '10px 18px', verticalAlign: 'middle', ...colStyles.actions }}>
-                                  <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-                                    <button onClick={() => {
-                                      setChangeTeamTarget(m);
-                                      setNewTargetTeam(m.teamName || '');
-                                    }} style={btnMini}>Change Team</button>
-                                    <button onClick={() => {
-                                      const nextRole = m.role === 'team_leader' ? 'team_member' : 'team_leader';
-                                      if (confirm(`${nextRole === 'team_leader' ? 'Promote' : 'Demote'} ${m.fullName} to ${nextRole === 'team_leader' ? 'Team Lead' : 'Team Member'}?`)) {
-                                        roleMut.mutate({ id: m.id, role: nextRole });
+                                <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', ...colStyles.actions }}>
+                                  <ActionDropdown
+                                    align="right"
+                                    actions={[
+                                      {
+                                        label: 'Update',
+                                        icon: <Edit2 size={13} />,
+                                        onClick: () => setEditingUser(m),
+                                      },
+                                      {
+                                        label: 'Deactivate',
+                                        icon: <Trash2 size={13} />,
+                                        onClick: () => {
+                                          if (confirm(`Deactivate ${m.fullName}?`)) {
+                                            deactivateMut.mutate(m.id);
+                                          }
+                                        },
+                                      },
+                                      {
+                                        label: 'Delete',
+                                        icon: <Trash2 size={13} />,
+                                        onClick: () => {
+                                          if (confirm(`Are you sure you want to permanently delete user ${m.fullName}?`)) {
+                                            deleteUserMut.mutate(m.id);
+                                          }
+                                        },
+                                        danger: true,
                                       }
-                                    }} style={btnMini}>{m.role === 'team_leader' ? 'Make Member' : 'Make Lead'}</button>
-                                    <button onClick={() => { if (confirm(`Deactivate ${m.fullName}?`)) deactivateMut.mutate(m.id); }} style={{ ...btnMini, color: 'var(--red)', borderColor: 'rgba(220,38,38,0.2)' }}>
-                                      Deactivate
-                                    </button>
-                                  </div>
+                                    ]}
+                                  />
                                 </td>
                               )}
                             </tr>
@@ -715,37 +849,15 @@ export default function TeamPage() {
         </div>
       )}
 
-      {/* ── CHANGE TEAM MODAL ── */}
-      {changeTeamTarget && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
-          onClick={(e) => { if (e.target === e.currentTarget) setChangeTeamTarget(null); }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 400, boxShadow: 'var(--shadow-lg)' }}>
-            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Change Team</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Assign {changeTeamTarget.fullName} to a new team.</div>
-              </div>
-              <button onClick={() => setChangeTeamTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
-            </div>
-            <div style={{ padding: '20px 24px' }}>
-              <label style={lbl}>Select Team</label>
-              <select value={newTargetTeam} onChange={(e) => setNewTargetTeam(e.target.value)} style={inp}>
-                <option value="">Unassigned</option>
-                {allTeamNames.map(t => <option key={t as string} value={t as string}>{t as string}</option>)}
-              </select>
-            </div>
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
-              <button onClick={() => setChangeTeamTarget(null)} style={{ ...btnSecondary, padding: '8px 14px' }}>Cancel</button>
-              <button onClick={() => {
-                teamMut.mutate({ id: changeTeamTarget.id, teamName: newTargetTeam });
-                setChangeTeamTarget(null);
-              }}
-                style={{ ...btnPrimary, padding: '8px 16px' }}>
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </div>
+
+      {editingUser && isAdmin && (
+        <UpdateTeamMemberModal
+          open={!!editingUser}
+          onClose={() => setEditingUser(null)}
+          onSuccess={() => qc.invalidateQueries({ queryKey: ['users'] })}
+          member={editingUser}
+          teams={allTeamNames}
+        />
       )}
     </AppLayout>
   );

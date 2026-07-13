@@ -3,12 +3,14 @@ import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Folder, FolderOpen, FileText, Search, Lock,
-  Link2, X, ExternalLink, Eye, Trash2, Plus, AlertCircle,
+  Link2, X, ExternalLink, Eye, Trash2, Plus, AlertCircle, Edit2,
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import SectionCard from '@/components/ui/SectionCard';
 import { apiFetch, getUser } from '@/lib/api';
+import ActionDropdown from '@/components/ui/ActionDropdown';
+import UpdateDocumentModal from '@/components/pipeline/UpdateDocumentModal';
 
 /* ─── Types ─────────────────────────────────────────────────────────────── */
 interface DocNode {
@@ -85,6 +87,7 @@ export default function VaultPage() {
 
   // Drive preview popup
   const [previewDoc, setPreviewDoc] = useState<DocNode | null>(null);
+  const [editingDoc, setEditingDoc] = useState<any>(null);
 
   // Add Drive Link modal
   const [showAddModal, setShowAddModal] = useState(false);
@@ -239,22 +242,25 @@ export default function VaultPage() {
     <AppLayout>
       <Topbar title="Vault" subtitle={`${vault.totalDocs} item${vault.totalDocs !== 1 ? 's' : ''} across all clients — Proof of work organised by client → step`} />
       <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => { setExpandedClients(new Set(filteredFolders.map(f => f.id))); setExpandedSteps(new Set(filteredFolders.flatMap(f => (f.children || []).map(s => s.id)))); }} style={btnSecondary}>Expand all</button>
-            <button onClick={() => { setExpandedClients(new Set()); setExpandedSteps(new Set()); }} style={btnSecondary}>Collapse all</button>
-            <button onClick={() => setShowAddModal(true)} style={btnPrimary}>
-              <Plus size={13} /> Add Drive Link
-            </button>
-          </div>
-        </div>
+        {/* Toolbar: Expand/Collapse, Search, Add — all in one row */}
+        <div style={{
+          display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+          padding: '10px 16px', marginBottom: 16,
+        }}>
+          <button onClick={() => { setExpandedClients(new Set(filteredFolders.map(f => f.id))); setExpandedSteps(new Set(filteredFolders.flatMap(f => (f.children || []).map(s => s.id)))); }} style={btnSecondary}>Expand all</button>
+          <button onClick={() => { setExpandedClients(new Set()); setExpandedSteps(new Set()); }} style={btnSecondary}>Collapse all</button>
 
-        {/* Search */}
-        <div style={{ position: 'relative', marginBottom: 16 }}>
-          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients, steps, or files…"
-            style={{ width: '100%', padding: '9px 12px 9px 34px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }} />
+          {/* Search — pushed to the right */}
+          <div style={{ position: 'relative', flex: 1, minWidth: 200, marginLeft: 'auto' }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients, steps, or files…"
+              style={{ width: '100%', padding: '6px 12px 6px 32px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box', transition: 'all 0.15s' }} />
+          </div>
+
+          <button onClick={() => setShowAddModal(true)} style={btnPrimary}>
+            <Plus size={13} /> Add Drive Link
+          </button>
         </div>
 
         {/* Tree */}
@@ -368,7 +374,8 @@ export default function VaultPage() {
                                       {taskOpen && (child.children || []).map((doc: DocNode) => (
                                         <DocRow key={doc.id} doc={doc} isAdmin={isAdmin}
                                           onPreview={() => setPreviewDoc(doc)}
-                                          onDelete={() => doc.rawId && deleteDoc.mutate(doc.rawId)} />
+                                          onDelete={() => doc.rawId && deleteDoc.mutate(doc.rawId)}
+                                          onUpdate={() => setEditingDoc(doc)} />
                                       ))}
                                     </Fragment>
                                   );
@@ -377,7 +384,8 @@ export default function VaultPage() {
                                 return (
                                   <DocRow key={child.id} doc={child} isAdmin={isAdmin}
                                     onPreview={() => setPreviewDoc(child)}
-                                    onDelete={() => child.rawId && deleteDoc.mutate(child.rawId)} />
+                                    onDelete={() => child.rawId && deleteDoc.mutate(child.rawId)}
+                                    onUpdate={() => setEditingDoc(child)} />
                                 );
                               })}
                             </Fragment>
@@ -400,23 +408,23 @@ export default function VaultPage() {
       {/* ── Add Drive Link Modal ─────────────────────────────────── */}
       {showAddModal && (
         <div style={overlayStyle} onClick={e => e.target === e.currentTarget && closeModal()}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', width: 480, maxWidth: '94vw', boxShadow: '0 24px 64px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: 480, maxWidth: '94vw', boxShadow: 'var(--shadow-lg)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             {/* Modal header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 34, height: 34, borderRadius: 8, background: 'linear-gradient(135deg,#4285F4,#34A853)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Link2 size={16} color="#fff" />
                 </div>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)' }}>Add Drive Link</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Paste a Google Drive URL as proof of work</div>
+                  <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Add Drive Link</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>Paste a Google Drive URL as proof of work</div>
                 </div>
               </div>
-              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 4 }}><X size={18} /></button>
+              <button onClick={closeModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
             </div>
 
             {/* Form */}
-            <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
               {formErr && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#b91c1c' }}>
                   <AlertCircle size={14} /> {formErr}
@@ -479,13 +487,14 @@ export default function VaultPage() {
                 <textarea placeholder="Brief notes or remarks on this file…" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                   style={{ ...inputStyle, height: 60, resize: 'vertical' }} />
               </label>
+            </div>
 
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
-                <button onClick={closeModal} style={btnSecondary}>Cancel</button>
-                <button onClick={submitLink} disabled={addLink.isPending} style={btnPrimary}>
-                  {addLink.isPending ? 'Saving…' : 'Save Link'}
-                </button>
-              </div>
+            {/* Modal footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
+              <button onClick={closeModal} style={btnSecondary}>Cancel</button>
+              <button onClick={submitLink} disabled={addLink.isPending} style={btnPrimary}>
+                {addLink.isPending ? 'Saving…' : 'Save Link'}
+              </button>
             </div>
           </div>
         </div>
@@ -494,19 +503,19 @@ export default function VaultPage() {
       {/* ── Drive Preview Popup ──────────────────────────────────── */}
       {previewDoc && (
         <div style={overlayStyle} onClick={e => e.target === e.currentTarget && setPreviewDoc(null)}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius)', width: '88vw', maxWidth: 1100, height: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 28px 80px rgba(0,0,0,0.22)', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '88vw', maxWidth: 1100, height: '88vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)', overflow: 'hidden' }}>
             {/* Preview header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-              <span style={{ fontSize: 22 }}>{driveIcon(previewDoc.driveUrl)}</span>
+            <div style={{ display: 'flex', alignItems: 'start', gap: 12, padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+              <span style={{ fontSize: 22, marginTop: 2 }}>{driveIcon(previewDoc.driveUrl)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, fontSize: 15, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewDoc.name}</div>
-                {previewDoc.notes && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 16 }}>{previewDoc.notes}</div>}
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewDoc.name}</div>
+                {previewDoc.notes && <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{previewDoc.notes}</div>}
               </div>
               <a href={previewDoc.driveUrl} target="_blank" rel="noreferrer"
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: '#4285F4', color: '#fff', borderRadius: 8, fontSize: 13, fontWeight: 500, textDecoration: 'none', flexShrink: 0 }}>
-                <ExternalLink size={13} /> Open in Drive
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--olive)', color: '#fff', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, textDecoration: 'none', flexShrink: 0 }}>
+                <ExternalLink size={14} /> Open in Drive
               </a>
-              <button onClick={() => setPreviewDoc(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 6, marginLeft: 4 }}><X size={20} /></button>
+              <button onClick={() => setPreviewDoc(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4, marginLeft: 4 }}><X size={18} /></button>
             </div>
 
             {/* iFrame */}
@@ -527,14 +536,22 @@ export default function VaultPage() {
           </div>
         </div>
       )}
+      {editingDoc && isAdmin && (
+        <UpdateDocumentModal
+          open={!!editingDoc}
+          onClose={() => setEditingDoc(null)}
+          onSuccess={() => qc.invalidateQueries({ queryKey: ['vault'] })}
+          doc={editingDoc}
+        />
+      )}
     </AppLayout>
   );
 }
 
 /* ─── DocRow ─────────────────────────────────────────────────────────────── */
-function DocRow({ doc, isAdmin, onPreview, onDelete }: {
+function DocRow({ doc, isAdmin, onPreview, onDelete, onUpdate }: {
   doc: DocNode; isAdmin: boolean;
-  onPreview: () => void; onDelete: () => void;
+  onPreview: () => void; onDelete: () => void; onUpdate: () => void;
 }) {
   const isDrive = doc.docType === 'drive_link';
   const displayType = isDrive ? (doc.driveUrl?.includes('spreadsheets') ? 'Google Sheet' : doc.driveUrl?.includes('document') ? 'Google Doc' : 'Drive Link') : 'File';
@@ -573,46 +590,38 @@ function DocRow({ doc, isAdmin, onPreview, onDelete }: {
         </div>
       </td>
       <td style={{ ...tdStyle, textAlign: 'center' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          {isDrive && (
-            <button title="Preview Link" onClick={onPreview}
-              style={{
-                width: 26, height: 26, display: 'inline-flex', alignItems: 'center',
-                justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 5,
-                background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}
-            >
-              <Eye size={13} />
-            </button>
-          )}
-          <a href={doc.driveUrl || doc.fileUrl} target="_blank" rel="noreferrer" title="Open External"
-            style={{
-              width: 26, height: 26, display: 'inline-flex', alignItems: 'center',
-              justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 5,
-              background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer',
-              textDecoration: 'none'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}
-          >
-            <ExternalLink size={13} />
-          </a>
-          {isAdmin && (
-            <button title="Delete Item" onClick={onDelete}
-              style={{
-                width: 26, height: 26, display: 'inline-flex', alignItems: 'center',
-                justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 5,
-                background: 'var(--surface)', color: 'var(--soft)', cursor: 'pointer'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--soft)'; }}
-            >
-              <Trash2 size={13} />
-            </button>
-          )}
-        </div>
+        {(() => {
+          const dropdownActions = [];
+          if (isDrive) {
+            dropdownActions.push({
+              label: 'Preview Link',
+              icon: <Eye size={13} />,
+              onClick: onPreview,
+            });
+          }
+          dropdownActions.push({
+            label: 'Open External',
+            icon: <ExternalLink size={13} />,
+            href: doc.driveUrl || doc.fileUrl,
+            target: '_blank',
+          });
+          if (isAdmin) {
+            dropdownActions.push({
+              label: 'Update',
+              icon: <Edit2 size={13} />,
+              onClick: onUpdate,
+            });
+            dropdownActions.push({
+              label: 'Delete Item',
+              icon: <Trash2 size={13} />,
+              onClick: onDelete,
+              danger: true,
+            });
+          }
+          return (
+            <ActionDropdown align="right" actions={dropdownActions} />
+          );
+        })()}
       </td>
     </tr>
   );

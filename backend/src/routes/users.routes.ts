@@ -320,4 +320,57 @@ router.patch('/:id/activate', requireAuth, requireRole('admin'), async (req: Req
   }
 });
 
+// DELETE /api/users/:id — ADMIN ONLY
+router.delete('/:id', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const user = await prisma.user.findFirst({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+    });
+    if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+
+    await prisma.$transaction(async (tx) => {
+      const userTasks = await tx.task.findMany({
+        where: { assignedToId: req.params.id },
+        select: { id: true },
+      });
+      const taskIds = userTasks.map((t) => t.id);
+
+      if (taskIds.length > 0) {
+        await tx.document.deleteMany({
+          where: { taskId: { in: taskIds } },
+        });
+      }
+
+      await tx.task.deleteMany({
+        where: { assignedToId: req.params.id },
+      });
+
+      await tx.task.updateMany({
+        where: { completedById: req.params.id },
+        data: { completedById: null },
+      });
+      await tx.task.updateMany({
+        where: { rejectedById: req.params.id },
+        data: { rejectedById: null },
+      });
+      await tx.stepHistory.updateMany({
+        where: { triggeredByUserId: req.params.id },
+        data: { triggeredByUserId: null },
+      });
+
+      await tx.notification.deleteMany({
+        where: { userId: req.params.id },
+      });
+
+      await tx.user.delete({
+        where: { id: req.params.id },
+      });
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[users] DELETE error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

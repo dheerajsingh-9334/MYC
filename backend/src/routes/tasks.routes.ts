@@ -933,4 +933,25 @@ router.patch('/:id/unalert', requireAuth, requireAdminOrLeader, async (req: Requ
   }
 });
 
+// DELETE /api/tasks/:id
+router.delete('/:id', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const task = await prisma.task.findFirst({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+    });
+    if (!task) { res.status(404).json({ error: 'Task not found' }); return; }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.document.deleteMany({ where: { taskId: req.params.id } });
+      await tx.task.delete({
+        where: { id: req.params.id },
+      });
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[tasks] DELETE error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;

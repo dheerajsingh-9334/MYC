@@ -361,30 +361,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
               >
                 <Megaphone size={13} /> Broadcast
               </button>
-              <Link
-                href="/admin"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 6,
-                  height: 32,
-                  padding: '0 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  background: 'var(--olive)',
-                  border: 'none',
-                  color: '#fff',
-                  fontSize: 12.5,
-                  fontWeight: 600,
-                  textDecoration: 'none',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}
-              >
-                <Shield size={13} /> Admin Panel
-              </Link>
+
             </>
           )}
           {/* Theme Toggle */}

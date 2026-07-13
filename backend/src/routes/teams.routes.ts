@@ -14,10 +14,31 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     if (role === 'admin') {
       // Fetch teams from Team table
-      const dbTeams = await prisma.team.findMany({
+      let dbTeams = await prisma.team.findMany({
         where: { organisationId: orgId },
         select: { name: true }
       });
+
+      // Seed default teams if no teams exist in the Team table for this org
+      if (dbTeams.length === 0) {
+        const defaultTeams = [
+          'Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 
+          'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 
+          'Account Manager', 'Content Team'
+        ];
+        await prisma.team.createMany({
+          data: defaultTeams.map(name => ({
+            organisationId: orgId,
+            name
+          })),
+          skipDuplicates: true
+        });
+
+        dbTeams = await prisma.team.findMany({
+          where: { organisationId: orgId },
+          select: { name: true }
+        });
+      }
 
       // Fetch unique teamNames from User
       const userTeams = await prisma.user.findMany({
@@ -35,14 +56,6 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
       const teamNamesSet = new Set<string>();
       
-      // Seed default teams to make sure they are always present
-      const defaultTeams = [
-        'Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 
-        'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 
-        'Account Manager', 'Content Team'
-      ];
-      defaultTeams.forEach(t => teamNamesSet.add(t));
-
       dbTeams.forEach(t => t.name && teamNamesSet.add(t.name.trim()));
       userTeams.forEach(u => u.teamName && teamNamesSet.add(u.teamName.trim()));
       stepTeams.forEach(s => s.owningTeamName && teamNamesSet.add(s.owningTeamName.trim()));
@@ -271,6 +284,38 @@ router.post('/invite/accept', async (req: Request, res: Response) => {
     });
   } catch (err) {
     console.error('[teams.invite.accept] error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/teams/:name — ADMIN ONLY
+router.delete('/:name', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const orgId = req.user.orgId;
+    const name = decodeURIComponent(req.params.name).trim();
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete from Team table
+      await tx.team.deleteMany({
+        where: { organisationId: orgId, name: { equals: name, mode: 'insensitive' } }
+      });
+
+      // 2. Clear user teamName
+      await tx.user.updateMany({
+        where: { organisationId: orgId, teamName: { equals: name, mode: 'insensitive' } },
+        data: { teamName: null }
+      });
+
+      // 3. Clear step owningTeamName (set to 'Intake Team' as fallback)
+      await tx.step.updateMany({
+        where: { organisationId: orgId, owningTeamName: { equals: name, mode: 'insensitive' } },
+        data: { owningTeamName: 'Intake Team' }
+      });
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[teams] DELETE error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

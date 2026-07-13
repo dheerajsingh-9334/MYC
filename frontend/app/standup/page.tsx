@@ -18,11 +18,16 @@ import {
   AlertCircle,
   Pin,
   Trash2,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  Edit2,
+  Filter,
+  X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import React, { useState, useMemo, useEffect } from 'react';
 import { USE_MOCK } from '@/lib/mockData';
+import ActionDropdown from '@/components/ui/ActionDropdown';
 
 const TEAMS = ['Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 'Account Manager', 'Content Team'];
 const AUTO_REFRESH_MS = 30_000;
@@ -59,6 +64,7 @@ export default function StandupPage() {
   const [localClientPinned, setLocalClientPinned] = useState<Record<string, boolean>>({});
   const [ignoredItems, setIgnoredItems] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [showHoverFilters, setShowHoverFilters] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -404,81 +410,6 @@ export default function StandupPage() {
 
         </div>
 
-        {/* Filters */}
-        <div style={{
-          display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap',
-          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-          padding: '12px 16px'
-        }}>
-          {/* Search */}
-          <div style={{ position: 'relative', flex: 2, minWidth: 350 }}>
-            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-            <input
-              type="text"
-              placeholder="Search standup items..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                width: '100%', padding: '8px 12px 8px 34px', border: '1px solid var(--border)',
-                borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)',
-                outline: 'none', transition: 'all 0.15s'
-              }}
-            />
-          </div>
-
-          {/* Alert Type */}
-          <select
-            value={alertTypeFilter}
-            onChange={(e) => setAlertTypeFilter(e.target.value)}
-            style={{
-              padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-              fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer',
-              width: 130
-            }}
-          >
-            <option value="">All Alerts</option>
-            <option value="overdue">Overdue</option>
-            <option value="blocked">Blocked</option>
-            <option value="due_today">Due Today</option>
-          </select>
-
-          {/* Team Filter */}
-          {user?.role !== 'team_leader' ? (
-            <select
-              value={teamFilter}
-              onChange={(e) => setTeamFilter(e.target.value)}
-              style={{
-                padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer',
-                width: 140
-              }}
-            >
-              <option value="">All Teams</option>
-              {TEAMS.map(team => (
-                <option key={team} value={team}>{team}</option>
-              ))}
-            </select>
-          ) : (
-            <div style={{ fontSize: 13, color: 'var(--muted)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '8px 12px', borderRadius: 'var(--radius-sm)' }}>
-              Team: <span style={{ fontWeight: 600, color: 'var(--ink)' }}>{user.teamName}</span>
-            </div>
-          )}
-
-          {/* Client Filter */}
-          <select
-            value={clientFilter}
-            onChange={(e) => setClientFilter(e.target.value)}
-            style={{
-              padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-              fontSize: 13, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', cursor: 'pointer',
-              width: 140
-            }}
-          >
-            <option value="">All Clients</option>
-            {uniqueClients.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-
         {/* Grouped Alert Table */}
         {isLoading ? (
           <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Loading standup brief…</div>
@@ -490,8 +421,13 @@ export default function StandupPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Actions bar */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+            {/* Unified Toolbar: Expand/Collapse, Filter, Search — all in one row */}
+            <div style={{
+              display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap',
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+              padding: '10px 16px'
+            }}>
+              {/* Expand all */}
               <button 
                 onClick={() => {
                   const next: Record<string, boolean> = {};
@@ -506,11 +442,13 @@ export default function StandupPage() {
                   fontWeight: 600,
                   background: 'var(--surface)',
                   color: 'var(--ink-2)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
                 }}
               >
                 Expand all
               </button>
+              {/* Collapse all */}
               <button 
                 onClick={() => {
                   setExpandedGroups({});
@@ -523,11 +461,177 @@ export default function StandupPage() {
                   fontWeight: 600,
                   background: 'var(--surface)',
                   color: 'var(--ink-2)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'all 0.15s'
                 }}
               >
                 Collapse all
               </button>
+
+              {/* Separator */}
+              <div style={{ width: 1, height: 24, background: 'var(--border)', margin: '0 4px' }} />
+
+              {/* Filter Dropdown (hover, like tasks page) */}
+              <div 
+                onMouseEnter={() => setShowHoverFilters(true)}
+                onMouseLeave={() => setShowHoverFilters(false)}
+                style={{ position: 'relative', display: 'inline-block' }}
+              >
+                <button
+                  style={{
+                    padding: '6px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    background: (alertTypeFilter || teamFilter || clientFilter) ? 'var(--olive-50)' : 'var(--surface)',
+                    color: (alertTypeFilter || teamFilter || clientFilter) ? 'var(--olive-dark)' : 'var(--ink-2)',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  <Filter size={14} />
+                  <span>Filters</span>
+                  <ChevronDown size={12} style={{ opacity: 0.7 }} />
+                </button>
+
+                {showHoverFilters && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    marginTop: 6,
+                    width: 260,
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius)',
+                    boxShadow: 'var(--shadow-lg)',
+                    zIndex: 999,
+                    padding: 16,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 12,
+                  }}>
+                    {/* Alert Type */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
+                        Alert Type
+                      </label>
+                      <select
+                        value={alertTypeFilter}
+                        onChange={(e) => setAlertTypeFilter(e.target.value)}
+                        style={{
+                          padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                          fontSize: 12.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', width: '100%',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="">All Alerts</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="blocked">Blocked</option>
+                        <option value="due_today">Due Today</option>
+                      </select>
+                    </div>
+
+                    {/* Team Filter */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
+                        Team
+                      </label>
+                      {user?.role !== 'team_leader' ? (
+                        <select
+                          value={teamFilter}
+                          onChange={(e) => setTeamFilter(e.target.value)}
+                          style={{
+                            padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                            fontSize: 12.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', width: '100%',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="">All Teams</option>
+                          {TEAMS.map(team => (
+                            <option key={team} value={team}>{team}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <div style={{ fontSize: 12.5, color: 'var(--muted)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '8px 10px', borderRadius: 'var(--radius-sm)' }}>
+                          {user.teamName}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Client Filter */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>
+                        Client
+                      </label>
+                      <select
+                        value={clientFilter}
+                        onChange={(e) => setClientFilter(e.target.value)}
+                        style={{
+                          padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                          fontSize: 12.5, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', width: '100%',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="">All Clients</option>
+                        {uniqueClients.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Active filter badges */}
+              {alertTypeFilter && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
+                  Alert: {alertTypeFilter === 'overdue' ? 'Overdue' : alertTypeFilter === 'blocked' ? 'Blocked' : 'Due Today'}
+                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setAlertTypeFilter('')} />
+                </span>
+              )}
+              {teamFilter && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
+                  Team: {teamFilter}
+                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setTeamFilter('')} />
+                </span>
+              )}
+              {clientFilter && (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11.5, fontWeight: 600 }}>
+                  Client: {clientFilter}
+                  <X size={11} style={{ cursor: 'pointer' }} onClick={() => setClientFilter('')} />
+                </span>
+              )}
+              {(alertTypeFilter || teamFilter || clientFilter) && (
+                <button
+                  onClick={() => {
+                    setAlertTypeFilter('');
+                    setTeamFilter('');
+                    setClientFilter('');
+                  }}
+                  style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  Clear all
+                </button>
+              )}
+
+              {/* Search — pushed to the right */}
+              <div style={{ position: 'relative', flex: 1, minWidth: 200, marginLeft: 'auto' }}>
+                <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+                <input
+                  type="text"
+                  placeholder="Search standup items..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{
+                    width: '100%', padding: '6px 10px 6px 30px', border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)', fontSize: 12.5, background: 'var(--surface-2)', color: 'var(--ink)',
+                    outline: 'none', transition: 'all 0.15s'
+                  }}
+                />
+              </div>
             </div>
 
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
@@ -559,8 +663,9 @@ export default function StandupPage() {
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                           >
-                            <td colSpan={5} style={{ padding: '12px 18px', verticalAlign: 'middle' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <td colSpan={5} style={{ padding: '10px 18px', verticalAlign: 'middle' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                   <span style={{ 
                                     display: 'inline-block',
                                     fontSize: 9, 
@@ -569,51 +674,45 @@ export default function StandupPage() {
                                     color: 'var(--muted)',
                                     flexShrink: 0 
                                   }}>▶</span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>
-                                    {isPerClient ? 'Client' : 'Assignee'}: {groupKey}
+                                  {/* Pin icon before client name */}
+                                  {isPerClient && clientId && (() => {
+                                    const isClientPinned = localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned;
+                                    return (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handlePinClient(clientId, isClientPinned);
+                                        }}
+                                        style={{
+                                          border: 'none',
+                                          background: 'none',
+                                          padding: 2,
+                                          cursor: 'pointer',
+                                          color: isClientPinned ? 'var(--olive)' : 'var(--muted)',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          transition: 'color 0.15s',
+                                          flexShrink: 0,
+                                        }}
+                                        title={isClientPinned ? 'Unpin client' : 'Pin client'}
+                                      >
+                                        <Pin size={14} style={{ fill: isClientPinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+                                      </button>
+                                    );
+                                  })()}
+                                  <span style={{
+                                    fontSize: 13.5, fontWeight: 700, color: 'var(--olive-dark)',
+                                    background: 'var(--olive-50)', padding: '3px 10px', borderRadius: 6,
+                                    border: '1px solid var(--olive-100)',
+                                    letterSpacing: '0.2px',
+                                  }}>
+                                    {groupKey}
+                                  </span>
+                                  <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>
+                                    ({groupItems.length} {groupItems.length !== 1 ? 'alerts' : 'alert'})
                                   </span>
                                 </div>
-                                <span style={{ 
-                                  padding: '2px 8px', 
-                                  borderRadius: 12, 
-                                  background: 'rgba(30, 64, 175, 0.1)', 
-                                  color: '#1e40af', 
-                                  fontSize: 10.5, 
-                                  fontWeight: 700 
-                                }}>
-                                  {groupItems.length} Alert{groupItems.length !== 1 ? 's' : ''}
-                                </span>
-
-                                {isPerClient && clientId && (() => {
-                                  const isClientPinned = localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned;
-                                  return (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handlePinClient(clientId, isClientPinned);
-                                      }}
-                                      style={{
-                                        marginLeft: 'auto',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: 6,
-                                        padding: '4px 10px',
-                                        borderRadius: 6,
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        cursor: 'pointer',
-                                        background: 'var(--surface)',
-                                        color: 'var(--ink-2)',
-                                        border: '1px solid var(--border)',
-                                        transition: 'all 0.2s',
-                                      }}
-                                    >
-                                      <Pin size={11} style={{ transform: isClientPinned ? 'rotate(45deg)' : 'none', color: isClientPinned ? 'var(--olive)' : 'inherit', flexShrink: 0 }} />
-                                      {isClientPinned ? 'UNPIN CLIENT' : 'PIN CLIENT'}
-                                    </button>
-                                  );
-                                })()}
                               </div>
                             </td>
                           </tr>
@@ -668,78 +767,28 @@ export default function StandupPage() {
                                   </div>
                                 </td>
                                 <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', width: '10%' }}>
-                                  <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'center', width: '100%' }} onClick={e => e.stopPropagation()}>
-                                    <button
-                                      onClick={() => handleHighlight(item.id)}
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                        padding: '6px 12px',
-                                        borderRadius: 6,
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        cursor: 'pointer',
-                                        background: isHighlighted 
-                                          ? 'linear-gradient(135deg, var(--red), #dc2626)' 
-                                          : 'var(--surface)',
-                                        color: isHighlighted ? '#fff' : 'var(--ink-2)',
-                                        border: `1px solid ${isHighlighted ? '#dc2626' : 'var(--border)'}`,
-                                        boxShadow: isHighlighted ? '0 2px 4px rgba(220,38,38,0.2)' : 'none',
-                                        transition: 'all 0.2s',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                      }}
-                                      onMouseEnter={e => {
-                                        if (!isHighlighted) {
-                                          e.currentTarget.style.background = 'rgba(220, 38, 38, 0.05)';
-                                          e.currentTarget.style.borderColor = 'var(--red)';
-                                          e.currentTarget.style.color = 'var(--red)';
+                                  <div onClick={e => e.stopPropagation()}>
+                                    <ActionDropdown
+                                      align="right"
+                                      actions={[
+                                        {
+                                          label: isHighlighted ? 'Remove Alert' : 'Alert',
+                                          icon: <AlertCircle size={13} />,
+                                          onClick: () => handleHighlight(item.id),
+                                        },
+                                        {
+                                          label: 'Update',
+                                          icon: <Edit2 size={13} />,
+                                          onClick: () => alert('Update functionality coming soon.'),
+                                        },
+                                        {
+                                          label: 'Dismiss',
+                                          icon: <Trash2 size={13} />,
+                                          onClick: () => handleIgnore(item.id),
+                                          danger: true,
                                         }
-                                      }}
-                                      onMouseLeave={e => {
-                                        if (!isHighlighted) {
-                                          e.currentTarget.style.background = 'var(--surface)';
-                                          e.currentTarget.style.borderColor = 'var(--border)';
-                                          e.currentTarget.style.color = 'var(--ink-2)';
-                                        }
-                                      }}
-                                    >
-                                      <AlertCircle size={11} />
-                                      {isHighlighted ? 'ALERTED' : 'ALERT'}
-                                    </button>
-                                    <button
-                                      onClick={() => handleIgnore(item.id)}
-                                      style={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: 4,
-                                        padding: '6px 12px',
-                                        border: '1px solid var(--border)',
-                                        borderRadius: 6,
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: 'var(--ink-2)',
-                                        background: 'var(--surface)',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: '0.5px'
-                                      }}
-                                      onMouseEnter={e => {
-                                        e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)';
-                                        e.currentTarget.style.borderColor = 'var(--red)';
-                                        e.currentTarget.style.color = 'var(--red)';
-                                      }}
-                                      onMouseLeave={e => {
-                                        e.currentTarget.style.background = 'var(--surface)';
-                                        e.currentTarget.style.color = 'var(--ink-2)';
-                                        e.currentTarget.style.borderColor = 'var(--border)';
-                                      }}
-                                    >
-                                      <Trash2 size={11} />
-                                      DISMISS
-                                    </button>
+                                      ]}
+                                    />
                                   </div>
                                 </td>
                               </tr>

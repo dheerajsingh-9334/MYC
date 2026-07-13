@@ -99,8 +99,8 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(10, 12, 8, 0.65)',
-        backdropFilter: 'blur(5px)',
+        background: 'rgba(20, 25, 12, 0.45)',
+        backdropFilter: 'blur(4px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -123,6 +123,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
           flexDirection: 'column',
           maxHeight: '90vh',
           border: '1px solid var(--border)',
+          overflow: 'hidden',
         }}
       >
         {/* Header */}
@@ -131,12 +132,13 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
             padding: '20px 24px 16px',
             borderBottom: '1px solid var(--border)',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'start',
             justifyContent: 'space-between',
+            flexShrink: 0,
           }}
         >
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>
+            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>
               Profile Settings
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>
@@ -159,180 +161,185 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
             onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)'; }}
             onMouseLeave={e => { e.currentTarget.style.color = 'var(--soft)'; }}
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
-          {isLoading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: 12, color: 'var(--muted)' }}>
-              <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--olive)', animation: 'spin 1s linear infinite' }} />
-              <span style={{ fontSize: 13, fontWeight: 500 }}>Loading profile data...</span>
-            </div>
-          ) : (
-            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {successMsg && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: 'var(--radius-sm)', fontSize: 13, border: '1px solid var(--green)' }}>
-                  <Check size={14} /> {successMsg}
-                </div>
-              )}
+        {/* Form wrapping body and footer */}
+        <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', margin: 0 }}>
+          {/* Scrollable Content */}
+          <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
+            {isLoading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: 12, color: 'var(--muted)' }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--olive)', animation: 'spin 1s linear infinite' }} />
+                <span style={{ fontSize: 13, fontWeight: 500 }}>Loading profile data...</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {successMsg && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--green-bg)', color: 'var(--green)', borderRadius: 'var(--radius-sm)', fontSize: 13, border: '1px solid var(--green)' }}>
+                    <Check size={14} /> {successMsg}
+                  </div>
+                )}
 
-              {errorMsg && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13, border: '1px solid var(--red)' }}>
-                  <AlertCircle size={14} /> {errorMsg}
-                </div>
-              )}
+                {errorMsg && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13, border: '1px solid var(--red)' }}>
+                    <AlertCircle size={14} /> {errorMsg}
+                  </div>
+                )}
 
-              {/* Avatar Preview */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
-                <div style={{ position: 'relative', width: 64, height: 64, flexShrink: 0 }}>
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={fullName}
+                {/* Avatar Preview */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
+                  <div style={{ position: 'relative', width: 64, height: 64, flexShrink: 0 }}>
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={fullName}
+                        style={{
+                          width: 64, height: 64, borderRadius: '50%',
+                          objectFit: 'cover', boxShadow: 'var(--shadow-md)',
+                          border: '2px solid var(--border)',
+                        }}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const sibling = e.currentTarget.nextSibling as HTMLElement;
+                          if (sibling) sibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div
                       style={{
-                        width: 64, height: 64, borderRadius: '50%',
-                        objectFit: 'cover', boxShadow: 'var(--shadow-md)',
-                        border: '2px solid var(--border)',
+                        width: 64,
+                        height: 64,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, var(--olive), var(--olive-light))',
+                        color: '#fff',
+                        display: avatarUrl ? 'none' : 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 22,
+                        fontWeight: 700,
+                        boxShadow: 'var(--shadow-md)',
                       }}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const sibling = e.currentTarget.nextSibling as HTMLElement;
-                        if (sibling) sibling.style.display = 'flex';
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, var(--olive), var(--olive-light))',
-                      color: '#fff',
-                      display: avatarUrl ? 'none' : 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 22,
-                      fontWeight: 700,
-                      boxShadow: 'var(--shadow-md)',
-                    }}
-                  >
-                    {initials}
+                    >
+                      {initials}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{fullName || 'Your Name'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{profile?.email}</div>
                   </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{fullName || 'Your Name'}</div>
-                  <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>{profile?.email}</div>
-                </div>
-              </div>
 
-              {/* Personal Details */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Personal Details
-                </div>
+                {/* Personal Details */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    Personal Details
+                  </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Full Name</label>
-                  <div style={{ position: 'relative' }}>
-                    <User size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Full Name</label>
+                    <div style={{ position: 'relative' }}>
+                      <User size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+                      <input
+                        type="text"
+                        required
+                        autoComplete="off"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="profile-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>WhatsApp Number</label>
+                    <div style={{ position: 'relative' }}>
+                      <Phone size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+                      <input
+                        type="text"
+                        placeholder="+91 98765 43210"
+                        value={whatsappNumber}
+                        onChange={(e) => setWhatsappNumber(e.target.value)}
+                        className="profile-input"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Profile Picture URL (from another website)</label>
                     <input
-                      type="text"
-                      required
-                      autoComplete="off"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="profile-input"
+                      type="url"
+                      placeholder="https://example.com/avatar.jpg"
+                      value={avatarUrl}
+                      onChange={(e) => setAvatarUrl(e.target.value)}
+                      className="profile-input-no-icon"
                     />
+                    <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
+                      Use an image hosted on some other website (e.g. Gravatar or Imgur) as your avatar.
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>WhatsApp Number</label>
-                  <div style={{ position: 'relative' }}>
-                    <Phone size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-                    <input
-                      type="text"
-                      placeholder="+91 98765 43210"
-                      value={whatsappNumber}
-                      onChange={(e) => setWhatsappNumber(e.target.value)}
-                      className="profile-input"
-                    />
+                {/* Password Management */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    Security & Password
                   </div>
-                </div>
 
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Profile Picture URL (from another website)</label>
-                  <input
-                    type="url"
-                    placeholder="https://example.com/avatar.jpg"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    className="profile-input-no-icon"
-                  />
-                  <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 4 }}>
-                    Use an image hosted on some other website (e.g. Gravatar or Imgur) as your avatar.
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>New Password (optional)</label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+                      <input
+                        type="password"
+                        placeholder="Leave blank to keep current"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="profile-input"
+                      />
+                    </div>
                   </div>
-                </div>
-              </div>
 
-              {/* Password Management */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Security & Password
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>New Password (optional)</label>
-                  <div style={{ position: 'relative' }}>
-                    <Lock size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-                    <input
-                      type="password"
-                      placeholder="Leave blank to keep current"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="profile-input"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Confirm New Password</label>
-                  <div style={{ position: 'relative' }}>
-                    <Lock size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-                    <input
-                      type="password"
-                      placeholder="Confirm new password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="profile-input"
-                    />
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Confirm New Password</label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+                      <input
+                        type="password"
+                        placeholder="Confirm new password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="profile-input"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
+            )}
+          </div>
 
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={updateMut.isPending}
-                  className="btn-primary"
-                  style={{ opacity: updateMut.isPending ? 0.75 : 1 }}
-                >
-                  {updateMut.isPending ? 'Saving changes...' : 'Save Settings'}
-                </button>
-              </div>
-            </form>
+          {/* Action Buttons / Sticky Footer */}
+          {!isLoading && (
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={onClose}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={updateMut.isPending}
+                className="btn-primary"
+                style={{ opacity: updateMut.isPending ? 0.75 : 1 }}
+              >
+                {updateMut.isPending ? 'Saving changes...' : 'Save Settings'}
+              </button>
+            </div>
           )}
-        </div>
+        </form>
       </div>
       <style>{`
         .profile-input {

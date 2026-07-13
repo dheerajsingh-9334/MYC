@@ -6,11 +6,14 @@ import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, X, Check, TriangleAlert, CircleCheck, Clock, Search, ChevronLeft, ChevronRight, Download, TrendingUp, PieChart } from 'lucide-react';
+import { ArrowLeft, X, Check, TriangleAlert, CircleCheck, Clock, Search, ChevronLeft, ChevronRight, Download, TrendingUp, PieChart, Pencil, FileText, Move, Activity, Settings, Plus, Edit2, Trash2 } from 'lucide-react';
 import { USE_MOCK, MOCK_CLIENTS, MOCK_STEPS, MOCK_CLIENT_DETAIL } from '@/lib/mockData';
 import { useFormDraft } from '@/lib/useFormDraft';
 import { format, addDays, differenceInCalendarDays, startOfDay, isPast, isToday } from 'date-fns';
 import { ManageStepsPanel } from '@/app/settings/steps/page';
+import ActionDropdown from '@/components/ui/ActionDropdown';
+import UpdateClientModal from '@/components/pipeline/UpdateClientModal';
+import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
 
 // Short step labels for the pipeline track
 const STEP_LABELS = [
@@ -37,6 +40,8 @@ export default function ClientDetailPane({
   const [showChangeStatus, setShowChangeStatus] = useState(false);
   const [showStepConfig, setShowStepConfig] = useState(false);
   const [showAddStep, setShowAddStep] = useState(false);
+  const [showUpdateClient, setShowUpdateClient] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
   const [addStepForm, setAddStepForm] = useState({ name: '', owningTeamName: '', slaDays: '3', description: '', stepNumber: '' });
   const [addStepError, setAddStepError] = useState('');
   const [editingStep, setEditingStep] = useState<any>(null);
@@ -203,6 +208,29 @@ export default function ClientDetailPane({
       qc.invalidateQueries({ queryKey: ['notifications'] });
       qc.invalidateQueries({ queryKey: ['notif-count'] });
     },
+  });
+
+  const deleteClientMut = useMutation({
+    mutationFn: () => apiFetch(`/api/clients/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      router.push('/clients');
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to delete client');
+    }
+  });
+
+  const deleteTaskMut = useMutation({
+    mutationFn: (taskId: string) => apiFetch(`/api/tasks/${taskId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['client', id] });
+      qc.invalidateQueries({ queryKey: ['clients'] });
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to delete task');
+    }
   });
 
 
@@ -729,8 +757,84 @@ export default function ClientDetailPane({
 
 
 
+  const clientActions = [
+    {
+      label: 'View vault',
+      icon: <FileText size={13} />,
+      onClick: () => {
+        router.push(`/vault?search=${encodeURIComponent(client.brandName || client.fullName)}`);
+      },
+    },
+    ...(isAdmin ? [
+      {
+        label: 'Move step',
+        icon: <Move size={13} />,
+        onClick: () => setShowMoveStep(true),
+      },
+      {
+        label: 'Change status',
+        icon: <Activity size={13} />,
+        onClick: () => setShowChangeStatus(true),
+      },
+      {
+        label: 'Step config',
+        icon: <Settings size={13} />,
+        onClick: () => setShowStepConfig(true),
+      },
+      {
+        label: 'Add task',
+        icon: <Plus size={13} />,
+        onClick: () => setShowAddTask(true),
+      },
+      {
+        label: 'Update',
+        icon: <Edit2 size={13} />,
+        onClick: () => setShowUpdateClient(true),
+      },
+      {
+        label: 'Delete',
+        icon: <Trash2 size={13} />,
+        onClick: () => {
+          if (confirm(`Are you sure you want to delete client "${client.brandName || client.fullName}"? This will delete all associated steps, tasks, documents, and history. This action cannot be undone.`)) {
+            deleteClientMut.mutate();
+          }
+        },
+        danger: true,
+      }
+    ] : []),
+  ];
+
   const content = (
     <div style={{ padding: '16px 20px', flex: 1 }}>
+      {(deleteClientMut.isPending || deleteTaskMut.isPending) && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(20,25,12,0.45)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+        }}>
+          <div style={{
+            width: 40,
+            height: 40,
+            border: '3px solid #E5E4DC',
+            borderTop: '3px solid var(--olive)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+          }} />
+          <p style={{ marginTop: 16, color: '#fff', fontSize: 14, fontWeight: 500 }}>Processing request...</p>
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
 
       {/* Back / Close button */}
       {!embedded ? (
@@ -780,38 +884,7 @@ export default function ClientDetailPane({
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-            <button style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
-              View vault
-            </button>
-            {isAdmin && (
-              <>
-                <button onClick={() => setShowMoveStep(true)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
-                  Move step
-                </button>
-                <button onClick={() => setShowChangeStatus(true)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
-                  Change status
-                </button>
-                <button onClick={() => setShowStepConfig(true)} style={{ padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)', transition: 'all 0.15s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
-                  Step config
-                </button>
-              </>
-            )}
-            {isAdmin && (
-              <button onClick={() => setShowAddTask(true)}
-                style={{ padding: '7px 14px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: 500, background: 'var(--olive)', cursor: 'pointer', color: '#fff', transition: 'background 0.15s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--olive-dark)'; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--olive)'; }}>
-                Add task
-              </button>
-            )}
+            <ActionDropdown align="right" actions={clientActions} />
           </div>
         </div>
 
@@ -1378,38 +1451,61 @@ export default function ClientDetailPane({
                             )}
                           </td>
                           <td style={{ ...tdStyle, verticalAlign: 'middle', textAlign: 'center', width: '20%' }}>
-                            {!done && blockerTaskId !== task.id && (
-                              <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'center', width: '100%' }}>
-                                {task.status === 'extension_requested' ? (
-                                  <SmallTaskButton
-                                    label="Cancel Request"
-                                    icon={<X size={11} />}
-                                    color="var(--red)"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
+                            {(() => {
+                              const dropdownActions = [];
+
+                              if (!done) {
+                                dropdownActions.push({
+                                  label: 'Complete Task',
+                                  icon: <Check size={13} />,
+                                  onClick: () => handleCheck(task.id, task.status),
+                                });
+
+                                if (task.status === 'extension_requested') {
+                                  dropdownActions.push({
+                                    label: 'Cancel Extension',
+                                    icon: <X size={13} />,
+                                    onClick: () => {
                                       if (confirm("Cancel this extension request?")) {
                                         declineExtensionMut.mutate(task.id);
                                       }
-                                    }}
-                                  />
-                                ) : (
-                                  <>
-                                    <SmallTaskButton
-                                      label="Complete"
-                                      icon={<Check size={11} />}
-                                      color="var(--green)"
-                                      onClick={(e) => { e.stopPropagation(); handleCheck(task.id, task.status); }}
-                                    />
-                                    <SmallTaskButton
-                                      label="Blocker"
-                                      icon={<TriangleAlert size={11} />}
-                                      color="#6B3FA0"
-                                      onClick={(e) => { e.stopPropagation(); setBlockerTaskId(task.id); }}
-                                    />
-                                  </>
-                                )}
-                              </div>
-                            )}
+                                    },
+                                    danger: true,
+                                  });
+                                }
+
+                                if (task.status !== 'blocked' && task.status !== 'extension_requested') {
+                                  dropdownActions.push({
+                                    label: 'Raise Blocker',
+                                    icon: <TriangleAlert size={13} />,
+                                    onClick: () => setBlockerTaskId(task.id),
+                                    danger: true,
+                                  });
+                                }
+                              }
+
+                              if (isAdmin) {
+                                dropdownActions.push({
+                                  label: 'Update',
+                                  icon: <Edit2 size={13} />,
+                                  onClick: () => setEditingTask(task),
+                                });
+                                dropdownActions.push({
+                                  label: 'Delete',
+                                  icon: <Trash2 size={13} />,
+                                  onClick: () => {
+                                    if (confirm(`Are you sure you want to delete task "${task.title}"?`)) {
+                                      deleteTaskMut.mutate(task.id);
+                                    }
+                                  },
+                                  danger: true,
+                                });
+                              }
+
+                              return (
+                                <ActionDropdown align="right" actions={dropdownActions} />
+                              );
+                            })()}
                           </td>
                         </tr>
                       );
@@ -1461,16 +1557,19 @@ export default function ClientDetailPane({
         {showMoveStep && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
             onClick={e => { if (e.target === e.currentTarget) setShowMoveStep(false); }}>
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', animation: 'modalIn 0.2s ease-out' }}>
-              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Move to a different step</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Incomplete tasks in the current step will be cancelled.</div>
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', animation: 'modalIn 0.2s ease-out', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
+                <div>
+                  <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Move to a different step</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Incomplete tasks in the current step will be cancelled.</div>
+                </div>
+                <button onClick={() => setShowMoveStep(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
               </div>
-              <div style={{ padding: '20px 24px' }}>
+              <div style={{ padding: '20px 24px', flex: 1, overflowY: 'auto' }}>
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Target Step</label>
                   <select value={moveToStepId} onChange={e => moveDraft.setData(p => ({ ...p, moveToStepId: e.target.value }))}
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', boxSizing: 'border-box' }}>
                     <option value="">Select a step...</option>
                     {steps.map((s: any) => (
                       <option key={s.id} value={s.id} disabled={s.id === client.currentStepId}>
@@ -1482,10 +1581,10 @@ export default function ClientDetailPane({
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Reason (required)</label>
                   <textarea value={moveReason} onChange={e => moveDraft.setData(p => ({ ...p, moveReason: e.target.value }))} placeholder="Why is this client being moved?"
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical', fontFamily: 'inherit' }} />
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
                 </div>
               </div>
-              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
                 <button onClick={() => setShowMoveStep(false)} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
                 <button
                   disabled={USE_MOCK ? false : (!moveToStepId || !moveReason || moveMutation.isPending)}
@@ -1502,18 +1601,21 @@ export default function ClientDetailPane({
         {showChangeStatus && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
             onClick={e => { if (e.target === e.currentTarget) setShowChangeStatus(false); }}>
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', animation: 'modalIn 0.2s ease-out' }}>
-              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Change client status</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
-                  Current: <strong>{client.status}</strong>. All teams in the org will be notified.
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', animation: 'modalIn 0.2s ease-out', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
+                <div>
+                  <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Change client status</div>
+                  <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
+                    Current: <strong>{client.status}</strong>. All teams in the org will be notified.
+                  </div>
                 </div>
+                <button onClick={() => setShowChangeStatus(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
               </div>
-              <div style={{ padding: '20px 24px' }}>
+              <div style={{ padding: '20px 24px', flex: 1, overflowY: 'auto' }}>
                 <div style={{ marginBottom: 16 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>New status</label>
                   <select value={newStatus} onChange={e => statusDraft.setData(p => ({ ...p, newStatus: e.target.value }))}
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', boxSizing: 'border-box' }}>
                     <option value="">Select a status...</option>
                     {(['active', 'paused', 'completed', 'churned'] as const).map(s => (
                       <option key={s} value={s} disabled={s === client.status}>{s}</option>
@@ -1523,10 +1625,10 @@ export default function ClientDetailPane({
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Reason (required)</label>
                   <textarea value={statusReason} onChange={e => statusDraft.setData(p => ({ ...p, reasonNote: e.target.value }))} placeholder="Why is this status changing?"
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical', fontFamily: 'inherit' }} />
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }} />
                 </div>
               </div>
-              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
                 <button onClick={() => setShowChangeStatus(false)} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
                 <button
                   disabled={!newStatus || !statusReason || statusMutation.isPending || newStatus === client.status}
@@ -1543,8 +1645,8 @@ export default function ClientDetailPane({
         {showAddTask && isAdmin && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
             onClick={e => { if (e.target === e.currentTarget) setShowAddTask(false); }}>
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 560, boxShadow: 'var(--shadow-lg)' }}>
-              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 560, boxShadow: 'var(--shadow-lg)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
                 <div>
                   <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Add Task</div>
                   <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
@@ -1554,14 +1656,14 @@ export default function ClientDetailPane({
                 <button onClick={() => setShowAddTask(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
               </div>
 
-              <div style={{ padding: '20px 24px' }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
                 {/* Team (dropdown) — drives assignee filter */}
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Team *</label>
                   <select
                     value={addTaskForm.teamName}
                     onChange={e => setAddTaskForm(f => ({ ...f, teamName: e.target.value, assignedToId: '' }))}
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', boxSizing: 'border-box' }}
                   >
                     <option value="">Select team…</option>
                     {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
@@ -1575,7 +1677,7 @@ export default function ClientDetailPane({
                     value={addTaskForm.title}
                     onChange={e => setAddTaskForm(f => ({ ...f, title: e.target.value }))}
                     placeholder="e.g. Send brand questionnaire"
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>
 
@@ -1587,7 +1689,7 @@ export default function ClientDetailPane({
                     onChange={e => setAddTaskForm(f => ({ ...f, description: e.target.value }))}
                     placeholder="Optional context for the assignee…"
                     rows={2}
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical' }}
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
                   />
                 </div>
 
@@ -1599,7 +1701,7 @@ export default function ClientDetailPane({
                       value={addTaskForm.assignedToId}
                       onChange={e => setAddTaskForm(f => ({ ...f, assignedToId: e.target.value }))}
                       disabled={!addTaskForm.teamName}
-                      style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', opacity: !addTaskForm.teamName ? 0.6 : 1 }}
+                      style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', opacity: !addTaskForm.teamName ? 0.6 : 1, boxSizing: 'border-box' }}
                     >
                       <option value="">{addTaskForm.teamName ? 'Select member…' : 'Pick a team first'}</option>
                       {assignees.map((u: any) => (
@@ -1612,7 +1714,7 @@ export default function ClientDetailPane({
                     <select
                       value={addTaskForm.priority}
                       onChange={e => setAddTaskForm(f => ({ ...f, priority: e.target.value }))}
-                      style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}
+                      style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', boxSizing: 'border-box' }}
                     >
                       <option value="normal">Normal</option>
                       <option value="high">High</option>
@@ -1625,7 +1727,7 @@ export default function ClientDetailPane({
                       value={addTaskForm.dueDate}
                       min={format(addDays(new Date(), 1), 'yyyy-MM-dd')}
                       onChange={e => setAddTaskForm(f => ({ ...f, dueDate: e.target.value }))}
-                      style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}
+                      style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', boxSizing: 'border-box' }}
                     />
                   </div>
                 </div>
@@ -1637,7 +1739,7 @@ export default function ClientDetailPane({
                 )}
               </div>
 
-              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
                 <button onClick={() => setShowAddTask(false)} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
                 <button
                   onClick={() => { setAddTaskError(''); addTaskMut.mutate(); }}
@@ -1658,23 +1760,23 @@ export default function ClientDetailPane({
         {completeTaskId && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
             onClick={(e) => { if (e.target === e.currentTarget) setCompleteTaskId(null); }}>
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)' }}>
-              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
                 <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Complete Task</div>
                 <button onClick={() => setCompleteTaskId(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
               </div>
-              <div style={{ padding: '20px 24px' }}>
+              <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
                 <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>Please provide proof of work details (optional but recommended) to upload to the Vault.</p>
                 <div style={{ marginBottom: 14 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Proof Link (e.g. Drive, Loom, Figma)</label>
-                  <input type="url" value={proofLink} onChange={e => setProofLink(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
+                  <input type="url" value={proofLink} onChange={e => setProofLink(e.target.value)} placeholder="https://..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', boxSizing: 'border-box' }} />
                 </div>
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Comment / Description</label>
-                  <textarea value={proofDescription} onChange={e => setProofDescription(e.target.value)} placeholder="Any additional details or comments..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical' }} />
+                  <textarea value={proofDescription} onChange={e => setProofDescription(e.target.value)} placeholder="Any additional details or comments..." style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical', boxSizing: 'border-box' }} />
                 </div>
               </div>
-              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
                 <button onClick={() => { setCompleteTaskId(null); setProofLink(''); setProofDescription(''); }} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
                 <button
                   onClick={() => {
@@ -1698,7 +1800,7 @@ export default function ClientDetailPane({
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 700, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' }}>
               
               {/* Modal header */}
-              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
                 <div>
                   <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Export Client Data: {client.brandName || client.fullName}</div>
                   <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>Filter and download reports for this specific client in CSV or PDF.</div>
@@ -1709,7 +1811,7 @@ export default function ClientDetailPane({
               </div>
 
               {/* Modal body */}
-              <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }}>
+              <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }} className="custom-scrollbar">
                 
                 {/* Select export type */}
                 <div style={{ marginBottom: 20 }}>
@@ -1747,19 +1849,19 @@ export default function ClientDetailPane({
                     <div>
                       <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Start Date (Due Date)</label>
                       <input type="date" value={expStartDate} onChange={e => setExpStartDate(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }} />
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', boxSizing: 'border-box' }} />
                     </div>
                     <div>
                       <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>End Date (Due Date)</label>
                       <input type="date" value={expEndDate} onChange={e => setExpEndDate(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }} />
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', boxSizing: 'border-box' }} />
                     </div>
 
                     {/* Step Filter */}
                     <div>
                       <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Step</label>
                       <select value={expStepId} onChange={e => setExpStepId(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', boxSizing: 'border-box' }}>
                         <option value="">All Steps</option>
                         {stepsList.map((s: any) => (
                           <option key={s.id} value={s.id}>Step {s.stepNumber}: {s.name}</option>
@@ -1771,7 +1873,7 @@ export default function ClientDetailPane({
                     <div>
                       <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Task Status</label>
                       <select value={expStatus} onChange={e => setExpStatus(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', boxSizing: 'border-box' }}>
                         <option value="">All Statuses</option>
                         <option value="pending">Pending</option>
                         <option value="in_progress">In Progress</option>
@@ -1787,7 +1889,7 @@ export default function ClientDetailPane({
                     <div>
                       <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Team</label>
                       <select value={expTeam} onChange={e => setExpTeam(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', boxSizing: 'border-box' }}>
                         <option value="">All Teams</option>
                         {teamsList.map((t: string) => (
                           <option key={t} value={t}>{t}</option>
@@ -1799,7 +1901,7 @@ export default function ClientDetailPane({
                     <div>
                       <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Assigned Member</label>
                       <select value={expAssignedToId} onChange={e => setExpAssignedToId(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', boxSizing: 'border-box' }}>
                         <option value="">All Members</option>
                         {usersList.map((u: any) => (
                           <option key={u.id} value={u.id}>{u.fullName} ({u.teamName || 'No Team'})</option>
@@ -1811,7 +1913,7 @@ export default function ClientDetailPane({
                     <div>
                       <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Priority</label>
                       <select value={expPriority} onChange={e => setExpPriority(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', boxSizing: 'border-box' }}>
                         <option value="">All Priorities</option>
                         <option value="high">High</option>
                         <option value="normal">Normal</option>
@@ -1823,7 +1925,7 @@ export default function ClientDetailPane({
                     <div>
                       <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Completion State</label>
                       <select value={expCompleted} onChange={e => setExpCompleted(e.target.value)}
-                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
+                        style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)', boxSizing: 'border-box' }}>
                         <option value="all">All States</option>
                         <option value="true">Completed Only</option>
                         <option value="false">Pending Only</option>
@@ -1834,7 +1936,7 @@ export default function ClientDetailPane({
               </div>
 
               {/* Modal footer */}
-              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 12, flexShrink: 0, background: 'var(--surface-2)' }}>
+              <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 12, flexShrink: 0, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)' }}>
                 <button onClick={() => setShowExportModal(false)}
                   style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
                   Cancel
@@ -1897,13 +1999,13 @@ export default function ClientDetailPane({
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
             onClick={e => { if (e.target === e.currentTarget) setShowStepConfig(false); }}>
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 800, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)', animation: 'modalIn 0.2s ease-out', overflow: 'hidden' }}>
-              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexShrink: 0 }}>
                 <div>
                   <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Step Configuration — {client.brandName || client.fullName}</div>
                   <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Configure steps and tasks for this client onboarding pipeline.</div>
                 </div>
-                <button onClick={() => setShowStepConfig(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <X size={20} />
+                <button onClick={() => setShowStepConfig(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
+                  <X size={18} />
                 </button>
               </div>
               <div style={{ flex: 1, overflowY: 'auto', background: 'var(--surface-2)' }}>
@@ -1916,6 +2018,24 @@ export default function ClientDetailPane({
               </div>
             </div>
           </div>
+        )}
+
+        {showUpdateClient && isAdmin && (
+          <UpdateClientModal
+            open={showUpdateClient}
+            onClose={() => setShowUpdateClient(false)}
+            onSuccess={() => qc.invalidateQueries({ queryKey: ['client', id] })}
+            client={client}
+          />
+        )}
+        {editingTask && isAdmin && (
+          <UpdateTaskModal
+            open={!!editingTask}
+            onClose={() => setEditingTask(null)}
+            onSuccess={() => qc.invalidateQueries({ queryKey: ['client', id] })}
+            task={editingTask}
+            users={usersList}
+          />
         )}
       </div>
   );
