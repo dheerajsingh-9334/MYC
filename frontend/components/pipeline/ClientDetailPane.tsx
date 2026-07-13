@@ -849,7 +849,7 @@ export default function ClientDetailPane({
         }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
-          <ArrowLeft size={13} /> Back to ClientLists
+          <ArrowLeft size={13} /> Back to Clients
         </Link>
       ) : (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
@@ -891,7 +891,7 @@ export default function ClientDetailPane({
         </div>
 
         {/* ── TEAM INFO BANNER ────────────────────────────────────────── */}
-        <div style={{
+        {/* <div style={{
           background: '#EBF3FB', border: '1px solid #B8D4EE', borderRadius: 'var(--radius-sm)',
           padding: '12px 16px', marginBottom: 24,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
@@ -906,7 +906,7 @@ export default function ClientDetailPane({
           <button style={{ fontSize: 12.5, fontWeight: 600, color: '#2860A1', background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap', padding: 0 }}>
             Open vault →
           </button>
-        </div>
+        </div> */}
 
         {/* ── PIPELINE TRACK ──────────────────────────────────────────── */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 24, marginBottom: 24 }}>
@@ -918,12 +918,12 @@ export default function ClientDetailPane({
                 Step {currentStepNum} of {steps.length} — <span style={{ color: 'var(--olive)', fontStyle: 'italic' }}>{client.currentStep?.name}</span>
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            {/* <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 2 }}>Days in current step</div>
               <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 18, fontWeight: 700, color: isOverSLA ? 'var(--red)' : 'var(--olive)' }}>
                 {daysInStep} / {sla} SLA
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Dynamic pipeline track */}
