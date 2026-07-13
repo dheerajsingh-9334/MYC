@@ -849,7 +849,7 @@ export default function ClientDetailPane({
         }}
           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'var(--surface)'; }}>
-          <ArrowLeft size={13} /> Back to Pipeline
+          <ArrowLeft size={13} /> Back to ClientLists
         </Link>
       ) : (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
