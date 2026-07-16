@@ -20,6 +20,13 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     const clients = await prisma.client.findMany({
       where: {
         organisationId: req.user.orgId,
+        ...(req.user.role !== 'admin' ? {
+          tasks: {
+            none: {
+              status: 'blocked'
+            }
+          }
+        } : {}),
         OR: [
           { status: 'active' },
           { isPinned: true },

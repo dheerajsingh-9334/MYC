@@ -7,7 +7,7 @@ import { apiFetch, getUser } from '@/lib/api';
 import { USE_MOCK, MOCK_TEAM, MOCK_TASKS, MOCK_CLIENTS, MOCK_STEPS } from '@/lib/mockData';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity, ArrowRight, BarChart3, Search, Bell, Check, X, Download, Play, Pin, AlertCircle, Filter, ChevronDown, Pause } from 'lucide-react';
+import { Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity, ArrowRight, BarChart3, Search, Bell, Check, X, Download, Play, Pin, AlertCircle, Filter, ChevronDown, Pause, ChevronsUp, ChevronsDown } from 'lucide-react';
 import { format, isPast, isToday, differenceInDays } from 'date-fns';
 import DashboardHeader from '@/components/ui/DashboardHeader';
 import StatCard from '@/components/ui/StatCard';
@@ -707,6 +707,28 @@ export default function AdminDashboard() {
                           />
                         </div>
 
+                        <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+                        {(() => {
+                          const allExpanded = Object.keys(groupedTasks).length > 0 && Object.keys(groupedTasks).every(k => collapsedTeams[k] === false);
+                          return (
+                            <button
+                              onClick={() => {
+                                const next: Record<string, boolean> = {};
+                                Object.keys(groupedTasks).forEach(k => { next[k] = allExpanded; });
+                                setCollapsedTeams(next);
+                              }}
+                              title={allExpanded ? 'Collapse all' : 'Expand all'}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}
+                            >
+                              {allExpanded ? <ChevronsUp size={13} /> : <ChevronsDown size={13} />}
+                              {allExpanded ? 'Collapse all' : 'Expand all'}
+                            </button>
+                          );
+                        })()}
+                        <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+
                         {/* Filter dropdown */}
                         <div
                           onMouseEnter={() => setShowHoverFiltersTeam(true)}
@@ -857,7 +879,7 @@ export default function AdminDashboard() {
                             <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks found.</td></tr>
                           ) : (
                             Object.entries(groupedTasks).map(([teamName, tasks]) => {
-                              const isCollapsed = collapsedTeams[teamName] === true;
+                              const isCollapsed = collapsedTeams[teamName] ?? true;
                               const isOpen = !isCollapsed;
                               return (
                                 <Fragment key={`team-group-${teamName}`}>
@@ -865,7 +887,7 @@ export default function AdminDashboard() {
                                     onClick={() => {
                                       setCollapsedTeams(prev => ({
                                         ...prev,
-                                        [teamName]: !prev[teamName]
+                                        [teamName]: !(prev[teamName] ?? true)
                                       }));
                                     }}
                                     style={{

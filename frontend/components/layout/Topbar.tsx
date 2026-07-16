@@ -336,6 +336,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
             />
           </div>
           <NotificationBell />
+          {renderActions && renderActions()}
           {user?.role === 'admin' && (
             <>
               <button

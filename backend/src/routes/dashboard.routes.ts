@@ -8,8 +8,18 @@ const router = Router();
 // GET /api/dashboard/stats
 router.get('/stats', requireAuth, async (req: Request, res: Response) => {
   try {
+    const isAdmin = req.user.role === 'admin';
+    const clientWhere: any = { organisationId: req.user.orgId };
+    if (!isAdmin) {
+      clientWhere.tasks = {
+        none: {
+          status: 'blocked'
+        }
+      };
+    }
+
     const allClients = await prisma.client.findMany({
-      where: { organisationId: req.user.orgId },
+      where: clientWhere,
       include: { tasks: true },
     });
     const activeClients = allClients.filter((c) => c.status === 'active');
@@ -53,7 +63,22 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       res.status(403).json({ error: 'Admin or Team Leader only' });
       return;
     }
-    const { orgId } = req.user;
+    const { orgId, role } = req.user;
+    const isAdmin = role === 'admin';
+
+    const clientFilter: any = { organisationId: orgId };
+    const activeClientFilter: any = { organisationId: orgId, status: 'active' };
+    const completedClientFilter: any = { organisationId: orgId, status: 'completed' };
+    const taskFilter: any = { organisationId: orgId };
+    const stepHistoryFilter: any = { organisationId: orgId };
+
+    if (!isAdmin) {
+      clientFilter.tasks = { none: { status: 'blocked' } };
+      activeClientFilter.tasks = { none: { status: 'blocked' } };
+      completedClientFilter.tasks = { none: { status: 'blocked' } };
+      taskFilter.client = { tasks: { none: { status: 'blocked' } } };
+      stepHistoryFilter.client = { tasks: { none: { status: 'blocked' } } };
+    }
 
     const [
       totalClients,
@@ -67,11 +92,11 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       allClientsList,
       histories,
     ] = await Promise.all([
-      prisma.client.count({ where: { organisationId: orgId } }),
-      prisma.client.count({ where: { organisationId: orgId, status: 'active' } }),
-      prisma.client.count({ where: { organisationId: orgId, status: 'completed' } }),
+      prisma.client.count({ where: clientFilter }),
+      prisma.client.count({ where: activeClientFilter }),
+      prisma.client.count({ where: completedClientFilter }),
       prisma.task.findMany({
-        where: { organisationId: orgId },
+        where: taskFilter,
         select: {
           id: true, title: true, status: true, priority: true, dueDate: true, completedAt: true,
           assignedToId: true, stepId: true,
@@ -90,7 +115,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         select: { id: true, name: true, stepNumber: true, owningTeamName: true },
       }),
       prisma.task.findMany({
-        where: { organisationId: orgId },
+        where: taskFilter,
         orderBy: { createdAt: 'desc' },
         take: 100,
         include: {
@@ -101,14 +126,14 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         },
       }),
       prisma.client.findMany({
-        where: { organisationId: orgId, status: 'completed' },
+        where: completedClientFilter,
         include: { stepHistory: { orderBy: { createdAt: 'desc' }, take: 1 } },
       }),
       prisma.client.findMany({
-        where: { organisationId: orgId },
+        where: clientFilter,
       }),
       prisma.stepHistory.findMany({
-        where: { organisationId: orgId },
+        where: stepHistoryFilter,
         include: {
           fromStep: { select: { stepNumber: true } },
           toStep: { select: { stepNumber: true } },
@@ -392,9 +417,9 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
 //                      is owned by this user's team (or any step if no team match).
 router.get('/staff', requireAuth, async (req: Request, res: Response) => {
   try {
-    const userId = req.user.userId;
-    const orgId = req.user.orgId;
-    const userTeam = req.user.teamName || null;
+    const { userId, orgId, role, teamName } = req.user;
+    const userTeam = teamName || null;
+    const isAdmin = role === 'admin';
 
     // Window can be "week" (7 days) or "month" (30 days). Default to week.
     const windowDays = req.query.window === 'month' ? 30 : 7;
@@ -406,9 +431,20 @@ router.get('/staff', requireAuth, async (req: Request, res: Response) => {
     const windowEnd = new Date(today);
     windowEnd.setDate(windowEnd.getDate() + windowDays);
 
+    const taskWhere: any = { organisationId: orgId, assignedToId: userId };
+    if (!isAdmin) {
+      taskWhere.client = {
+        tasks: {
+          none: {
+            status: "blocked"
+          }
+        }
+      };
+    }
+
     // Tasks assigned to me (the source for tasksCompleted + dueIn7d)
     const myTasks = await prisma.task.findMany({
-      where: { organisationId: orgId, assignedToId: userId },
+      where: taskWhere,
       select: {
         id: true, status: true, dueDate: true, completedAt: true, clientId: true,
       },
@@ -430,7 +466,6 @@ router.get('/staff', requireAuth, async (req: Request, res: Response) => {
     // We pull steps owned by the user's team and then count clients created in the window
     // currently sitting on one of those steps.
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true, teamName: true } });
-    const isAdmin = user?.role === 'admin';
 
     let joinedScope: { id: string }[] | null = null;
     if (!isAdmin && userTeam) {
@@ -467,13 +502,24 @@ router.get('/staff', requireAuth, async (req: Request, res: Response) => {
     // We average over the user's last 30 completions (recent window) so the number
     // reflects current pace rather than lifetime history. If they haven't completed
     // anything yet, avgCompleteMinutes is null.
+    const recentCompletedWhere: any = {
+      organisationId: orgId,
+      assignedToId: userId,
+      status: 'complete',
+      completedAt: { not: null },
+    };
+    if (!isAdmin) {
+      recentCompletedWhere.client = {
+        tasks: {
+          none: {
+            status: "blocked"
+          }
+        }
+      };
+    }
+
     const recentCompleted = await prisma.task.findMany({
-      where: {
-        organisationId: orgId,
-        assignedToId: userId,
-        status: 'complete',
-        completedAt: { not: null },
-      },
+      where: recentCompletedWhere,
       orderBy: { completedAt: 'desc' },
       take: 30,
       select: { createdAt: true, completedAt: true },
@@ -511,8 +557,17 @@ router.get('/staff', requireAuth, async (req: Request, res: Response) => {
       where: { organisationId: orgId, clientId: null, isActive: true },
       orderBy: { stepNumber: 'asc' }
     });
+    const activeClientsWhere: any = { organisationId: orgId, status: 'active' };
+    if (!isAdmin) {
+      activeClientsWhere.tasks = {
+        none: {
+          status: 'blocked'
+        }
+      };
+    }
+
     const activeClients = await prisma.client.findMany({
-      where: { organisationId: orgId, status: 'active' },
+      where: activeClientsWhere,
       include: { currentStep: true }
     });
     const pipelineDistribution = stepsList.map(step => {

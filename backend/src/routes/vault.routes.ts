@@ -1,8 +1,10 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 import prisma from "../prisma/client";
 import { requireAuth, requireRole } from "../middleware/auth.middleware";
+import { uploadToCloudinary } from "../services/cloudinary.service";
 
 const router = Router();
 const upload = multer({ dest: "uploads/" });
@@ -263,6 +265,16 @@ router.post(
         }
       }
 
+      let fileUrl: string | undefined;
+      if (file) {
+        fileUrl = await uploadToCloudinary(file.path, 'vault', 'auto');
+        try {
+          fs.unlinkSync(file.path);
+        } catch (err) {
+          console.error('[Vault Upload] Failed to delete temp file:', err);
+        }
+      }
+
       const doc = await prisma.document.create({
         data: {
           organisationId: req.user.orgId,
@@ -270,7 +282,7 @@ router.post(
           stepId,
           taskId: taskId || null,
           title: title || file?.originalname || "Untitled",
-          fileUrl: file ? `/uploads/${file.filename}` : undefined,
+          fileUrl: fileUrl,
           fileSize: file?.size,
           mimeType: file?.mimetype,
           docType: "file",

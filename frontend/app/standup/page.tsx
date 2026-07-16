@@ -282,10 +282,31 @@ export default function StandupPage() {
 
   const isLoading = liveLoading && items.length === 0;
 
+  const allExpanded = useMemo(() => {
+    const keys = Object.keys(groupedItems);
+    return keys.length > 0 && keys.every(k => (expandedGroups[k] ?? false) === true);
+  }, [groupedItems, expandedGroups]);
+
+  const toggleAllGroups = () => {
+    if (allExpanded) {
+      const next: Record<string, boolean> = {};
+      Object.keys(groupedItems).forEach(k => {
+        next[k] = false;
+      });
+      setExpandedGroups(next);
+    } else {
+      const next: Record<string, boolean> = {};
+      Object.keys(groupedItems).forEach(k => {
+        next[k] = true;
+      });
+      setExpandedGroups(next);
+    }
+  };
+
   return (
     <AppLayout>
       <Topbar title="Standup Brief" subtitle="Daily team alignment and risk evaluation" />
-      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 16, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box' }}>
 
         {/* Overhead Summary Bar */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
@@ -422,7 +443,7 @@ export default function StandupPage() {
             <div style={{ fontSize: 14, color: 'var(--muted)' }}>All clear or try adjusting your filters.</div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minHeight: 0 }}>
             {/* Toolbar — active filter pills on left, controls on right */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 6,
@@ -471,14 +492,9 @@ export default function StandupPage() {
 
                 <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
 
-                {/* Expand all */}
                 <button
-                  title="Expand all groups"
-                  onClick={() => {
-                    const next: Record<string, boolean> = {};
-                    Object.keys(groupedItems).forEach(k => { next[k] = true; });
-                    setExpandedGroups(next);
-                  }}
+                  title={allExpanded ? 'Collapse all' : 'Expand all'}
+                  onClick={toggleAllGroups}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 4,
                     padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
@@ -488,23 +504,8 @@ export default function StandupPage() {
                   onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}
                 >
-                  <ChevronsDown size={13} /> Expand all
-                </button>
-
-                {/* Collapse all */}
-                <button
-                  title="Collapse all groups"
-                  onClick={() => setExpandedGroups({})}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                    fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)',
-                    cursor: 'pointer', whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}
-                >
-                  <ChevronsUp size={13} /> Collapse all
+                  {allExpanded ? <ChevronsUp size={13} /> : <ChevronsDown size={13} />}
+                  {allExpanded ? 'Collapse all' : 'Expand all'}
                 </button>
 
                 <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
@@ -582,8 +583,8 @@ export default function StandupPage() {
               </div>
             </div>
 
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-              <div style={{ overflowX: 'auto' }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              <div style={{ overflowY: 'auto', overflowX: 'auto', flex: 1 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
@@ -601,12 +602,12 @@ export default function StandupPage() {
                       const firstItem = groupItems[0];
                       const clientId = firstItem?.clientId;
                       const clientPinned = firstItem?.clientPinned;
-                      const isOpen = !!expandedGroups[groupKey];
+                      const isOpen = expandedGroups[groupKey] ?? false;
                       return (
                         <React.Fragment key={groupKey}>
                           {/* Folder-style Group Header — matches /team page style */}
-                          <tr
-                            onClick={() => setExpandedGroups(prev => ({ ...prev, [groupKey]: !prev[groupKey] }))}
+                           <tr
+                            onClick={() => setExpandedGroups(prev => ({ ...prev, [groupKey]: !(prev[groupKey] ?? false) }))}
                             style={{
                               background: 'var(--surface-2)',
                               cursor: 'pointer', userSelect: 'none',

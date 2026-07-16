@@ -183,8 +183,8 @@ export default function EnterpriseDashboard() {
       }
     } else if (client.computedStatus === 'blocked') {
       return {
-        bg: 'var(--amber-bg)',
-        color: 'var(--amber)',
+        bg: 'var(--blocked-bg)',
+        color: 'var(--blocked)',
         label: 'Blocked',
       };
     } else if (client.computedStatus === 'due_today') {

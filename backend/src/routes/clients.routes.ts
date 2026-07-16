@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { notifyClientStatusChanged, notifyClientAdded } from '../services/notify.service';
-import { computeClientStatus, advanceClientToStep, handleManualStepMove, initializeClientPipeline } from '../services/pipeline.service';
+import { computeClientStatus, advanceClientToStep, handleManualStepMove, initializeClientPipeline, importClientWithCustomPipeline } from '../services/pipeline.service';
+import { uploadToCloudinary } from '../services/cloudinary.service';
 
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
@@ -17,10 +19,17 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Build scoped WHERE clause by role
     let where: any = { organisationId: orgId };
 
-    if (role === 'team_leader' && teamName) {
+    const teamNames = teamName
+      ? teamName
+          .split(",")
+          .map((name) => name.trim())
+          .filter(Boolean)
+      : [];
+
+    if (role === 'team_leader' && teamNames.length > 0) {
       // Team leader sees only clients currently in their team's step
       const teamSteps = await prisma.step.findMany({
-        where: { organisationId: orgId, owningTeamName: teamName },
+        where: { organisationId: orgId, owningTeamName: { in: teamNames } },
         select: { id: true },
       });
       where.currentStepId = { in: teamSteps.map((s) => s.id) };
@@ -32,6 +41,15 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       where.id = { in: myClientIds };
     }
     // admin: no extra filter
+
+    // Non-admins cannot see blocked clients
+    if (role !== 'admin') {
+      where.tasks = {
+        none: {
+          status: 'blocked'
+        }
+      };
+    }
 
     const clients = await prisma.client.findMany({
       where,
@@ -163,6 +181,14 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 
     if (!client) { res.status(404).json({ error: 'Client not found' }); return; }
 
+    if (role !== 'admin') {
+      const isBlocked = client.tasks.some((t) => t.status === 'blocked');
+      if (isBlocked) {
+        res.status(403).json({ error: 'Access denied: client is blocked.' });
+        return;
+      }
+    }
+
     const computedStatus = computeClientStatus(client.tasks);
     const daysInStep = Math.floor(
       (Date.now() - new Date(client.stepEnteredAt).getTime()) / (1000 * 60 * 60 * 24)
@@ -276,6 +302,32 @@ router.put('/:id', requireAuth, requireRole('admin'), async (req: Request, res: 
     }
 
     res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/clients/:id/unblock
+router.post('/:id/unblock', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const client = await prisma.client.findFirst({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+    });
+    if (!client) { res.status(404).json({ error: 'Client not found' }); return; }
+
+    // Update all blocked tasks for this client to 'pending'
+    await prisma.task.updateMany({
+      where: {
+        clientId: client.id,
+        status: 'blocked',
+      },
+      data: {
+        status: 'pending',
+      },
+    });
+
+    res.json({ message: 'Client tasks unblocked successfully' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });
@@ -405,13 +457,23 @@ router.post('/:id/documents', requireAuth, upload.single('file'), async (req: Re
     const { title, stepId } = req.body;
     const file = req.file;
 
+    let fileUrl: string | undefined;
+    if (file) {
+      fileUrl = await uploadToCloudinary(file.path, 'documents', 'auto');
+      try {
+        fs.unlinkSync(file.path);
+      } catch (err) {
+        console.error('[Document Upload] Failed to delete temp file:', err);
+      }
+    }
+
     const doc = await prisma.document.create({
       data: {
         organisationId: req.user.orgId,
         clientId: req.params.id,
         stepId: stepId || '',
         title: title || file?.originalname || 'Untitled',
-        fileUrl: file ? `/uploads/${file.filename}` : undefined,
+        fileUrl: fileUrl,
         fileSize: file?.size,
         mimeType: file?.mimetype,
         uploadedById: req.user.userId,
@@ -419,26 +481,30 @@ router.post('/:id/documents', requireAuth, upload.single('file'), async (req: Re
     });
     res.status(201).json(doc);
   } catch (err) {
+    console.error('[Document Upload] error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// POST /api/clients/import (CSV)
+// POST /api/clients/import (CSV/Excel)
 router.post('/import', requireAuth, requireRole('admin'), upload.single('file'), async (req: Request, res: Response) => {
   try {
     if (!req.file) { res.status(400).json({ error: 'No file uploaded' }); return; }
 
-    const fs = await import('fs');
-    const csvParser = (await import('csv-parser')).default;
+    const XLSX = await import('xlsx');
+    const workbook = XLSX.readFile(req.file.path);
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(worksheet) as any[];
 
-    const rows: any[] = [];
-    await new Promise<void>((resolve, reject) => {
-      fs.createReadStream(req.file!.path)
-        .pipe(csvParser())
-        .on('data', (row: any) => rows.push(row))
-        .on('end', resolve)
-        .on('error', reject);
-    });
+    if (rows.length === 0) {
+      res.status(400).json({ error: 'Uploaded file is empty' });
+      return;
+    }
+
+    // Determine the format by checking headers of the first row
+    const firstRowKeys = Object.keys(rows[0]);
+    const isCustomExcel = firstRowKeys.some(k => k.trim() === 'Clients Name' || k.trim() === 'Clients name');
 
     // Find any existing step to satisfy the foreign key constraint initially
     const firstStep = await prisma.step.findFirst({
@@ -446,33 +512,143 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
     });
     if (!firstStep) { res.status(400).json({ error: 'System steps not seeded. Please run database setup first.' }); return; }
 
+    // Write headers for NDJSON streaming
+    res.setHeader('Content-Type', 'application/x-ndjson');
+    res.setHeader('Transfer-Encoding', 'chunked');
+
     const errors: { row: number; reason: string }[] = [];
     const importedClients = [];
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const name = (row['client_name'] || row['Client_name'] || '').trim();
-      const stepNum = parseInt(row['current_step_number'] || row['Current_step_number'] || '1');
-      if (!name) { errors.push({ row: i + 2, reason: 'Missing client_name' }); continue; }
-      if (isNaN(stepNum) || stepNum < 1 || stepNum > 12) { errors.push({ row: i + 2, reason: `Invalid step number: ${row['current_step_number'] || '1'}` }); continue; }
+    if (isCustomExcel) {
+      const updateExisting = req.query.updateExisting === 'true';
 
-      const client = await prisma.client.create({
-        data: {
-          organisationId: req.user.orgId,
-          fullName: name,
-          email: row['email'] || null,
-          whatsappNumber: row['whatsapp'] || null,
-          currentStepId: firstStep.id, // temporary reference
-          stepEnteredAt: new Date(),
-          dateJoined: row['date_joined'] ? new Date(row['date_joined']) : new Date(),
-          createdById: req.user.userId,
-          status: 'active',
-        },
-      });
+      // Read name aliases from Sheet3 if it exists
+      const nameAliases: Record<string, string[]> = {};
+      const sheet3Name = workbook.SheetNames.find(name => name.toLowerCase().includes('sheet3'));
+      if (sheet3Name) {
+        const sheet3 = workbook.Sheets[sheet3Name];
+        const sheet3Rows = XLSX.utils.sheet_to_json(sheet3) as any[];
+        for (const r of sheet3Rows) {
+          const keys = Object.keys(r);
+          if (keys.length >= 2) {
+            const val1 = String(r[keys[0]] || '').trim();
+            const val2 = String(r[keys[1]] || '').trim();
+            if (val1 && val2 && val1 !== 'undefined' && val2 !== 'undefined') {
+              const v1 = val1.toLowerCase();
+              const v2 = val2.toLowerCase();
+              if (!nameAliases[v1]) nameAliases[v1] = [];
+              if (!nameAliases[v1].includes(val2)) nameAliases[v1].push(val2);
+              if (!nameAliases[v2]) nameAliases[v2] = [];
+              if (!nameAliases[v2].includes(val1)) nameAliases[v2].push(val1);
+            }
+          }
+        }
+      }
 
-      // Initialize client-specific pipeline steps and advance to the imported step number
-      await initializeClientPipeline(client.id, req.user.orgId, req.user.userId, stepNum);
-      importedClients.push(client);
+      // Pre-fetch existing client names to skip duplicates
+      const existingNames = new Set(
+        (await prisma.client.findMany({
+          where: { organisationId: req.user.orgId },
+          select: { fullName: true },
+        })).map(c => c.fullName.toLowerCase().trim())
+      );
+
+      // Build valid rows with index
+      const validRows: { idx: number; row: any; clientName: string; aliases: string[] }[] = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const clientName = (row['Clients Name'] || row['Clients name'] || '').trim();
+        if (!clientName) {
+          errors.push({ row: i + 2, reason: 'Missing Clients Name column' });
+          continue;
+        }
+
+        const aliases = nameAliases[clientName.toLowerCase()] || [];
+        const hasMatch = existingNames.has(clientName.toLowerCase()) || aliases.some(a => existingNames.has(a.toLowerCase()));
+
+        if (hasMatch) {
+          if (!updateExisting) {
+            errors.push({ row: i + 2, reason: `Client "${clientName}" already exists — skipped` });
+            continue;
+          }
+        }
+        validRows.push({ idx: i, row, clientName, aliases });
+      }
+
+      // Write initial progress
+      res.write(JSON.stringify({ type: 'progress', imported: 0, total: validRows.length }) + '\n');
+
+      // Process sequentially to avoid DB deadlocks and allow accurate progress streaming
+      for (let i = 0; i < validRows.length; i++) {
+        const { idx, row, clientName, aliases } = validRows[i];
+        const email = row['email'] || row['Email'] || null;
+        const whatsapp = row['whatsapp'] || row['Whatsapp'] || row['phone'] || row['Phone'] || null;
+        const rawDate = row['date_joined'] || row['Date Joined'] || row['Date joined'] || row['Onboarding Date'] || row['Onboarding date'];
+        const dateJoined = rawDate ? new Date(rawDate) : new Date();
+        const notesVal = row['notes'] || row['Notes'] || row['note'] || row['Note'] || null;
+
+        try {
+          const client = await importClientWithCustomPipeline(
+            {
+              fullName: clientName,
+              email,
+              whatsappNumber: whatsapp,
+              dateJoined: isNaN(dateJoined.getTime()) ? new Date() : dateJoined,
+              notes: notesVal,
+              aliases,
+            },
+            row,
+            req.user.orgId,
+            req.user.userId
+          );
+          importedClients.push(client);
+        } catch (err: any) {
+          console.error(`Error importing row ${idx + 2}:`, err);
+          errors.push({ row: idx + 2, reason: err?.message || 'Error importing row' });
+        }
+
+        res.write(JSON.stringify({ type: 'progress', imported: i + 1, total: validRows.length }) + '\n');
+      }
+    } else {
+      // Write initial progress
+      res.write(JSON.stringify({ type: 'progress', imported: 0, total: rows.length }) + '\n');
+
+      // Standard CSV format
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const name = (row['client_name'] || row['Client_name'] || '').trim();
+        const stepNum = parseInt(row['current_step_number'] || row['Current_step_number'] || '1');
+        const notesVal = row['notes'] || row['Notes'] || row['note'] || row['Note'] || null;
+        if (!name) { errors.push({ row: i + 2, reason: 'Missing client_name' }); }
+        else if (isNaN(stepNum) || stepNum < 1 || stepNum > 12) { errors.push({ row: i + 2, reason: `Invalid step number: ${row['current_step_number'] || '1'}` }); }
+        else {
+          try {
+            const client = await prisma.client.create({
+              data: {
+                organisationId: req.user.orgId,
+                fullName: name,
+                email: row['email'] || row['Email'] || null,
+                whatsappNumber: row['whatsapp'] || row['Whatsapp'] || row['phone'] || row['Phone'] || null,
+                currentStepId: firstStep.id, // temporary reference
+                stepEnteredAt: new Date(),
+                dateJoined: row['date_joined'] || row['Date Joined'] || row['Date joined'] ? new Date(row['date_joined'] || row['Date Joined'] || row['Date joined']) : new Date(),
+                createdById: req.user.userId,
+                status: 'active',
+                notes: notesVal ? `${notesVal} [Imported via CSV/Excel]` : 'Imported via CSV/Excel',
+              },
+            });
+
+            // Initialize client-specific pipeline steps and advance to the imported step number
+            await initializeClientPipeline(client.id, req.user.orgId, req.user.userId, stepNum);
+            importedClients.push(client);
+          } catch (err: any) {
+            console.error(`Error importing row ${i + 2}:`, err);
+            errors.push({ row: i + 2, reason: err.message || 'Error importing row' });
+          }
+        }
+
+        res.write(JSON.stringify({ type: 'progress', imported: i + 1, total: rows.length }) + '\n');
+      }
     }
 
     if (errors.length === 0 || importedClients.length > 0) {
@@ -480,7 +656,8 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
       try {
         const actor = await prisma.user.findUnique({ where: { id: req.user.userId }, select: { fullName: true } });
         const actorName = actor?.fullName || 'Admin';
-        const msg = `🆕 ${importedClients.length} new client${importedClients.length !== 1 ? 's' : ''} imported via CSV by ${actorName}`;
+        const formatName = isCustomExcel ? 'Excel status sheet' : 'CSV';
+        const msg = `🆕 ${importedClients.length} new client${importedClients.length !== 1 ? 's' : ''} imported via ${formatName} by ${actorName}`;
         
         const allUsers = await prisma.user.findMany({
           where: { organisationId: req.user.orgId, isActive: true },
@@ -503,14 +680,25 @@ router.post('/import', requireAuth, requireRole('admin'), upload.single('file'),
         }
         await prisma.notification.createMany({ data: payloads as any });
       } catch (err) {
-        console.error('[csv client import notify] failed:', err);
+        console.error('[client import notify] failed:', err);
       }
     }
 
-    res.json({ imported: importedClients.length, errors });
+    res.write(JSON.stringify({ type: 'result', imported: importedClients.length, errors }) + '\n');
+    res.end();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Internal server error' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  } finally {
+    if (req.file) {
+      try {
+        fs.unlinkSync(req.file.path);
+      } catch (err) {
+        console.error('[Clients Import] Failed to delete temp file:', err);
+      }
+    }
   }
 });
 
@@ -536,6 +724,156 @@ router.patch('/:id/unpin', requireAuth, requireRole('admin'), async (req: Reques
     });
     res.json({ success: true });
   } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/clients/import/cleanup
+router.delete('/import/cleanup', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const clients = await prisma.client.findMany({
+      where: {
+        organisationId: req.user.orgId,
+        notes: {
+          contains: 'Imported via CSV/Excel'
+        }
+      },
+      select: { id: true },
+    });
+
+    if (clients.length === 0) {
+      res.json({ success: true, count: 0 });
+      return;
+    }
+
+    const clientIds = clients.map(c => c.id);
+
+    const steps = await prisma.step.findMany({
+      where: { clientId: { in: clientIds } },
+      select: { id: true },
+    });
+    const stepIds = steps.map((s) => s.id);
+
+    const otherStep = await prisma.step.findFirst({
+      where: {
+        OR: [
+          { clientId: null },
+          { clientId: { notIn: clientIds } }
+        ]
+      },
+      select: { id: true }
+    });
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete StepTaskTemplate records for these steps
+      if (stepIds.length > 0) {
+        await tx.stepTaskTemplate.deleteMany({ where: { stepId: { in: stepIds } } });
+      }
+
+      // 2. Delete document, stepHistory, task
+      await tx.document.deleteMany({ where: { clientId: { in: clientIds } } });
+      await tx.stepHistory.deleteMany({ where: { clientId: { in: clientIds } } });
+      await tx.task.deleteMany({ where: { clientId: { in: clientIds } } });
+
+      if (otherStep) {
+        // Point currentStepId away from client's steps to prevent constraint violation
+        await tx.client.updateMany({
+          where: { id: { in: clientIds } },
+          data: { currentStepId: otherStep.id }
+        });
+        await tx.step.deleteMany({ where: { clientId: { in: clientIds } } });
+        await tx.client.deleteMany({
+          where: { id: { in: clientIds } },
+        });
+      } else {
+        // If no other step exists, delete Clients first then delete steps
+        await tx.client.deleteMany({
+          where: { id: { in: clientIds } },
+        });
+        await tx.step.deleteMany({ where: { clientId: { in: clientIds } } });
+      }
+    });
+
+    res.json({ success: true, count: clientIds.length });
+  } catch (err) {
+    console.error('[clients] DELETE bulk import error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/clients (bulk delete)
+router.delete('/', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { clientIds } = req.body;
+    if (!Array.isArray(clientIds) || clientIds.length === 0) {
+      res.status(400).json({ error: 'clientIds array is required' });
+      return;
+    }
+
+    const clients = await prisma.client.findMany({
+      where: {
+        id: { in: clientIds },
+        organisationId: req.user.orgId,
+      },
+      select: { id: true },
+    });
+
+    if (clients.length === 0) {
+      res.json({ success: true, count: 0 });
+      return;
+    }
+
+    const validClientIds = clients.map(c => c.id);
+
+    const steps = await prisma.step.findMany({
+      where: { clientId: { in: validClientIds } },
+      select: { id: true },
+    });
+    const stepIds = steps.map((s) => s.id);
+
+    const otherStep = await prisma.step.findFirst({
+      where: {
+        OR: [
+          { clientId: null },
+          { clientId: { notIn: validClientIds } }
+        ]
+      },
+      select: { id: true }
+    });
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete StepTaskTemplate records for these steps
+      if (stepIds.length > 0) {
+        await tx.stepTaskTemplate.deleteMany({ where: { stepId: { in: stepIds } } });
+      }
+
+      // 2. Delete document, stepHistory, task
+      await tx.document.deleteMany({ where: { clientId: { in: validClientIds } } });
+      await tx.stepHistory.deleteMany({ where: { clientId: { in: validClientIds } } });
+      await tx.task.deleteMany({ where: { clientId: { in: validClientIds } } });
+
+      if (otherStep) {
+        // Point currentStepId away from client's steps to prevent constraint violation
+        await tx.client.updateMany({
+          where: { id: { in: validClientIds } },
+          data: { currentStepId: otherStep.id }
+        });
+        await tx.step.deleteMany({ where: { clientId: { in: validClientIds } } });
+        await tx.client.deleteMany({
+          where: { id: { in: validClientIds } },
+        });
+      } else {
+        // If no other step exists, delete Clients first then delete steps
+        await tx.client.deleteMany({
+          where: { id: { in: validClientIds } },
+        });
+        await tx.step.deleteMany({ where: { clientId: { in: validClientIds } } });
+      }
+    });
+
+    res.json({ success: true, count: validClientIds.length });
+  } catch (err) {
+    console.error('[clients] DELETE bulk error:', err);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo, Fragment } from 'react';
+import React, { useState, useEffect, useMemo, Fragment, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, getUser } from '@/lib/api';
 import AppLayout from '@/components/layout/AppLayout';
@@ -16,7 +16,7 @@ import {
   Search, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown,
   ArrowUpDown, CircleCheck, Clock, TriangleAlert, Eye,
   Check, X, FolderOpen, Link2, Upload, FileText, Plus, ExternalLink, AlertCircle,
-  Play, Pause, Pin, Ban, Filter, Edit2, Trash2
+  Play, Pause, Pin, Ban, Filter, Edit2, Trash2, ChevronsDown, ChevronsUp
 } from 'lucide-react';
 import ActionDropdown from '@/components/ui/ActionDropdown';
 import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
@@ -43,8 +43,9 @@ export default function TasksPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>('');
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
-  const [showHoverFilters, setShowHoverFilters] = useState(false);
-  const [adminTasksScope, setAdminTasksScope] = useState<'all' | 'mine'>('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+  const [tasksScope, setTasksScope] = useState<'all' | 'mine'>('all');
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -58,6 +59,17 @@ export default function TasksPage() {
         setSearch(s);
       }
     }
+  }, []);
+
+  // Close filter dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setShowFilters(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   const [sortKey, setSortKey] = useState<'dueDate' | 'title' | 'status' | 'client' | 'team'>('dueDate');
@@ -109,6 +121,12 @@ export default function TasksPage() {
 
   const isAdmin = user?.role === 'admin';
   const isLeader = user?.role === 'team_leader';
+  const isStaff = user?.role === 'team_member';
+
+  // Staff always see only their own tasks (locked); team leaders see their team's tasks (backend-filtered)
+  useEffect(() => {
+    if (isStaff) setTasksScope('mine');
+  }, [isStaff]);
 
   const { data: liveTasks = [], isLoading } = useQuery({
     queryKey: ['tasks'],
@@ -224,16 +242,8 @@ export default function TasksPage() {
 
   const filtered = useMemo(() => {
     let list = tasks;
-    if (isAdmin && adminTasksScope === 'mine') {
+    if (tasksScope === 'mine') {
       list = list.filter((t) => (t.assignedToId || t.assignedTo?.id) === user?.id);
-    }
-    // Team leaders only see tasks belonging to their team
-    if (isLeader && user?.teamName) {
-      const userTeam = user.teamName;
-      list = list.filter((t) =>
-        t.step?.owningTeamName === userTeam ||
-        t.assignedTo?.teamName === userTeam
-      );
     }
     if (teamFilter) list = list.filter((t) => t.step?.owningTeamName === teamFilter || t.assignedTo?.teamName === teamFilter);
     if (clientFilter) list = list.filter((t) => t.client?.id === clientFilter);
@@ -275,15 +285,13 @@ export default function TasksPage() {
       return 0;
     };
     return [...list].sort(cmp);
-  }, [tasks, search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir, adminTasksScope, user, isAdmin, isLeader]);
+  }, [tasks, search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir, tasksScope, user, isAdmin, isLeader]);
 
-  const scrollableTasks = useMemo(() => {
-    return filtered.slice(0, taskLimit);
-  }, [filtered, taskLimit]);
+  const [visibleGroupsLimit, setVisibleGroupsLimit] = useState(15);
 
   const groupedByClient = useMemo(() => {
     const groups: Record<string, { client: any; tasks: any[] }> = {};
-    scrollableTasks.forEach((t) => {
+    filtered.forEach((t) => {
       const clientId = t.client?.id || 'unassigned';
       if (!groups[clientId]) {
         groups[clientId] = {
@@ -298,14 +306,18 @@ export default function TasksPage() {
       const nameB = b.client.brandName || b.client.fullName || '';
       return nameA.localeCompare(nameB);
     });
-  }, [scrollableTasks]);
+  }, [filtered]);
 
-  useEffect(() => { setTaskLimit(15); }, [search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir]);
+  const scrollableGroups = useMemo(() => {
+    return groupedByClient.slice(0, visibleGroupsLimit);
+  }, [groupedByClient, visibleGroupsLimit]);
+
+  useEffect(() => { setVisibleGroupsLimit(15); }, [search, chipFilter, teamFilter, clientFilter, priorityFilter, assigneeFilter, sortKey, sortDir]);
 
   const handleTaskScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollTop + clientHeight >= scrollHeight - 20) {
-      setTaskLimit(prev => Math.min(prev + 10, filtered.length));
+    if (scrollTop + clientHeight >= scrollHeight - 50) {
+      setVisibleGroupsLimit(prev => Math.min(prev + 10, groupedByClient.length));
     }
   };
 
@@ -559,6 +571,25 @@ export default function TasksPage() {
     { key: 'rejected',  label: 'Rejected',   count: counts.rejected, color: '#B0436A' },
     { key: 'complete',  label: 'Completed',  count: counts.complete, color: 'var(--green)' },
   ];
+  if (!user || isLoading) {
+    return (
+      <AppLayout>
+        <Topbar title="Tasks" subtitle="Loading..." />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTopColor: 'var(--olive)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>Loading tasks...</div>
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -600,12 +631,20 @@ export default function TasksPage() {
         </div>
       )}
       <Topbar
-        title={isAdmin ? 'All Tasks' : 'My Tasks'}
-        subtitle={isAdmin ? `Org-wide · ${counts.total} tasks` : `${user?.fullName || 'Team Member'} · ${user?.teamName || ''}`}
+        title={isStaff ? 'My Tasks' : isLeader ? 'Team Tasks' : tasksScope === 'all' ? 'All Tasks' : 'My Tasks'}
+        subtitle={
+          isStaff
+            ? `${user?.fullName || 'Team Member'} · ${user?.teamName || ''}`
+            : isLeader
+            ? `${user?.teamName || 'Team'} · ${counts.total} tasks`
+            : tasksScope === 'all'
+            ? `Org-wide · ${counts.total} tasks`
+            : `${user?.fullName || 'Team Member'} · ${user?.teamName || ''}`
+        }
         search={search}
         setSearch={setSearch}
       />
-      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box' }}>
 
         {/* Toolbar — filter pills left, controls right */}
         <div style={{
@@ -623,9 +662,10 @@ export default function TasksPage() {
             {clientFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{clientOptions.find(c => c.id === clientFilter)?.label}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setClientFilter('')} /></span>)}
             {assigneeFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{assigneeOptions.find(a => a.id === assigneeFilter)?.name}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setAssigneeFilter('')} /></span>)}
             {priorityFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{priorityFilter}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setPriorityFilter('')} /></span>)}
-            {adminTasksScope === 'mine' && isAdmin && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>My Tasks<X size={10} style={{ cursor: 'pointer' }} onClick={() => setAdminTasksScope('all')} /></span>)}
-            {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || (adminTasksScope === 'mine' && isAdmin)) && (
-              <button onClick={() => { setChipFilter(''); setTeamFilter(''); setClientFilter(''); setAssigneeFilter(''); setPriorityFilter(''); setAdminTasksScope('all'); }}
+            {/* Only show "My Tasks" pill for admins (staff/leader have no toggle) */}
+            {isAdmin && tasksScope === 'mine' && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>My Tasks<X size={10} style={{ cursor: 'pointer' }} onClick={() => setTasksScope('all')} /></span>)}
+            {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || (isAdmin && tasksScope === 'mine')) && (
+              <button onClick={() => { setChipFilter(''); setTeamFilter(''); setClientFilter(''); setAssigneeFilter(''); setPriorityFilter(''); if (isAdmin) setTasksScope('all'); }}
                 style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Clear all</button>
             )}
           </div>
@@ -638,30 +678,38 @@ export default function TasksPage() {
                 style={{ width: '100%', padding: '5px 10px 5px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }} />
             </div>
             <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-            <button onClick={() => { const next: Record<string, boolean> = {}; groupedByClient.forEach(g => { next[g.client.id] = true; }); setExpandedClients(next); }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
-              Expand all
-            </button>
-            <button onClick={() => setExpandedClients({})}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
-              Collapse all
-            </button>
+            {(() => {
+              const allExpanded = groupedByClient.length > 0 && groupedByClient.every(g => expandedClients[g.client.id] === true);
+              return (
+                <button
+                  onClick={() => {
+                    const next: Record<string, boolean> = {};
+                    groupedByClient.forEach(g => { next[g.client.id] = !allExpanded; });
+                    setExpandedClients(next);
+                  }}
+                  title={allExpanded ? 'Collapse all' : 'Expand all'}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}
+                >
+                  {allExpanded ? <ChevronsUp size={13} /> : <ChevronsDown size={13} />}
+                  {allExpanded ? 'Collapse all' : 'Expand all'}
+                </button>
+              ); 
+            })()}
             <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-            <div onMouseEnter={() => setShowHoverFilters(true)} onMouseLeave={() => setShowHoverFilters(false)} style={{ position: 'relative' }}>
-              <button style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) ? 'var(--olive-50)' : 'var(--surface)', color: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) ? 'var(--olive-dark)' : 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            <div ref={filterRef} style={{ position: 'relative' }}>
+              <button onClick={() => setShowFilters(prev => !prev)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || showFilters) ? 'var(--olive-50)' : 'var(--surface)', color: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || showFilters) ? 'var(--olive-dark)' : 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 <Filter size={13} /> Filters
                 {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) && (<span style={{ background: 'var(--olive)', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700, padding: '1px 5px', marginLeft: 2 }}>{[chipFilter, teamFilter, clientFilter, assigneeFilter, priorityFilter].filter(Boolean).length}</span>)}
-                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+                <ChevronDown size={11} style={{ opacity: 0.6, transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
               </button>
-              {showHoverFilters && (
+              {showFilters && (
                 <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 260, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 999, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {isAdmin && (<div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Task Visibility</label><div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}><button onClick={() => setAdminTasksScope('all')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: adminTasksScope === 'all' ? 'var(--olive)' : 'transparent', color: adminTasksScope === 'all' ? '#fff' : 'var(--ink-2)' }}>All Tasks</button><button onClick={() => setAdminTasksScope('mine')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: adminTasksScope === 'mine' ? 'var(--olive)' : 'transparent', color: adminTasksScope === 'mine' ? '#fff' : 'var(--ink-2)' }}>My Tasks</button></div></div>)}
+                  {/* Task Visibility toggle — only available for admins */}
+                  {isAdmin && (<div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Task Visibility</label><div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}><button onClick={() => setTasksScope('all')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: tasksScope === 'all' ? 'var(--olive)' : 'transparent', color: tasksScope === 'all' ? '#fff' : 'var(--ink-2)' }}>All Tasks</button><button onClick={() => setTasksScope('mine')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: tasksScope === 'mine' ? 'var(--olive)' : 'transparent', color: tasksScope === 'mine' ? '#fff' : 'var(--ink-2)' }}>My Tasks</button></div></div>)}
                   <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Status</label><select value={chipFilter} onChange={(e) => setChipFilter(e.target.value as ChipKind)} style={{ ...selectStyle, width: '100%' }}>{chips.map(c => (<option key={c.key} value={c.key}>{c.label} ({c.count})</option>))}</select></div>
-                  {isAdmin && (<div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Team</label><select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All teams</option>{teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>)}
+                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Team</label><select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All teams</option>{teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
                   <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Client</label><ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="All clients" /></div>
                   <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Assignee</label><select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All assignees</option>{assigneeOptions.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
                   <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Priority</label><select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All priorities</option><option value="high">High priority</option><option value="medium">Medium priority</option><option value="low">Low priority</option></select></div>
@@ -677,14 +725,15 @@ export default function TasksPage() {
           </div>
         </div>
 
-        <SectionCard padding={0}>
+
+        <SectionCard style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }} padding={0}>
           {isLoading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading tasks…</div>
           ) : (
             <>
               <div
                 onScroll={handleTaskScroll}
-                style={{ maxHeight: 'calc(100vh - 200px)', minHeight: 500, overflowY: 'auto', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', margin: '16px 20px 20px', background: 'var(--surface)' }}
+                style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', margin: '16px 20px 20px', background: 'var(--surface)' }}
               >
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
                   <thead>
@@ -697,12 +746,12 @@ export default function TasksPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {scrollableTasks.length === 0 ? (
+                    {filtered.length === 0 ? (
                       <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks match your filters.</td></tr>
-                    ) : groupedByClient.map((group) => {
+                    ) : scrollableGroups.map((group) => {
                       const client = group.client;
                       const clientTasks = group.tasks;
-                      const isExpanded = expandedClients[client.id] ?? true;
+                      const isExpanded = expandedClients[client.id] ?? false;
 
                       const statusCounts = {
                         pending: clientTasks.filter(t => t.status === 'pending').length,
@@ -717,7 +766,7 @@ export default function TasksPage() {
                       const toggleClientExpand = (clientId: string) => {
                         setExpandedClients((prev) => ({
                           ...prev,
-                          [clientId]: !(prev[clientId] ?? true),
+                          [clientId]: !(prev[clientId] ?? false),
                         }));
                       };
 

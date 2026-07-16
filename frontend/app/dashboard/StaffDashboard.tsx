@@ -534,7 +534,7 @@ export default function StaffDashboard() {
   const [taskSearch, setTaskSearch] = useState('');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [staffTaskPriority, setStaffTaskPriority] = useState<'all' | 'high' | 'normal'>('all');
-  useEffect(() => { setTaskLimit(15); }, [tab, taskSearch]);
+  useEffect(() => { setTaskLimit(20); }, [tab, taskSearch]);
 
   const filteredTasks = useMemo(() => {
     let list = allVisible;
@@ -551,7 +551,7 @@ export default function StaffDashboard() {
     });
   }, [allVisible, taskSearch, staffTaskPriority]);
 
-  const [taskLimit, setTaskLimit] = useState(15);
+  const [taskLimit, setTaskLimit] = useState(20);
   const scrollableTasks = useMemo(() => {
     return filteredTasks.slice(0, taskLimit);
   }, [filteredTasks, taskLimit]);
@@ -612,6 +612,25 @@ export default function StaffDashboard() {
     };
   }, [localTasks, liveTasks, user]);
 
+  if (!user) {
+    return (
+      <AppLayout>
+        <Topbar title="Dashboard" subtitle="Loading..." />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTopColor: 'var(--olive)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+            <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>Loading dashboard...</div>
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
@@ -619,7 +638,7 @@ export default function StaffDashboard() {
         title="Dashboard"
         subtitle={`${user?.fullName || 'You'} · ${grouped.active.length} active · ${grouped.completed.length} completed`}
       />
-      <div style={{ padding: '16px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, boxSizing: 'border-box', overflowY: 'auto', minHeight: 0 }}>
+      <div style={{ padding: '16px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, boxSizing: 'border-box', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
 
         {/* Top metrics row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
@@ -704,14 +723,14 @@ export default function StaffDashboard() {
         </div>
 
         {/* Bottom Split Layout: 70% Tasks (Left) and 30% Calendar (Right) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '7fr 3fr', gap: 16, alignItems: 'stretch', flex: 1 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '7fr 3fr', gap: 16, alignItems: 'stretch', flex: 1, minHeight: 0 }}>
           
           {/* Left 70% Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             <SectionCard
               title="My Tasks"
               subtitle="Overdue, due today, and upcoming"
-              style={{ height: '100%', minHeight: 500, display:'block', flexDirection: 'column' }}
+              style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
               padding={0}
               action={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -823,7 +842,6 @@ export default function StaffDashboard() {
                       margin: '16px 20px 20px',
                       flex: 1,
                       minHeight: 0,
-                      maxHeight: 580,
                       overflowY: 'auto',
                       border: '1px solid var(--border)',
                       borderRadius: 'var(--radius)',
@@ -1079,7 +1097,7 @@ export default function StaffDashboard() {
           </div>
 
           {/* Right 30% Column */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, height: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, height: '100%', minHeight: 0, overflowY: 'auto', paddingRight: 4 }}>
             {/* Team Performance Card */}
             {user?.role === 'team_leader' && (
               <SectionCard
@@ -1149,7 +1167,7 @@ export default function StaffDashboard() {
                       No team members found.
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 280, overflowY: 'auto', paddingRight: 4 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 130, overflowY: 'auto', paddingRight: 4 }}>
                       {filteredTeamMembers.map((m: any) => {
                         const activeTasksCount = teamTasks.filter((t: any) => t.assignedToId === m.id && t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length;
                         const overdueTasksCount = teamTasks.filter((t: any) => {

@@ -8,7 +8,7 @@ import {
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import SectionCard from '@/components/ui/SectionCard';
-import { apiFetch, getUser } from '@/lib/api';
+import { apiFetch, getUser, API_BASE } from '@/lib/api';
 import ActionDropdown from '@/components/ui/ActionDropdown';
 import UpdateDocumentModal from '@/components/pipeline/UpdateDocumentModal';
 
@@ -672,7 +672,7 @@ function DocRow({ doc, isAdmin, onPreview, onDelete, onUpdate }: {
           dropdownActions.push({
             label: 'Open External',
             icon: <ExternalLink size={13} />,
-            href: doc.driveUrl || doc.fileUrl,
+            href: doc.driveUrl || (doc.fileUrl?.startsWith('http') ? doc.fileUrl : `${API_BASE}${doc.fileUrl}`),
             target: '_blank',
           });
           if (isAdmin) {

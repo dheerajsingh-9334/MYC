@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
+import fs from "fs";
 import prisma from "../prisma/client";
 import {
   requireAuth,
@@ -113,6 +114,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
   try {
     const { role, orgId, teamName, userId } = req.user;
     const where: any = { organisationId: orgId };
+
     const teamNames = teamName
       ? teamName
           .split(",")
@@ -120,15 +122,27 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
           .filter(Boolean)
       : [];
 
-    if (role === "team_leader" && teamNames.length) {
-      // Team leader: see only tasks that belong to their team's step(s).
-      where.step = {
-        owningTeamName: { in: teamNames },
-      };
-    } else if (role === "team_member") {
-      where.assignedToId = userId;
+    if (role === "team_leader" || role === "team_member") {
+      if (teamNames.length > 0) {
+        where.OR = [
+          { assignedToId: userId },
+          { step: { owningTeamName: { in: teamNames } } },
+          { assignedTo: { teamName: { in: teamNames } } }
+        ];
+      } else {
+        where.assignedToId = userId;
+      }
     }
-    // admin: all tasks
+
+    if (role !== "admin") {
+      where.client = {
+        tasks: {
+          none: {
+            status: "blocked"
+          }
+        }
+      };
+    }
 
     const tasks = await prisma.task.findMany({
       where,
@@ -164,6 +178,21 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
       res.status(404).json({ error: "Task not found" });
       return;
     }
+
+    if (req.user.role !== 'admin') {
+      const blockedTask = await prisma.task.findFirst({
+        where: {
+          clientId: task.clientId,
+          status: 'blocked',
+          organisationId: req.user.orgId
+        }
+      });
+      if (blockedTask) {
+        res.status(403).json({ error: "Access denied: client is blocked." });
+        return;
+      }
+    }
+
     res.json(task);
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
@@ -336,6 +365,23 @@ router.patch(
         return;
       }
 
+      // Block modifying status if the client is blocked (has at least one blocked task)
+      if (status !== "blocked") {
+        const blockedTask = await prisma.task.findFirst({
+          where: {
+            clientId: task.clientId,
+            status: "blocked",
+            organisationId: req.user.orgId
+          }
+        });
+        if (blockedTask) {
+          res.status(400).json({
+            error: "Cannot modify tasks for a blocked client. The client has a blocked task that must be resolved first."
+          });
+          return;
+        }
+      }
+
       // Only assignee or admin can change status
       if (task.assignedToId !== req.user.userId && req.user.role !== "admin") {
         res
@@ -408,6 +454,21 @@ router.patch(
       });
       if (!task) {
         res.status(404).json({ error: "Task not found" });
+        return;
+      }
+
+      // Block starting timer if the client has any blocked task
+      const blockedTask = await prisma.task.findFirst({
+        where: {
+          clientId: task.clientId,
+          status: "blocked",
+          organisationId: req.user.orgId
+        }
+      });
+      if (blockedTask) {
+        res.status(400).json({
+          error: "Cannot start timer for a blocked client. The client has a blocked task that must be resolved first."
+        });
         return;
       }
 
@@ -509,6 +570,21 @@ router.patch(
       });
       if (!task) {
         res.status(404).json({ error: "Task not found" });
+        return;
+      }
+
+      // Block completing if the client has any blocked task
+      const blockedTask = await prisma.task.findFirst({
+        where: {
+          clientId: task.clientId,
+          status: "blocked",
+          organisationId: req.user.orgId
+        }
+      });
+      if (blockedTask) {
+        res.status(400).json({
+          error: "Cannot complete tasks for a blocked client. The client has a blocked task that must be resolved first."
+        });
         return;
       }
 
@@ -1020,6 +1096,14 @@ router.post(
     } catch (err: any) {
       console.error("[tasks import] error:", err);
       res.status(500).json({ error: err?.message || "Internal server error" });
+    } finally {
+      if (req.file) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (err) {
+          console.error("[tasks import] Failed to delete temp file:", err);
+        }
+      }
     }
   },
 );

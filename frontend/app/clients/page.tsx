@@ -8,7 +8,7 @@ import DashboardHeader from '@/components/ui/DashboardHeader';
 import StatCard from '@/components/ui/StatCard';
 import SectionCard from '@/components/ui/SectionCard';
 import { deriveSparkline } from '@/lib/sparkline';
-import { ArrowRight, ArrowUpDown, Search, UserPlus, CircleCheck, Clock, TriangleAlert, Sparkles, Users, Download, X, Pin, Plus, Eye, Edit2, Trash2, Filter, ChevronDown } from 'lucide-react';
+import { ArrowRight, ArrowUpDown, Search, UserPlus, CircleCheck, Clock, TriangleAlert, Sparkles, Users, Download, X, Pin, Plus, Eye, Edit2, Trash2, Filter, ChevronDown, Unlock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { USE_MOCK, MOCK_CLIENTS, MOCK_STATS } from '@/lib/mockData';
 import AddClientModal from '@/components/pipeline/AddClientModal';
@@ -59,6 +59,42 @@ export default function ClientsPage() {
   const [expStatus, setExpStatus] = useState('');
   const [expIncludeArchived, setExpIncludeArchived] = useState(false);
   const [exportFormat, setExportFormat] = useState('csv');
+
+  // Delete Import States
+  const [showDeleteImportModal, setShowDeleteImportModal] = useState(false);
+  const [isDeletingImport, setIsDeletingImport] = useState(false);
+  const [deleteImportError, setDeleteImportError] = useState('');
+
+  // Bulk Delete States
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([]);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+
+  // Reset selected IDs when filter/search changes
+  useEffect(() => {
+    setSelectedClientIds([]);
+  }, [filter, search]);
+
+  const handleDeleteImportData = async () => {
+    setIsDeletingImport(true);
+    setDeleteImportError('');
+    try {
+      const res = await apiFetch('/api/clients/import/cleanup', {
+        method: 'DELETE',
+      });
+      if (res.error) {
+        throw new Error(res.error);
+      }
+      setShowDeleteImportModal(false);
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      qc.invalidateQueries({ queryKey: ['standup'] });
+    } catch (e: any) {
+      setDeleteImportError(e.message || 'Failed to purge CSV data.');
+    } finally {
+      setIsDeletingImport(false);
+    }
+  };
 
   const { data: stepsList = [] } = useQuery<any[]>({
     queryKey: ['steps'],
@@ -124,11 +160,44 @@ export default function ClientsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['clients'] });
       qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      qc.invalidateQueries({ queryKey: ['standup'] });
     },
     onError: (err: any) => {
       alert(err.message || 'Failed to delete client');
     }
   });
+
+  const bulkDeleteClientsMut = useMutation({
+    mutationFn: (ids: string[]) => apiFetch('/api/clients', {
+      method: 'DELETE',
+      body: JSON.stringify({ clientIds: ids }),
+    }),
+    onSuccess: () => {
+      setSelectedClientIds([]);
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['standup'] });
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to delete clients');
+    }
+  });
+
+  const unblockClientMut = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/clients/${id}/unblock`, { method: 'POST' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['standup'] });
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to unblock client');
+    }
+  });
+
+
 
   const stats = USE_MOCK ? MOCK_STATS : liveStats;
   const allClients: any[] = USE_MOCK ? MOCK_CLIENTS : liveClients;
@@ -189,9 +258,9 @@ export default function ClientsPage() {
       }
     } else if (client.computedStatus === 'blocked') {
       return {
-        bg: 'var(--amber-bg)',
-        color: 'var(--amber)',
-        dot: 'var(--amber)',
+        bg: 'var(--blocked-bg)',
+        color: 'var(--blocked)',
+        dot: 'var(--blocked)',
         label: 'Blocked',
       };
     } else if (client.computedStatus === 'due_today') {
@@ -280,6 +349,7 @@ export default function ClientsPage() {
 
   const thStyleBase: React.CSSProperties = { textAlign: 'left', fontSize: 11.5, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)', padding: '10px 18px', borderBottom: '1px solid var(--border)' };
   const colStyles = {
+    checkbox: { width: '4%', minWidth: '40px', padding: '10px 0 10px 18px', textAlign: 'center', verticalAlign: 'middle' } as React.CSSProperties,
     client: { width: '25%', minWidth: '180px' } as React.CSSProperties,
     step: { width: '18%', minWidth: '130px' } as React.CSSProperties,
     team: { width: '15%', minWidth: '110px' } as React.CSSProperties,
@@ -307,6 +377,120 @@ export default function ClientsPage() {
           <p style={{ marginTop: 16, color: '#fff', fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>Deleting client...</p>
           <p style={{ marginTop: 4, color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Please wait, this may take a moment</p>
           <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {/* Global loading spinner for bulk delete */}
+      {bulkDeleteClientsMut.isPending && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.55)',
+          backdropFilter: 'blur(4px)', display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+        }}>
+          <div style={{
+            width: 44, height: 44,
+            border: '3px solid rgba(255,255,255,0.2)',
+            borderTop: '3px solid #fff',
+            borderRadius: '50%', animation: 'spin 0.8s linear infinite',
+          }} />
+          <p style={{ marginTop: 16, color: '#fff', fontSize: 14, fontWeight: 600, letterSpacing: 0.3 }}>Deleting clients...</p>
+          <p style={{ marginTop: 4, color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Please wait, this may take a moment</p>
+          <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {/* Bulk Delete confirmation modal */}
+      {confirmBulkDelete && !bulkDeleteClientsMut.isPending && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setConfirmBulkDelete(false); }}
+        >
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', animation: 'modalIn 0.2s ease-out' }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Delete Multiple Clients</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>This action cannot be undone.</div>
+              </div>
+              <button onClick={() => setConfirmBulkDelete(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ padding: '20px 24px' }}>
+              <div style={{ padding: '12px 16px', background: 'var(--red-bg, #FDF2F2)', border: '1px solid var(--red, #E53E3E)22', borderRadius: 8, fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5 }}>
+                Are you sure you want to permanently delete <strong>{selectedClientIds.length}</strong> selected clients? All tasks, documents, and step histories associated with these clients will be permanently removed.
+              </div>
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
+              <button
+                onClick={() => setConfirmBulkDelete(false)}
+                style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setConfirmBulkDelete(false);
+                  bulkDeleteClientsMut.mutate(selectedClientIds);
+                }}
+                style={{ padding: '8px 18px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: '#C53030', color: '#fff', cursor: 'pointer' }}
+              >
+                Yes, Delete All Selected
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Bar for Bulk Selection */}
+      {selectedClientIds.length > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: 24,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#1F2937',
+          color: '#fff',
+          padding: '12px 24px',
+          borderRadius: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+          zIndex: 100,
+          border: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          <span style={{ fontSize: 13.5, fontWeight: 600 }}>{selectedClientIds.length} client{selectedClientIds.length > 1 ? 's' : ''} selected</span>
+          <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.2)' }} />
+          <button
+            onClick={() => setConfirmBulkDelete(true)}
+            style={{
+              background: '#C53030',
+              color: '#fff',
+              border: 'none',
+              padding: '6px 14px',
+              borderRadius: '6px',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6
+            }}
+          >
+            <Trash2 size={13} /> Delete Selected
+          </button>
+          <button
+            onClick={() => setSelectedClientIds([])}
+            style={{
+              background: 'transparent',
+              color: 'rgba(255,255,255,0.6)',
+              border: 'none',
+              fontSize: 12.5,
+              cursor: 'pointer'
+            }}
+          >
+            Clear Selection
+          </button>
         </div>
       )}
 
@@ -356,7 +540,7 @@ export default function ClientsPage() {
         title="Clients"
         subtitle={`${allClients.filter((c: any) => c.status === 'active').length} active clients · ${allClients.length} total`}
       />
-      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
 
         {/* Toolbar — filter pill left, controls right */}
         <div style={{
@@ -402,6 +586,13 @@ export default function ClientsPage() {
                   onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
                   Upload CSV
+                </button>
+                <button
+                  onClick={() => setShowDeleteImportModal(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 10px', borderRadius: 'var(--radius-sm)', background: 'rgba(220, 38, 38, 0.08)', border: '1px solid rgba(220, 38, 38, 0.2)', color: 'var(--red)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}>
+                  Purge CSV Data
                 </button>
               </>
             )}
@@ -452,7 +643,7 @@ export default function ClientsPage() {
           {viewMode === 'grid' ? (
             <div 
               onScroll={handleClientScroll}
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16, padding: 20, background: 'var(--surface-2)', minHeight: 'calc(100vh - 240px)', maxHeight: 'calc(100vh - 240px)', overflowY: 'auto' }}
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16, padding: 20, background: 'var(--surface-2)', flex: 1, minHeight: 0, overflowY: 'auto' }}
             >
               {scrollableClients.length === 0 ? (
                 <div style={{ gridColumn: '1 / -1', padding: 40, textAlign: 'center', color: 'var(--muted)', background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
@@ -502,7 +693,8 @@ export default function ClientsPage() {
                     >
                        {/* Header: Avatar + Title/Status */}
                       <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: 12 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>                          {isAdmin && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                          {isAdmin && (
                             <button
                               onClick={(e) => togglePinClient(client.id, e)}
                               style={{
@@ -523,6 +715,25 @@ export default function ClientsPage() {
                               <Pin size={16} style={{ fill: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
                             </button>
                           )}
+                          {isAdmin && (
+                             <div 
+                               onClick={(e) => e.stopPropagation()} 
+                               style={{ display: 'flex', alignItems: 'center', padding: '0 4px 0 2px' }}
+                             >
+                               <input
+                                 type="checkbox"
+                                 checked={selectedClientIds.includes(client.id)}
+                                 onChange={() => {
+                                   setSelectedClientIds(prev => 
+                                     prev.includes(client.id) 
+                                       ? prev.filter(id => id !== client.id) 
+                                       : [...prev, client.id]
+                                   );
+                                 }}
+                                 style={{ cursor: 'pointer', accentColor: 'var(--olive)', width: 14, height: 14 }}
+                               />
+                             </div>
+                           )}
                           <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
                             {initials}
                           </div>
@@ -598,8 +809,8 @@ export default function ClientsPage() {
               <div 
                 onScroll={handleClientScroll}
                 style={{
-                  maxHeight: 'calc(100vh - 280px)',
-                  minHeight: 'calc(100vh - 280px)',
+                  flex: 1,
+                  minHeight: 0,
                   overflowY: 'auto',
                   overflowX: 'auto',
                   border: '1px solid var(--border)',
@@ -609,6 +820,22 @@ export default function ClientsPage() {
               >                 <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10 }}>
+                      {isAdmin && (
+                        <th style={{ ...thStyleBase, ...colStyles.checkbox }}>
+                          <input
+                            type="checkbox"
+                            checked={scrollableClients.length > 0 && selectedClientIds.length === scrollableClients.length}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedClientIds(scrollableClients.map((c: any) => c.id));
+                              } else {
+                                setSelectedClientIds([]);
+                              }
+                            }}
+                            style={{ cursor: 'pointer', accentColor: 'var(--olive)', width: 14, height: 14 }}
+                          />
+                        </th>
+                      )}
                       <th style={{ ...thStyleBase, ...colStyles.client }}>Client</th>
                       <th style={{ ...thStyleBase, ...colStyles.step }}>Step</th>
                       <th style={{ ...thStyleBase, ...colStyles.team }}>Team</th>
@@ -620,9 +847,9 @@ export default function ClientsPage() {
                   </thead>
                   <tbody>
                     {(USE_MOCK ? false : isLoading) ? (
-                      <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading clients…</td></tr>
+                      <tr><td colSpan={isAdmin ? 8 : 7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading clients…</td></tr>
                     ) : scrollableClients.length === 0 ? (
-                      <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+                      <tr><td colSpan={isAdmin ? 8 : 7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                           <Sparkles size={28} style={{ color: 'var(--olive)' }} />
                           <div>{search ? 'No clients match your search.' : 'No clients found.'}</div>
@@ -645,6 +872,25 @@ export default function ClientsPage() {
                           onClick={() => router.push(`/clients/${client.id}`)}
                           className={`standup-row ${client.isPinned ? 'highlighted' : ''}`}
                           style={{ position: 'relative', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
+                          {isAdmin && (
+                            <td 
+                              style={{ ...colStyles.checkbox }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedClientIds.includes(client.id)}
+                                onChange={() => {
+                                  setSelectedClientIds(prev => 
+                                    prev.includes(client.id) 
+                                      ? prev.filter(id => id !== client.id) 
+                                      : [...prev, client.id]
+                                  );
+                                }}
+                                style={{ cursor: 'pointer', accentColor: 'var(--olive)', width: 14, height: 14 }}
+                              />
+                            </td>
+                          )}
                           <td style={{ position: 'relative', padding: '10px 18px', verticalAlign: 'middle', ...colStyles.client }}>
                             <span style={{ position: 'absolute', top: 0, left: 0, width: 2, height: '100%', background: 'var(--olive)', transform: 'scaleY(0)', transformOrigin: 'top', transition: 'transform 0.1s' }} className="row-stripe" />
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -717,6 +963,17 @@ export default function ClientsPage() {
                                   icon: <Eye size={13} />,
                                   onClick: () => router.push(`/clients/${client.id}`),
                                 },
+                                ...(isAdmin && client.computedStatus === 'blocked' ? [
+                                  {
+                                    label: 'Unblock',
+                                    icon: <Unlock size={13} />,
+                                    onClick: () => {
+                                      if (confirm(`Are you sure you want to unblock client "${client.brandName || client.fullName}"? This will set all of their blocked tasks to pending.`)) {
+                                        unblockClientMut.mutate(client.id);
+                                      }
+                                    }
+                                  }
+                                ] : []),
                                 {
                                   label: 'Update',
                                   icon: <Edit2 size={13} />,
@@ -751,6 +1008,7 @@ export default function ClientsPage() {
         onSuccess={() => {
           qc.invalidateQueries({ queryKey: ['clients'] });
           qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+          qc.invalidateQueries({ queryKey: ['standup'] });
         }}
       />
 
@@ -762,6 +1020,7 @@ export default function ClientsPage() {
         onSuccess={() => {
           qc.invalidateQueries({ queryKey: ['clients'] });
           qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+          qc.invalidateQueries({ queryKey: ['standup'] });
         }}
       />
 
@@ -772,6 +1031,7 @@ export default function ClientsPage() {
         onSuccess={() => {
           qc.invalidateQueries({ queryKey: ['clients'] });
           qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+          qc.invalidateQueries({ queryKey: ['standup'] });
         }}
         endpoint="/api/clients/import"
         title="Import Clients from CSV"
@@ -930,6 +1190,62 @@ export default function ClientsPage() {
         </div>
       )}
 
+      {showDeleteImportModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: 24 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowDeleteImportModal(false); }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 450, display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.2)', overflow: 'hidden', padding: 24, gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, color: 'var(--red)' }}>
+                <TriangleAlert size={18} />
+                <span>Confirm Purge CSV Data</span>
+              </div>
+              <button onClick={() => setShowDeleteImportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={18} /></button>
+            </div>
+
+            <div style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+              Are you sure you want to delete all client records (and their associated steps, tasks, documents, and history) that were uploaded via CSV or Excel imports?
+              <br /><br />
+              <strong style={{ color: 'var(--red)' }}>This action cannot be undone.</strong>
+            </div>
+
+            {deleteImportError && (
+              <div style={{ background: '#FDF2F2', border: '1px solid #FDE8E8', borderRadius: 6, padding: '10px 14px', color: '#9B1C1C', fontSize: 13, fontWeight: 500 }}>
+                {deleteImportError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+              <button
+                onClick={() => setShowDeleteImportModal(false)}
+                disabled={isDeletingImport}
+                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink-2)', fontSize: 13, fontWeight: 600, cursor: isDeletingImport ? 'not-allowed' : 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteImportData}
+                disabled={isDeletingImport}
+                style={{
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'var(--red)',
+                  color: '#fff',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: isDeletingImport ? 'not-allowed' : 'pointer',
+                  opacity: isDeletingImport ? 0.7 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6
+                }}
+              >
+                {isDeletingImport ? 'Purging...' : 'Purge All Data'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`tr:hover .row-stripe { transform: scaleY(1) !important; }`}</style>
     </AppLayout>

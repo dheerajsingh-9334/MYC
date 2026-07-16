@@ -89,7 +89,7 @@ export default function AdminDashboard() {
   // Admin Tasks State
   const [adminTaskTab, setAdminTaskTab] = useState<'active' | 'completed' | 'rejected'>('active');
   const [adminTaskSearch, setAdminTaskSearch] = useState('');
-  const [adminTaskScope, setAdminTaskScope] = useState<'my' | 'all'>('my');
+  const [adminTaskScope, setAdminTaskScope] = useState<'my' | 'all'>('all');
   const [adminTaskPriority, setAdminTaskPriority] = useState<'all' | 'high' | 'normal'>('all');
   const [showHoverFilter, setShowHoverFilter] = useState(false);
   const [expStartDate, setExpStartDate] = useState('');
@@ -102,6 +102,33 @@ export default function AdminDashboard() {
   const [expPriority, setExpPriority] = useState('');
   const [expCompleted, setExpCompleted] = useState('all');
   const [expIncludeArchived, setExpIncludeArchived] = useState(false);
+
+  // Delete Import States
+  const [showDeleteImportModal, setShowDeleteImportModal] = useState(false);
+  const [isDeletingImport, setIsDeletingImport] = useState(false);
+  const [deleteImportError, setDeleteImportError] = useState('');
+
+  const handleDeleteImportData = async () => {
+    setIsDeletingImport(true);
+    setDeleteImportError('');
+    try {
+      const res = await apiFetch('/api/clients/import/cleanup', {
+        method: 'DELETE',
+      });
+      if (res.error) {
+        throw new Error(res.error);
+      }
+      setShowDeleteImportModal(false);
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    } catch (e: any) {
+      setDeleteImportError(e.message || 'Failed to purge CSV data.');
+    } finally {
+      setIsDeletingImport(false);
+    }
+  };
 
   // Queries for export dropdowns
   const { data: stepsList = [] } = useQuery({
@@ -268,8 +295,8 @@ export default function AdminDashboard() {
       }
     } else if (client.computedStatus === 'blocked') {
       return {
-        bg: 'var(--amber-bg)',
-        color: 'var(--amber)',
+        bg: 'var(--blocked-bg)',
+        color: 'var(--blocked)',
         label: 'Blocked',
       };
     } else if (client.computedStatus === 'due_today') {
@@ -472,6 +499,32 @@ export default function AdminDashboard() {
       <Topbar
         title="Admin Dashboard"
         subtitle="Org-wide view · Tasks, teams, performance"
+        renderActions={() => (
+          <button
+            onClick={() => setShowDeleteImportModal(true)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              height: 32,
+              padding: '0 12px',
+              borderRadius: 'var(--radius-sm)',
+              background: 'rgba(220, 38, 38, 0.08)',
+              border: '1px solid rgba(220, 38, 38, 0.2)',
+              color: 'var(--red)',
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
+          >
+            <TriangleAlert size={13} />
+            Purge CSV Data
+          </button>
+        )}
       />
 
       <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -562,12 +615,50 @@ export default function AdminDashboard() {
           {/* Left Column: My Tasks */}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <SectionCard 
-              title="My Tasks" 
-              subtitle="Overdue, due today, and upcoming" 
+              title={adminTaskScope === 'all' ? 'All Tasks' : 'My Tasks'}
+              subtitle={adminTaskScope === 'all' ? `${groupedAdminTasks.active.length} active · ${groupedAdminTasks.completed.length} completed across all clients` : 'Overdue, due today, and upcoming'}
               padding="0" 
               style={{ display: 'flex', flexDirection: 'column' }}
               action={
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {/* Segmented Control for Scope */}
+                  <div style={{ display: 'inline-flex', background: 'var(--surface-2)', padding: 2, borderRadius: 6, border: '1px solid var(--border)' }}>
+                    <button
+                      onClick={() => setAdminTaskScope('all')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 4,
+                        border: 'none',
+                        background: adminTaskScope === 'all' ? 'var(--surface)' : 'transparent',
+                        color: adminTaskScope === 'all' ? 'var(--ink)' : 'var(--muted)',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: adminTaskScope === 'all' ? 'var(--shadow-sm)' : 'none',
+                        transition: 'all 0.12s',
+                      }}
+                    >
+                      All Tasks
+                    </button>
+                    <button
+                      onClick={() => setAdminTaskScope('my')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 4,
+                        border: 'none',
+                        background: adminTaskScope === 'my' ? 'var(--surface)' : 'transparent',
+                        color: adminTaskScope === 'my' ? 'var(--ink)' : 'var(--muted)',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: adminTaskScope === 'my' ? 'var(--shadow-sm)' : 'none',
+                        transition: 'all 0.12s',
+                      }}
+                    >
+                      My Tasks
+                    </button>
+                  </div>
+
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 140 }}>
                     <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--muted)' }} />
                     <input
@@ -613,7 +704,7 @@ export default function AdminDashboard() {
                           right: 0,
                           zIndex: 100,
                           marginTop: 4,
-                          width: 200,
+                          width: 180,
                           padding: 12,
                           background: 'var(--surface)',
                           border: '1px solid var(--border)',
@@ -625,19 +716,6 @@ export default function AdminDashboard() {
                         }}
                       >
                         <div>
-                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Task Scope</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
-                              <input type="radio" checked={adminTaskScope === 'my'} onChange={() => setAdminTaskScope('my')} style={{ cursor: 'pointer' }} />
-                              My Tasks Only
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
-                              <input type="radio" checked={adminTaskScope === 'all'} onChange={() => setAdminTaskScope('all')} style={{ cursor: 'pointer' }} />
-                              All Tasks
-                            </label>
-                          </div>
-                        </div>
-                        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
                           <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Priority</div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
@@ -1112,6 +1190,63 @@ export default function AdminDashboard() {
         )}
 
 
+
+        {showDeleteImportModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: 24 }}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowDeleteImportModal(false); }}>
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 450, display: 'flex', flexDirection: 'column', boxShadow: '0 32px 80px rgba(0,0,0,0.2)', overflow: 'hidden', padding: 24, gap: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 16, fontWeight: 700, color: 'var(--red)' }}>
+                  <TriangleAlert size={18} />
+                  <span>Confirm Purge CSV Data</span>
+                </div>
+                <button onClick={() => setShowDeleteImportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={18} /></button>
+              </div>
+
+              <div style={{ fontSize: 14, color: 'var(--ink-2)', lineHeight: 1.5 }}>
+                Are you sure you want to delete all client records (and their associated steps, tasks, documents, and history) that were uploaded via CSV or Excel imports?
+                <br /><br />
+                <strong style={{ color: 'var(--red)' }}>This action cannot be undone.</strong>
+              </div>
+
+              {deleteImportError && (
+                <div style={{ background: '#FDF2F2', border: '1px solid #FDE8E8', borderRadius: 6, padding: '10px 14px', color: '#9B1C1C', fontSize: 13, fontWeight: 500 }}>
+                  {deleteImportError}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+                <button
+                  onClick={() => setShowDeleteImportModal(false)}
+                  disabled={isDeletingImport}
+                  style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink-2)', fontSize: 13, fontWeight: 600, cursor: isDeletingImport ? 'not-allowed' : 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteImportData}
+                  disabled={isDeletingImport}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: 'var(--red)',
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: isDeletingImport ? 'not-allowed' : 'pointer',
+                    opacity: isDeletingImport ? 0.7 : 1,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6
+                  }}
+                >
+                  {isDeletingImport ? 'Purging...' : 'Purge All Data'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </AppLayout>
