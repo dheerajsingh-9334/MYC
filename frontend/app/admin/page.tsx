@@ -92,6 +92,7 @@ export default function AdminDashboard() {
   const [adminTaskScope, setAdminTaskScope] = useState<'my' | 'all'>('all');
   const [adminTaskPriority, setAdminTaskPriority] = useState<'all' | 'high' | 'normal'>('all');
   const [showHoverFilter, setShowHoverFilter] = useState(false);
+  const [growthTooltip, setGrowthTooltip] = useState<{ x: number; y: number; label: string; val: number } | null>(null);
   const [expStartDate, setExpStartDate] = useState('');
   const [expEndDate, setExpEndDate] = useState('');
   const [expStepId, setExpStepId] = useState('');
@@ -424,13 +425,16 @@ export default function AdminDashboard() {
     }).sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
     if (sorted.length === 0) {
-      return { labels: ['Start', 'Now'], data: [0, 0] };
+      return { labels: ['Start', 'Now'], data: [0, 0], clientsByMonth: {} as Record<string, string[]> };
     }
 
     const monthlyCounts: { [key: string]: number } = {};
+    const clientsByMonth: { [key: string]: string[] } = {};
     sorted.forEach(c => {
       const label = format(c.parsedDate, 'MMM yy');
       monthlyCounts[label] = (monthlyCounts[label] || 0) + 1;
+      if (!clientsByMonth[label]) clientsByMonth[label] = [];
+      clientsByMonth[label].push(c.brandName || c.fullName || 'Unknown');
     });
 
     const labels = Object.keys(monthlyCounts);
@@ -445,11 +449,12 @@ export default function AdminDashboard() {
     if (labels.length === 1) {
       return {
         labels: ['Prev', labels[0]],
-        data: [0, cumulativeCounts[0]]
+        data: [0, cumulativeCounts[0]],
+        clientsByMonth: { 'Prev': [], [labels[0]]: clientsByMonth[labels[0]] }
       };
     }
 
-    return { labels, data: cumulativeCounts };
+    return { labels, data: cumulativeCounts, clientsByMonth };
   }, [allClients]);
 
   const launchedLineChartData = useMemo(() => {
@@ -499,32 +504,32 @@ export default function AdminDashboard() {
       <Topbar
         title="Admin Dashboard"
         subtitle="Org-wide view · Tasks, teams, performance"
-        renderActions={() => (
-          <button
-            onClick={() => setShowDeleteImportModal(true)}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 6,
-              height: 32,
-              padding: '0 12px',
-              borderRadius: 'var(--radius-sm)',
-              background: 'rgba(220, 38, 38, 0.08)',
-              border: '1px solid rgba(220, 38, 38, 0.2)',
-              color: 'var(--red)',
-              fontSize: 12.5,
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
-          >
-            <TriangleAlert size={13} />
-            Purge CSV Data
-          </button>
-        )}
+        // renderActions={() => (
+        //   <button
+        //     onClick={() => setShowDeleteImportModal(true)}
+        //     style={{
+        //       display: 'inline-flex',
+        //       alignItems: 'center',
+        //       justifyContent: 'center',
+        //       gap: 6,
+        //       height: 32,
+        //       padding: '0 12px',
+        //       borderRadius: 'var(--radius-sm)',
+        //       background: 'rgba(220, 38, 38, 0.08)',
+        //       border: '1px solid rgba(220, 38, 38, 0.2)',
+        //       color: 'var(--red)',
+        //       fontSize: 12.5,
+        //       fontWeight: 600,
+        //       cursor: 'pointer',
+        //       transition: 'all 0.15s',
+        //     }}
+        //     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
+        //     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
+        //   >
+        //     <TriangleAlert size={13} />
+        //     Purge CSV Datad
+        //   </button>
+        // )}
       />
 
       <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -816,7 +821,7 @@ export default function AdminDashboard() {
               </div>
               <div style={{ width: '100%', height: 180 }}>
                 {(() => {
-                  const { labels, data } = allTimeJoinData;
+                  const { labels, data, clientsByMonth } = allTimeJoinData;
                   const maxVal = Math.max(...data, 10);
                   const minVal = 0;
                   const range = maxVal - minVal;
@@ -871,11 +876,47 @@ export default function AdminDashboard() {
                       
                       {/* Data Points */}
                       {points.map((p, idx) => (
-                        <g key={idx} style={{ cursor: 'pointer' }}>
-                          <circle cx={p.x} cy={p.y} r="4" fill="var(--surface)" stroke="var(--olive)" strokeWidth="2" />
-                          <title>{`${p.label}: ${p.val} clients`}</title>
+                        <g key={idx} style={{ cursor: 'pointer' }}
+                          onMouseEnter={() => setGrowthTooltip({ x: p.x, y: p.y, label: p.label, val: p.val })}
+                          onMouseLeave={() => setGrowthTooltip(null)}
+                        >
+                          <circle cx={p.x} cy={p.y} r={growthTooltip?.label === p.label ? 6 : 4}
+                            fill={growthTooltip?.label === p.label ? 'var(--olive)' : 'var(--surface)'}
+                            stroke="var(--olive)" strokeWidth="2"
+                            style={{ transition: 'r 0.15s, fill 0.15s' }}
+                          />
                         </g>
                       ))}
+
+                      {/* Hover Tooltip */}
+                      {growthTooltip && (() => {
+                        const tx = Math.min(growthTooltip.x + 8, width - 135);
+                        const ty = Math.max(growthTooltip.y - 70, padding);
+                        const names = (clientsByMonth || {})[growthTooltip.label] || [];
+                        const visibleNames = names.slice(0, 4);
+                        const extra = names.length - visibleNames.length;
+                        const boxH = 34 + visibleNames.length * 14 + (extra > 0 ? 14 : 0);
+                        return (
+                          <g>
+                            <rect x={tx} y={ty} width={130} height={boxH} rx={6} ry={6}
+                              fill="var(--ink)" opacity={0.93}
+                            />
+                            <text x={tx + 10} y={ty + 14} fontSize="10" fontWeight="700" fill="#fff" opacity="0.7">
+                              {growthTooltip.label} · {growthTooltip.val} client{growthTooltip.val !== 1 ? 's' : ''}
+                            </text>
+                            {visibleNames.map((name, i) => (
+                              <text key={i} x={tx + 10} y={ty + 28 + i * 14} fontSize="11" fontWeight="600" fill="#fff">
+                                {'· ' + (name.length > 14 ? name.slice(0, 13) + '…' : name)}
+                              </text>
+                            ))}
+                            {extra > 0 && (
+                              <text x={tx + 10} y={ty + 28 + visibleNames.length * 14} fontSize="10" fontWeight="500" fill="#fff" opacity="0.6">
+                                +{extra} more
+                              </text>
+                            )}
+                          </g>
+                        );
+                      })()}
                       
                       {/* X Axis Labels */}
                       {points.map((p, idx) => {

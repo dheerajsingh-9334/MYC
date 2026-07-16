@@ -42,9 +42,24 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
           .then((rows) => rows.map((row) => row.id))
       : [];
 
-    let clientWhere: any = { organisationId: orgId };
+    let clientWhere: any = { organisationId: orgId, isBlocked: false };
     if (role === "team_leader" && teamStepIds.length) {
-      clientWhere.currentStepId = { in: teamStepIds };
+      // Find all clientIds that have at least one task owned by this team
+      const teamClientIds = await prisma.task
+        .findMany({
+          where: {
+            organisationId: orgId,
+            step: { owningTeamName: { in: teamNames } },
+          },
+          select: { clientId: true },
+          distinct: ["clientId"],
+        })
+        .then((rows) => rows.map((r) => r.clientId));
+
+      clientWhere.id = { in: teamClientIds };
+    } else if (role === "admin") {
+      // Admin sees all clients (no extra filter needed beyond orgId)
+      delete clientWhere.isBlocked; // admins can see blocked clients in vault
     } else if (role === "team_member") {
       const myClientIds = await prisma.task
         .findMany({
@@ -59,7 +74,9 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
     // Role-based visibility for documents
     let docWhere: any = undefined;
     if (role === "team_leader" && teamStepIds.length) {
-      docWhere = { stepId: { in: teamStepIds } };
+      // Show all docs for clients in scope — no step restriction needed
+      // (clientWhere already scopes to relevant clients)
+      docWhere = undefined;
     } else if (role === "team_member") {
       const myTasks = await prisma.task.findMany({
         where: { assignedToId: userId, organisationId: orgId },

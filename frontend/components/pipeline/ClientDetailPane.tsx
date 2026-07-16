@@ -118,6 +118,7 @@ export default function ClientDetailPane({
   const [taskClientFilter, setTaskClientFilter] = useState('all');
   const [taskLimit, setTaskLimit] = useState(10);
   const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
+  const [stepTooltip, setStepTooltip] = useState<{ x: number; y: number; label: string; date: string; movedBy?: string } | null>(null);
 
   // Read the logged-in user after hydration so we can admin-gate the button.
   useEffect(() => {
@@ -552,22 +553,25 @@ export default function ClientDetailPane({
       (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
     
-    const points: { date: Date; stepNumber: number; label: string }[] = [];
+    const points: { date: Date; stepNumber: number; label: string; movedBy?: string }[] = [];
     
     const joinedDate = new Date(client.dateJoined || client.createdAt || new Date());
     points.push({
       date: joinedDate,
       stepNumber: 1,
       label: 'Joined',
+      movedBy: client.brandName || client.fullName || undefined,
     });
     
     historyList.forEach((h: any) => {
       const d = new Date(h.createdAt);
       const stepNum = h.toStep?.stepNumber || steps.find((s: any) => s.id === h.toStepId)?.stepNumber || 1;
+      const mover = h.triggeredByUser?.fullName || (h.triggeredBy === 'system' ? 'Auto-advanced' : 'Admin');
       points.push({
         date: d,
         stepNumber: stepNum,
         label: h.toStep?.name || `Step ${stepNum}`,
+        movedBy: mover,
       });
     });
     
@@ -1035,11 +1039,44 @@ export default function ClientDetailPane({
                     
                     {/* Points on chart */}
                     {points.map((p, idx) => (
-                      <g key={idx} style={{ cursor: 'pointer' }}>
-                        <circle cx={p.x} cy={p.y} r="4.5" fill="var(--surface)" stroke="var(--olive)" strokeWidth="2.5" />
-                        <title>{`${p.label}\nDate: ${format(p.date, 'd MMM, yyyy')}`}</title>
+                      <g key={idx} style={{ cursor: 'pointer' }}
+                        onMouseEnter={() => setStepTooltip({ x: p.x, y: p.y, label: p.label, date: format(p.date, 'd MMM, yyyy'), movedBy: p.movedBy })}
+                        onMouseLeave={() => setStepTooltip(null)}
+                      >
+                        <circle cx={p.x} cy={p.y} r={stepTooltip?.label === p.label ? 7 : 4.5}
+                          fill={stepTooltip?.label === p.label ? 'var(--olive)' : 'var(--surface)'}
+                          stroke="var(--olive)" strokeWidth="2.5"
+                          style={{ transition: 'r 0.15s, fill 0.15s' }}
+                        />
                       </g>
                     ))}
+
+                    {/* Hover Tooltip */}
+                    {stepTooltip && (() => {
+                      const { paddingRight, paddingTop } = lineChartData;
+                      const tx = Math.min(stepTooltip.x + 10, width - paddingRight - 155);
+                      const ty = Math.max(stepTooltip.y - 68, paddingTop);
+                      const hasMovedBy = !!stepTooltip.movedBy;
+                      const boxH = hasMovedBy ? 64 : 50;
+                      return (
+                        <g>
+                          <rect x={tx} y={ty} width={150} height={boxH} rx={6} ry={6}
+                            fill="var(--ink)" opacity={0.92}
+                          />
+                          <text x={tx + 10} y={ty + 15} fontSize="9.5" fontWeight="700" fill="#fff" opacity="0.65">
+                            {stepTooltip.date}
+                          </text>
+                          <text x={tx + 10} y={ty + 31} fontSize="12" fontWeight="800" fill="#fff">
+                            {stepTooltip.label.length > 16 ? stepTooltip.label.slice(0, 15) + '…' : stepTooltip.label}
+                          </text>
+                          {hasMovedBy && (
+                            <text x={tx + 10} y={ty + 50} fontSize="10" fontWeight="500" fill="#fff" opacity="0.75">
+                              {'by ' + (stepTooltip.movedBy!.length > 17 ? stepTooltip.movedBy!.slice(0, 16) + '…' : stepTooltip.movedBy)}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })()}
                     
                     {/* X-axis date labels */}
                     {(() => {

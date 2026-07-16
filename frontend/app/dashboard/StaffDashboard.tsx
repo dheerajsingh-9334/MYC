@@ -1108,6 +1108,7 @@ export default function StaffDashboard() {
                   </span>
                 }
                 padding="16px 18px"
+                style={{ maxHeight: 420, overflow: 'hidden', flexShrink: 0 }}
               >
                 {/* Stats grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
@@ -1167,7 +1168,7 @@ export default function StaffDashboard() {
                       No team members found.
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 130, overflowY: 'auto', paddingRight: 4 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 200, overflowY: 'auto', paddingRight: 4 }}>
                       {filteredTeamMembers.map((m: any) => {
                         const activeTasksCount = teamTasks.filter((t: any) => t.assignedToId === m.id && t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length;
                         const overdueTasksCount = teamTasks.filter((t: any) => {
