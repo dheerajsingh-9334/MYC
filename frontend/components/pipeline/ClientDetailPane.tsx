@@ -6,10 +6,10 @@ import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, X, Check, TriangleAlert, CircleCheck, Clock, Search, ChevronLeft, ChevronRight, Download, TrendingUp, PieChart, Pencil, FileText, Move, Activity, Settings, Plus, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, X, Check, TriangleAlert, CircleCheck, Clock, Search, ChevronLeft, ChevronRight, Download, TrendingUp, PieChart, Pencil, FileText, Move, Activity, Settings, Plus, Edit2, Trash2, User, History } from 'lucide-react';
 import { USE_MOCK, MOCK_CLIENTS, MOCK_STEPS, MOCK_CLIENT_DETAIL } from '@/lib/mockData';
 import { useFormDraft } from '@/lib/useFormDraft';
-import { format, addDays, differenceInCalendarDays, startOfDay, isPast, isToday } from 'date-fns';
+import { format, addDays, differenceInCalendarDays, startOfDay, isPast, isToday, formatDistanceToNow } from 'date-fns';
 import { ManageStepsPanel } from '@/app/settings/steps/page';
 import ActionDropdown from '@/components/ui/ActionDropdown';
 import UpdateClientModal from '@/components/pipeline/UpdateClientModal';
@@ -117,6 +117,7 @@ export default function ClientDetailPane({
   const [taskTeamFilter, setTaskTeamFilter] = useState('all');
   const [taskClientFilter, setTaskClientFilter] = useState('all');
   const [taskLimit, setTaskLimit] = useState(10);
+  const [historyLimit, setHistoryLimit] = useState(3);
   const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
   const [stepTooltip, setStepTooltip] = useState<{
     x: number;
@@ -450,6 +451,11 @@ export default function ClientDetailPane({
     setTaskLimit(10);
   }, [taskSearch, taskStatusFilter, taskTeamFilter, taskClientFilter]);
 
+  // Reset history limit when client changes
+  useEffect(() => {
+    setHistoryLimit(3);
+  }, [id]);
+
   // Scroll slice for tasks
   const scrollableTasks = useMemo(() => {
     return filteredAndSearchedTasks.slice(0, taskLimit);
@@ -457,7 +463,7 @@ export default function ClientDetailPane({
 
   const handleTaskScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollTop + clientHeight >= scrollHeight - 20) {
+    if (scrollTop + clientHeight >= scrollHeight - 50) {
       setTaskLimit(prev => Math.min(prev + 10, filteredAndSearchedTasks.length));
     }
   };
@@ -479,21 +485,55 @@ export default function ClientDetailPane({
 
   const history: any[] = useMemo(() => {
     if (!client) return [];
-    const rawHistory = client.pipelineHistory ||
-      (client.stepHistory || []).map((h: any) => ({
-        date: new Date(h.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-        title: h.fromStep
-          ? `Moved: ${h.fromStep.name} → ${h.toStep?.name}`
-          : `Entered Step ${h.toStep?.stepNumber} — ${h.toStep?.name}`,
-        desc: `${h.triggeredBy === 'system' ? 'Auto-advanced' : `Manual by ${h.triggeredByUser?.fullName || 'Admin'}`}${h.reasonNote ? ` · ${h.reasonNote}` : ''}`,
+    
+    // Support both pre-formatted mock history and structured DB history
+    const rawHistory = (client.stepHistory || client.pipelineHistory || []).map((h: any) => {
+      if (h.title && h.desc) {
+        return {
+          id: h.id || Math.random().toString(),
+          createdAt: h.createdAt || new Date(h.date + ' ' + new Date().getFullYear()).toISOString() || new Date().toISOString(),
+          triggeredBy: h.triggeredBy || (h.desc.includes('Auto') ? 'system' : 'manual'),
+          triggeredByUser: h.triggeredByUser || { fullName: h.desc.includes('Added by') ? h.desc.split('Added by ')[1]?.split(' ·')[0] : 'Admin' },
+          reasonNote: h.reasonNote || (h.desc.includes('·') ? h.desc.split('·')[1]?.trim() : ''),
+          fromStep: h.fromStep || null,
+          toStep: h.toStep || { name: h.title.includes('Step') ? h.title.split('Step ')[1] : h.title },
+          toTeam: h.toTeam,
+          fromTeam: h.fromTeam,
+          isPreMapped: true,
+          mockTitle: h.title,
+          mockDesc: h.desc,
+          mockDate: h.date,
+        };
+      }
+      return {
+        id: h.id,
+        createdAt: h.createdAt,
+        triggeredBy: h.triggeredBy,
+        triggeredByUser: h.triggeredByUser,
+        reasonNote: h.reasonNote,
+        fromStep: h.fromStep,
+        toStep: h.toStep,
         toTeam: h.toStep?.owningTeamName,
         fromTeam: h.fromStep?.owningTeamName,
-      }));
+      };
+    });
+
     if (isAdmin) return rawHistory;
     return rawHistory.filter((item: any) => {
       return item.toTeam === currentUser?.teamName || item.fromTeam === currentUser?.teamName;
     });
   }, [client, currentUser, isAdmin]);
+
+  const scrollableHistory = useMemo(() => {
+    return history.slice(0, historyLimit);
+  }, [history, historyLimit]);
+
+  const handleHistoryScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollTop + clientHeight >= scrollHeight - 50) {
+      setHistoryLimit(prev => Math.min(prev + 3, history.length));
+    }
+  };
 
   const currentStepNum = client?.currentStep?.stepNumber || 1;
   const daysInStep = client?.daysInStep || 0;
@@ -1635,36 +1675,171 @@ export default function ClientDetailPane({
 
 
           {/* Step History timeline */}
-          {isAdmin && (
+          {history.length > 0 && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <History size={16} style={{ color: 'var(--olive)' }} />
                 <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>Step History</div>
               </div>
-              <div style={{ padding: 20 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  {history.map((item: any, i: number) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '80px auto 1fr', gap: 14, alignItems: 'flex-start' }}>
-                      {/* Date */}
-                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5, color: 'var(--muted)', paddingTop: 4 }}>
-                        {item.date}
-                      </div>
-
-                      {/* Dot + line */}
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--olive)', marginTop: 5, zIndex: 1 }} />
-                        {i < history.length - 1 && (
-                          <div style={{ position: 'absolute', top: 15, bottom: -20, width: 2, background: 'var(--border)' }} />
+              <div 
+                onScroll={handleHistoryScroll}
+                style={{
+                  maxHeight: 565,
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                  margin: '16px 20px 20px',
+                  background: 'var(--surface-2)',
+                  position: 'relative',
+                  padding: 20,
+                }}
+                className="custom-scrollbar"
+              >
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                  {scrollableHistory.map((item: any, i: number) => {
+                    const isSystem = item.triggeredBy === 'system';
+                    return (
+                      <div key={item.id || i} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
+                        {/* Timeline Node connector line */}
+                        {i < scrollableHistory.length - 1 && (
+                          <div style={{
+                            position: 'absolute',
+                            left: '15px',
+                            top: '16px',
+                            bottom: '-36px',
+                            width: '2px',
+                            background: 'var(--border)',
+                            zIndex: 0,
+                          }} />
                         )}
-                      </div>
 
-                      {/* Content */}
-                      <div style={{ paddingBottom: 4 }}>
-                        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{item.title}</div>
-                        <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>{item.desc}</div>
+                        {/* Timeline Node Circle */}
+                        <div style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          background: 'var(--surface)',
+                          border: `2px solid ${isSystem ? 'var(--border-strong)' : 'var(--olive)'}`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: isSystem ? 'var(--muted)' : 'var(--olive)',
+                          flexShrink: 0,
+                          boxShadow: 'var(--shadow-sm)',
+                        }}>
+                          {isSystem ? <Settings size={14} /> : <User size={14} />}
+                        </div>
+
+                        {/* Timeline Card */}
+                        <div style={{
+                          background: 'var(--surface)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius)',
+                          padding: '14px 18px',
+                          flex: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 8,
+                          boxShadow: 'var(--shadow-sm)',
+                        }}>
+                          {item.isPreMapped ? (
+                            <>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{item.mockTitle}</div>
+                                <div style={{ fontSize: 11, fontFamily: 'JetBrains Mono, monospace', color: 'var(--muted)' }}>{item.mockDate}</div>
+                              </div>
+                              <div style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.4 }}>{item.mockDesc}</div>
+                            </>
+                          ) : (
+                            <>
+                              {/* Top row: transition pills */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                {item.fromStep ? (
+                                  <>
+                                    <span style={{
+                                      padding: '3px 9px',
+                                      border: '1px solid var(--border-strong)',
+                                      borderRadius: '16px',
+                                      fontSize: '12px',
+                                      fontWeight: 500,
+                                      color: 'var(--ink)',
+                                      background: 'var(--surface)',
+                                      lineHeight: 1,
+                                    }}>
+                                      {item.fromStep.name}
+                                    </span>
+                                    <span style={{ color: 'var(--muted)', fontSize: '14px', fontWeight: 600 }}>→</span>
+                                  </>
+                                ) : null}
+                                <span style={{
+                                  padding: '4px 10px',
+                                  background: 'var(--olive-50)',
+                                  border: '1.5px solid var(--olive-200)',
+                                  borderRadius: '16px',
+                                  fontSize: '12px',
+                                  fontWeight: 600,
+                                  color: 'var(--olive)',
+                                  lineHeight: 1,
+                                }}>
+                                  {item.toStep?.name || 'Entered Step'}
+                                </span>
+                              </div>
+
+                              {/* Second row: metadata */}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: '11.5px', color: 'var(--muted)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  {isSystem ? <Settings size={11} /> : <User size={11} />}
+                                  <span>{isSystem ? 'System' : 'Manual'}</span>
+                                </div>
+                                <span>•</span>
+                                <span>
+                                  {(() => {
+                                    try {
+                                      return formatDistanceToNow(new Date(item.createdAt), { addSuffix: true });
+                                    } catch (e) {
+                                      return new Date(item.createdAt).toLocaleDateString();
+                                    }
+                                  })()}
+                                </span>
+                                {!isSystem && item.triggeredByUser?.fullName && (
+                                  <>
+                                    <span>•</span>
+                                    <span style={{ fontWeight: 500, color: 'var(--ink-2)' }}>
+                                      {item.triggeredByUser.fullName}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+
+                              {/* Third row: reason note */}
+                              {item.reasonNote && (
+                                <div style={{
+                                  fontSize: '12.5px',
+                                  color: 'var(--ink-2)',
+                                  fontStyle: 'italic',
+                                  marginTop: 2,
+                                  lineHeight: 1.4,
+                                }}>
+                                  "{item.reasonNote}"
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
+                {historyLimit < history.length ? (
+                  <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--muted)', marginTop: '16px' }}>
+                    Scroll down to load more history…
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', fontSize: '11px', color: 'var(--muted)', marginTop: '16px', opacity: 0.7 }}>
+                    Showing all {history.length} history items
+                  </div>
+                )}
               </div>
             </div>
           )}
