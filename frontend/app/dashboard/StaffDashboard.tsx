@@ -117,8 +117,10 @@ export default function StaffDashboard() {
       let initial = [...MOCK_TASKS];
       if (user?.role === 'team_leader' && user.teamName) {
         initial = initial.map(t => {
-          const isForTeam = t.step?.owningTeamName === user.teamName;
-          const hasAssigneeInTeam = t.assignedTo?.teamName === user.teamName && (t.assignedTo as any)?.role === 'team_member';
+          const userTeams = user.teamName.split(',').map((tm: string) => tm.trim()).filter(Boolean);
+          const taskTeam = t.step?.owningTeamName;
+          const isForTeam = taskTeam && userTeams.includes(taskTeam);
+          const hasAssigneeInTeam = t.assignedTo?.teamName && userTeams.includes(t.assignedTo.teamName) && (t.assignedTo as any)?.role === 'team_member';
           if (isForTeam && !hasAssigneeInTeam) {
             return {
               ...t,
@@ -172,24 +174,6 @@ export default function StaffDashboard() {
     }
   });
 
-  const myIndividualStats = useMemo(() => {
-    const tasks = (USE_MOCK ? localTasks : (liveTasks as any[])) || [];
-    if (!user) return { completed: 0, overdue: 0, pending: 0 };
-    const myOwnTasks = tasks.filter((t: any) => {
-      const assigneeId = t.assignedToId || t.assignedTo?.id;
-      return assigneeId === user.id || t.assignedTo?.fullName === user.fullName;
-    });
-    const completed = myOwnTasks.filter((t: any) => t.status === 'complete').length;
-    const pending = myOwnTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length;
-    const todayStart = startOfDay(new Date());
-    const overdue = myOwnTasks.filter((t: any) => {
-      if (t.status === 'complete' || t.status === 'rejected' || t.status === 'cancelled') return false;
-      const due = startOfDay(new Date(t.dueDate));
-      return differenceInCalendarDays(due, todayStart) < 0;
-    }).length;
-    return { completed, overdue, pending };
-  }, [localTasks, liveTasks, user]);
-
   const myTasks = useMemo(() => {
     const tasks = (USE_MOCK ? localTasks : (liveTasks as any[])) || [];
     if (!user) return tasks as any[];
@@ -199,6 +183,50 @@ export default function StaffDashboard() {
       return t.assignedTo?.fullName === user.fullName;
     });
   }, [localTasks, liveTasks, user]);
+
+  const myIndividualStats = useMemo(() => {
+    const completed = myTasks.filter((t: any) => t.status === 'complete').length;
+    const pending = myTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length;
+    const todayStart = startOfDay(new Date());
+    const overdue = myTasks.filter((t: any) => {
+      if (t.status === 'complete' || t.status === 'rejected' || t.status === 'cancelled') return false;
+      const due = startOfDay(new Date(t.dueDate));
+      return differenceInCalendarDays(due, todayStart) < 0;
+    }).length;
+    return { completed, overdue, pending };
+  }, [myTasks]);
+
+  const myProblemsAsTasks = useMemo(() => {
+    const isTeamLeader = user?.role === 'team_leader';
+    const leaderTeams = user?.teamName
+      ? user.teamName.split(',').map((t: string) => t.trim()).filter(Boolean)
+      : [];
+
+    const filteredProbs = problemsList.filter((p: any) => {
+      if (!user) return false;
+      const isMyProblem = p.userId === user.id || p.user?.fullName === user.fullName;
+      if (isTeamLeader && leaderTeams.length > 0) {
+        const memberTeam = p.user?.teamName;
+        const isTeamMemberProblem = memberTeam && leaderTeams.includes(memberTeam);
+        return isMyProblem || isTeamMemberProblem;
+      }
+      return isMyProblem;
+    });
+
+    return filteredProbs.map((p: any) => ({
+      id: p.id,
+      title: `[Problem] ${p.title}`,
+      description: p.description,
+      status: p.status === 'open' ? 'blocked' : 'complete',
+      dueDate: p.createdAt,
+      createdAt: p.createdAt,
+      client: p.client,
+      assignedTo: p.user,
+      isAlerted: p.status === 'open',
+      isProblemTask: true,
+      priority: 'normal',
+    }));
+  }, [problemsList, user]);
 
   const teamMembers = useMemo(() => {
     const list = USE_MOCK ? MOCK_TEAM : (liveUsers as any[]) || [];
@@ -315,8 +343,11 @@ export default function StaffDashboard() {
     });
     rejected.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
 
-    return { all: myTasks, active, completed, rejected };
-  }, [myTasks]);
+    const allTasksWithProblems = [...myTasks, ...myProblemsAsTasks];
+    allTasksWithProblems.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+
+    return { all: allTasksWithProblems, active, completed, rejected };
+  }, [myTasks, myProblemsAsTasks]);
 
   const reopenMut = useMutation({
     mutationFn: (id: string) => apiFetch(`/api/tasks/${id}/reopen`, { method: 'PATCH' }),
@@ -635,8 +666,9 @@ export default function StaffDashboard() {
     if (!user?.teamName) return { avgHours: '0.0h', totalHours: '0.0h' };
 
     const teamTasks = tasks.filter((t: any) => {
+      const userTeams = user.teamName.split(',').map((tm: string) => tm.trim()).filter(Boolean);
       const taskTeam = t.step?.owningTeamName || t.assignedTo?.teamName;
-      return taskTeam === user.teamName && t.status === 'complete';
+      return taskTeam && userTeams.includes(taskTeam) && t.status === 'complete';
     });
 
     let totalMs = 0;
@@ -1138,7 +1170,11 @@ export default function StaffDashboard() {
                             )}
                              {(tab === 'active' || tab === 'team_tasks') && (
                               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                                {user?.role === 'team_leader' && (t.step?.owningTeamName === user?.teamName || t.assignedTo?.teamName === user?.teamName) && (
+                                 {user?.role === 'team_leader' && (() => {
+                                   const userTeams = user.teamName?.split(',').map((ut: any) => ut.trim()).filter(Boolean) || [];
+                                   const tTeam = t.step?.owningTeamName || t.assignedTo?.teamName;
+                                   return tTeam && userTeams.includes(tTeam);
+                                 })() && (
                                   <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                                     <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Assignee:</span>
                                     <select
