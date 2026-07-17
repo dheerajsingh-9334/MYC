@@ -5,7 +5,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import SectionCard from '@/components/ui/SectionCard';
 import { apiFetch, getUser } from '@/lib/api';
-import { USE_MOCK, MOCK_TASKS, MOCK_TEAM } from '@/lib/mockData';
+import { USE_MOCK, MOCK_TASKS, MOCK_TEAM, MOCK_CLIENTS } from '@/lib/mockData';
 import { useRouter } from 'next/navigation';
 import {
   ListChecks,
@@ -31,7 +31,9 @@ import {
   Moon,
   Users,
   Filter,
+  Hand,
 } from 'lucide-react';
+import RaiseHandModal from '@/components/ui/RaiseHandModal';
 import {
   differenceInCalendarDays,
   format,
@@ -43,7 +45,7 @@ import {
 
 const AUTO_REFRESH_MS = 30_000;
 
-type TabKey = 'active' | 'completed' | 'rejected' | 'team_tasks';
+type TabKey = 'all' | 'active' | 'completed' | 'rejected' | 'team_tasks' | 'problems';
 
 export default function StaffDashboard() {
   const router = useRouter();
@@ -101,6 +103,14 @@ export default function StaffDashboard() {
   const [activeTooltipDate, setActiveTooltipDate] = useState<string | null>(null);
 
   const [localTasks, setLocalTasks] = useState<any[]>([]);
+  const [showRaiseHandModal, setShowRaiseHandModal] = useState(false);
+  const [selectedTaskForProblem, setSelectedTaskForProblem] = useState<any | null>(null);
+
+  const { data: liveClients = [] } = useQuery<any[]>({
+    queryKey: ['clients'],
+    queryFn: () => apiFetch('/api/clients'),
+    enabled: !USE_MOCK,
+  });
 
   useEffect(() => {
     if (USE_MOCK) {
@@ -147,6 +157,21 @@ export default function StaffDashboard() {
     enabled: !USE_MOCK,
   });
 
+  const { data: problemsList = [], refetch: refetchProblems } = useQuery<any[]>({
+    queryKey: ['problems'],
+    queryFn: () => apiFetch('/api/problems'),
+    refetchInterval: AUTO_REFRESH_MS,
+    enabled: !USE_MOCK && !!user,
+    retry: false,
+  });
+
+  const resolveProblemMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/problems/${id}/resolve`, { method: 'PATCH' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['problems'] });
+    }
+  });
+
   const myIndividualStats = useMemo(() => {
     const tasks = (USE_MOCK ? localTasks : (liveTasks as any[])) || [];
     if (!user) return { completed: 0, overdue: 0, pending: 0 };
@@ -168,18 +193,6 @@ export default function StaffDashboard() {
   const myTasks = useMemo(() => {
     const tasks = (USE_MOCK ? localTasks : (liveTasks as any[])) || [];
     if (!user) return tasks as any[];
-    
-    const userTeams = user.teamName ? user.teamName.split(',').map((t: string) => t.trim()).filter(Boolean) : [];
-    
-    if (user.role === 'team_leader') {
-      return tasks.filter((t: any) => {
-        const taskTeam = t.step?.owningTeamName || t.assignedTo?.teamName;
-        const assigneeId = t.assignedToId || t.assignedTo?.id;
-        const isForMyTeam = taskTeam && userTeams.includes(taskTeam);
-        const isAssignedToMe = assigneeId === user.id || t.assignedTo?.fullName === user.fullName;
-        return isForMyTeam || isAssignedToMe;
-      });
-    }
     return tasks.filter((t: any) => {
       const assigneeId = t.assignedToId || t.assignedTo?.id;
       if (assigneeId) return assigneeId === user.id;
@@ -302,7 +315,7 @@ export default function StaffDashboard() {
     });
     rejected.sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime());
 
-    return { active, completed, rejected };
+    return { all: myTasks, active, completed, rejected };
   }, [myTasks]);
 
   const reopenMut = useMutation({
@@ -504,6 +517,7 @@ export default function StaffDashboard() {
 
   const tabs: { key: TabKey; label: string; count: number; icon: any; accent: string; bg: string }[] = useMemo(() => {
     const list: { key: TabKey; label: string; count: number; icon: any; accent: string; bg: string }[] = [
+      { key: 'all',       label: 'All Tasks',  count: grouped.all.length,       icon: ListChecks, accent: 'var(--ink-2)', bg: 'var(--surface-2)' },
       { key: 'active',    label: 'My Tasks',   count: grouped.active.length,    icon: ListChecks, accent: 'var(--olive)', bg: 'var(--olive-50)' },
       { key: 'completed', label: 'Completed',  count: grouped.completed.length, icon: CircleCheck, accent: 'var(--green)', bg: 'var(--green-bg)' },
       { key: 'rejected',  label: 'Rejected',   count: grouped.rejected.length,  icon: XCircle,     accent: 'var(--rejected)', bg: 'var(--rejected-bg)' },
@@ -518,11 +532,23 @@ export default function StaffDashboard() {
         bg: '#EBF3FB'
       });
     }
+    // Add problems tab if team_leader or team_member
+    if (user?.role === 'team_leader' || user?.role === 'team_member') {
+      list.push({
+        key: 'problems',
+        label: 'Problems',
+        count: problemsList.filter((p: any) => p.status === 'open').length,
+        icon: Hand,
+        accent: 'var(--red)',
+        bg: 'var(--red-bg)',
+      });
+    }
     return list;
-  }, [grouped, teamTasks, user]);
+  }, [grouped, teamTasks, user, problemsList]);
 
   const activeTab = tabs.find((t) => t.key === tab) || tabs[0];
   const allVisible = useMemo(() => {
+    if (tab === 'all') return grouped.all;
     if (tab === 'team_tasks') {
       return teamTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled');
     }
@@ -534,6 +560,8 @@ export default function StaffDashboard() {
   const [taskSearch, setTaskSearch] = useState('');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [staffTaskPriority, setStaffTaskPriority] = useState<'all' | 'high' | 'normal'>('all');
+  const [taskLimit, setTaskLimit] = useState(20);
+
   useEffect(() => { setTaskLimit(20); }, [tab, taskSearch]);
 
   const filteredTasks = useMemo(() => {
@@ -551,15 +579,30 @@ export default function StaffDashboard() {
     });
   }, [allVisible, taskSearch, staffTaskPriority]);
 
-  const [taskLimit, setTaskLimit] = useState(20);
   const scrollableTasks = useMemo(() => {
     return filteredTasks.slice(0, taskLimit);
   }, [filteredTasks, taskLimit]);
 
-  const handleTaskScroll = (e: React.UIEvent<HTMLUListElement>) => {
+  const filteredProblems = useMemo(() => {
+    const term = taskSearch.trim().toLowerCase();
+    if (!term) return problemsList;
+    return problemsList.filter((p: any) => 
+      p.title.toLowerCase().includes(term) ||
+      (p.description && p.description.toLowerCase().includes(term)) ||
+      (p.user?.fullName && p.user.fullName.toLowerCase().includes(term)) ||
+      (p.client && (p.client.brandName || p.client.fullName).toLowerCase().includes(term))
+    );
+  }, [problemsList, taskSearch]);
+
+  const scrollableProblems = useMemo(() => {
+    return filteredProblems.slice(0, taskLimit);
+  }, [filteredProblems, taskLimit]);
+
+  const handleTaskScroll = (e: React.UIEvent<HTMLElement>) => {
     const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
     if (scrollTop + clientHeight >= scrollHeight - 20) {
-      setTaskLimit(prev => Math.min(prev + 10, filteredTasks.length));
+      const totalLength = tab === 'problems' ? filteredProblems.length : filteredTasks.length;
+      setTaskLimit(prev => Math.min(prev + 10, totalLength));
     }
   };
 
@@ -738,7 +781,7 @@ export default function StaffDashboard() {
                     <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--muted)' }} />
                     <input
                       type="text"
-                      placeholder="Search tasks..."
+                      placeholder={tab === 'problems' ? "Search problems..." : "Search tasks..."}
                       value={taskSearch}
                       onChange={(e) => setTaskSearch(e.target.value)}
                       style={{ padding: '5px 8px 5px 26px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, outline: 'none', background: 'var(--surface-2)', color: 'var(--ink)', width: '100%' }}
@@ -821,7 +864,105 @@ export default function StaffDashboard() {
                   );
                 })}
               </div>
-              {scrollableTasks.length === 0 ? (
+              {tab === 'problems' ? (
+                filteredProblems.length === 0 ? (
+                  <EmptyState
+                    accent="var(--red)"
+                    icon={Hand}
+                    title="No problems reported"
+                    message="Everything is running smoothly."
+                  />
+                ) : (
+                  <ul
+                    onScroll={handleTaskScroll}
+                    style={{
+                      listStyle: 'none',
+                      padding: 0,
+                      margin: '16px 20px 20px',
+                      flex: 1,
+                      minHeight: 0,
+                      overflowY: 'auto',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius)',
+                      background: 'var(--surface-2)',
+                    }}
+                  >
+                    {scrollableProblems.map((problem: any, idx: number) => {
+                      const isOpen = problem.status === 'open';
+                      const stripe = isOpen ? 'var(--red)' : 'var(--green)';
+                      const rowBg = isOpen ? 'rgba(239, 68, 68, 0.02)' : 'transparent';
+                      return (
+                        <li
+                          key={problem.id}
+                          style={{
+                            position: 'relative',
+                            display: 'grid',
+                            gridTemplateColumns: '3px 1fr auto',
+                            gap: 14,
+                            padding: '12px 20px',
+                            borderBottom: idx === scrollableProblems.length - 1 ? 'none' : '1px solid var(--surface-2)',
+                            transition: 'background 0.15s',
+                            background: rowBg,
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = isOpen ? 'rgba(239, 68, 68, 0.05)' : 'var(--olive-50)'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = rowBg; }}
+                        >
+                          <div style={{ background: stripe, borderRadius: 3 }} />
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--muted)', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 500, color: 'var(--ink-2)' }}>
+                                {problem.user?.fullName}{problem.user?.teamName ? ` · ${problem.user.teamName}` : ''}
+                              </span>
+                              {problem.client && (
+                                <>
+                                  <span>·</span>
+                                  <span
+                                    onClick={() => router.push(`/clients/${problem.client.id}`)}
+                                    style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--olive-dark)', background: 'var(--olive-50)', padding: '1px 6px', borderRadius: 4, cursor: 'pointer', transition: 'background 0.15s' }}
+                                    onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-100)'}
+                                    onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'}
+                                  >
+                                    {problem.client.brandName || problem.client.fullName}
+                                  </span>
+                                </>
+                              )}
+                            </div>
+                            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {problem.title}
+                            </div>
+                            {problem.description && (
+                              <div style={{ fontSize: 11.5, color: 'var(--ink-2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {problem.description}
+                              </div>
+                            )}
+                            <div style={{ fontSize: 11.5, color: 'var(--soft)', marginTop: 2 }}>
+                              Raised: {new Date(problem.createdAt).toLocaleString('en-IN')}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {isOpen ? (
+                              <span style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'var(--red-bg)', color: 'var(--red)', fontSize: 11, fontWeight: 700, letterSpacing: '0.2px', textTransform: 'uppercase' }}>Open</span>
+                            ) : (
+                              <span style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--green-bg)', background: 'var(--green-bg)', color: 'var(--green)', fontSize: 11, fontWeight: 700, letterSpacing: '0.2px', textTransform: 'uppercase' }}>Resolved</span>
+                            )}
+                            {isOpen && user?.role === 'team_leader' && (
+                              <button
+                                onClick={() => resolveProblemMutation.mutate(problem.id)}
+                                disabled={resolveProblemMutation.isPending}
+                                style={{ padding: '5px 12px', background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(22,163,74,0.1)' }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.85'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
+                              >
+                                Resolve
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )
+              ) : scrollableTasks.length === 0 ? (
                 <EmptyState
                   accent={activeTab.accent}
                   icon={activeTab.icon}
@@ -851,7 +992,12 @@ export default function StaffDashboard() {
                     {scrollableTasks.map((t, idx) => {
                       const isAlerted = t.isAlerted === true;
                       const rowBg = isAlerted ? 'rgba(220, 38, 38, 0.05)' : 'transparent';
-                      const stripe = isAlerted ? 'var(--red)' : tab === 'completed' ? 'var(--green)' : tab === 'rejected' ? 'var(--rejected)' : tab === 'team_tasks' ? '#2860A1' : 'var(--olive)';
+                      const effectiveStatus = t.status;
+                      const stripe = isAlerted ? 'var(--red)'
+                        : effectiveStatus === 'complete' ? 'var(--green)'
+                        : (effectiveStatus === 'rejected' || effectiveStatus === 'cancelled') ? 'var(--rejected)'
+                        : tab === 'team_tasks' ? '#2860A1'
+                        : 'var(--olive)';
                       const due = format(new Date(t.dueDate), 'EEE d MMM');
                       const completedAt = t.completedAt ? format(new Date(t.completedAt), "d MMM, h:mma") : null;
                       const whenLabel = tab === 'completed' && completedAt ? completedAt : due;
@@ -956,19 +1102,19 @@ export default function StaffDashboard() {
                             )}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            {tab === 'active' && (
+                            {(tab === 'active' || tab === 'all') && (
                               t._daysLate > 0 ? (
                                 <span style={chipStyle('var(--red-bg)', 'var(--red)')}>+{t._daysLate}d</span>
                               ) : t._isDueToday ? (
                                 <span style={chipStyle('var(--amber-bg)', 'var(--amber)')}>TODAY</span>
                               ) : (
-                                <span style={chipStyle('var(--olive-50)', 'var(--olive-dark)')}>in {t._daysAhead}d</span>
+                                <span style={chipStyle('var(--olive-50)', 'var(--olive-dark)')}>in {t._daysAhead ?? 0}d</span>
                               )
                             )}
-                            {tab === 'completed' && (
+                            {(tab === 'completed' || (tab === 'all' && t.status === 'complete')) && (
                               <span style={chipStyle('var(--green-bg)', 'var(--green)')}>DONE</span>
                             )}
-                            {tab === 'rejected' && (
+                            {(tab === 'rejected' || (tab === 'all' && (t.status === 'rejected' || t.status === 'cancelled'))) && (
                               <span style={chipStyle('var(--rejected-bg)', 'var(--rejected)')}>REJECTED</span>
                             )}
                             {tab === 'rejected' && (

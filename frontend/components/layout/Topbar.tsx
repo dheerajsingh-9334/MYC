@@ -360,7 +360,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
               >
-                <Megaphone size={13} /> Broadcast
+                 <Megaphone size={13} /> Broadcast
               </button>
 
             </>

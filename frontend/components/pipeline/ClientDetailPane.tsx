@@ -118,7 +118,17 @@ export default function ClientDetailPane({
   const [taskClientFilter, setTaskClientFilter] = useState('all');
   const [taskLimit, setTaskLimit] = useState(10);
   const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
-  const [stepTooltip, setStepTooltip] = useState<{ x: number; y: number; label: string; date: string; movedBy?: string } | null>(null);
+  const [stepTooltip, setStepTooltip] = useState<{
+    x: number;
+    y: number;
+    label: string;
+    date: string;
+    stepNumber: number;
+    movedBy?: string;
+    fromStepName?: string;
+    reasonNote?: string;
+    teamName?: string;
+  } | null>(null);
 
   // Read the logged-in user after hydration so we can admin-gate the button.
   useEffect(() => {
@@ -553,14 +563,22 @@ export default function ClientDetailPane({
       (a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
     
-    const points: { date: Date; stepNumber: number; label: string; movedBy?: string }[] = [];
+    const points: {
+      date: Date;
+      stepNumber: number;
+      label: string;
+      movedBy?: string;
+      fromStepName?: string;
+      reasonNote?: string;
+      teamName?: string;
+    }[] = [];
     
     const joinedDate = new Date(client.dateJoined || client.createdAt || new Date());
     points.push({
       date: joinedDate,
       stepNumber: 1,
       label: 'Joined',
-      movedBy: client.brandName || client.fullName || undefined,
+      reasonNote: 'Client onboarding initialized / account created.',
     });
     
     historyList.forEach((h: any) => {
@@ -572,6 +590,9 @@ export default function ClientDetailPane({
         stepNumber: stepNum,
         label: h.toStep?.name || `Step ${stepNum}`,
         movedBy: mover,
+        fromStepName: h.fromStep?.name || undefined,
+        reasonNote: h.reasonNote || undefined,
+        teamName: h.toStep?.owningTeamName || undefined,
       });
     });
     
@@ -584,6 +605,8 @@ export default function ClientDetailPane({
         date: entered,
         stepNumber: currentStepNum,
         label: client.currentStep?.name || `Step ${currentStepNum}`,
+        reasonNote: 'Active current step phase started.',
+        teamName: client.currentStep?.owningTeamName || undefined,
       });
     }
     
@@ -592,12 +615,16 @@ export default function ClientDetailPane({
         date: now,
         stepNumber: currentStepNum,
         label: client.currentStep?.name || `Step ${currentStepNum}`,
+        reasonNote: 'Current live tracking point.',
+        teamName: client.currentStep?.owningTeamName || undefined,
       });
     } else if (points.length === 1) {
       points.push({
         date: new Date(now.getTime() + 1000),
         stepNumber: currentStepNum,
         label: client.currentStep?.name || `Step ${currentStepNum}`,
+        reasonNote: 'Current live tracking point.',
+        teamName: client.currentStep?.owningTeamName || undefined,
       });
     }
     
@@ -1012,91 +1039,142 @@ export default function ClientDetailPane({
                 }
                 
                 return (
-                  <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-                    <defs>
-                      <linearGradient id="stepChartGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--olive)" stopOpacity="0.2" />
-                        <stop offset="100%" stopColor="var(--olive)" stopOpacity="0.0" />
-                      </linearGradient>
-                    </defs>
-                    
-                    {/* Grid lines for each step */}
-                    {steps.map((s: any) => {
-                      const y = paddingTop + chartHeight - ((s.stepNumber - 1) / Math.max(1, maxStep - 1)) * chartHeight;
-                      return (
-                        <g key={s.id}>
-                          <line x1={40} y1={y} x2={width - 20} y2={y} stroke="var(--border)" strokeWidth="0.8" strokeDasharray="3 3" />
-                          <text x={32} y={y + 3.5} textAnchor="end" fontSize="9" fill="var(--muted)" fontWeight="600">S{s.stepNumber}</text>
+                  <>
+                    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                      <defs>
+                        <linearGradient id="stepChartGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--olive)" stopOpacity="0.2" />
+                          <stop offset="100%" stopColor="var(--olive)" stopOpacity="0.0" />
+                        </linearGradient>
+                      </defs>
+                      
+                      {/* Grid lines for each step */}
+                      {steps.map((s: any) => {
+                        const y = paddingTop + chartHeight - ((s.stepNumber - 1) / Math.max(1, maxStep - 1)) * chartHeight;
+                        return (
+                          <g key={s.id}>
+                            <line x1={40} y1={y} x2={width - 20} y2={y} stroke="var(--border)" strokeWidth="0.8" strokeDasharray="3 3" />
+                            <text x={32} y={y + 3.5} textAnchor="end" fontSize="9" fill="var(--muted)" fontWeight="600">S{s.stepNumber}</text>
+                          </g>
+                        );
+                      })}
+                      
+                      {/* Area path */}
+                      {areaD && <path d={areaD} fill="url(#stepChartGrad)" />}
+                      
+                      {/* Line path */}
+                      {pathD && <path d={pathD} fill="none" stroke="var(--olive)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+                      
+                      {/* Points on chart */}
+                      {points.map((p, idx) => (
+                        <g key={idx} style={{ cursor: 'pointer' }}
+                          onMouseEnter={() => setStepTooltip({ 
+                            x: p.x, 
+                            y: p.y, 
+                            label: p.label, 
+                            date: format(p.date, 'd MMM, yyyy'), 
+                            stepNumber: p.stepNumber,
+                            movedBy: p.movedBy,
+                            fromStepName: p.fromStepName,
+                            reasonNote: p.reasonNote,
+                            teamName: p.teamName 
+                          })}
+                          onMouseLeave={() => setStepTooltip(null)}
+                        >
+                          <circle cx={p.x} cy={p.y} r={stepTooltip?.label === p.label ? 7 : 4.5}
+                            fill={stepTooltip?.label === p.label ? 'var(--olive)' : 'var(--surface)'}
+                            stroke="var(--olive)" strokeWidth="2.5"
+                            style={{ transition: 'r 0.15s, fill 0.15s' }}
+                          />
                         </g>
-                      );
-                    })}
-                    
-                    {/* Area path */}
-                    {areaD && <path d={areaD} fill="url(#stepChartGrad)" />}
-                    
-                    {/* Line path */}
-                    {pathD && <path d={pathD} fill="none" stroke="var(--olive)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
-                    
-                    {/* Points on chart */}
-                    {points.map((p, idx) => (
-                      <g key={idx} style={{ cursor: 'pointer' }}
-                        onMouseEnter={() => setStepTooltip({ x: p.x, y: p.y, label: p.label, date: format(p.date, 'd MMM, yyyy'), movedBy: p.movedBy })}
-                        onMouseLeave={() => setStepTooltip(null)}
-                      >
-                        <circle cx={p.x} cy={p.y} r={stepTooltip?.label === p.label ? 7 : 4.5}
-                          fill={stepTooltip?.label === p.label ? 'var(--olive)' : 'var(--surface)'}
-                          stroke="var(--olive)" strokeWidth="2.5"
-                          style={{ transition: 'r 0.15s, fill 0.15s' }}
-                        />
-                      </g>
-                    ))}
+                      ))}
+                      
+                      {/* X-axis date labels */}
+                      {(() => {
+                        const labelsToRender = [];
+                        if (points.length > 0) {
+                          labelsToRender.push(points[0]);
+                          if (points.length > 2) {
+                            labelsToRender.push(points[Math.floor(points.length / 2)]);
+                          }
+                          if (points.length > 1) {
+                            labelsToRender.push(points[points.length - 1]);
+                          }
+                        }
+                        return labelsToRender.map((p, idx) => (
+                          <text key={idx} x={p.x} y={height - 10} textAnchor={idx === 0 ? 'start' : idx === labelsToRender.length - 1 ? 'end' : 'middle'} fontSize="9.5" fill="var(--muted)" fontWeight="600">
+                            {format(p.date, 'd MMM')}
+                          </text>
+                        ));
+                      })()}
+                    </svg>
 
                     {/* Hover Tooltip */}
-                    {stepTooltip && (() => {
-                      const { paddingRight, paddingTop } = lineChartData;
-                      const tx = Math.min(stepTooltip.x + 10, width - paddingRight - 155);
-                      const ty = Math.max(stepTooltip.y - 68, paddingTop);
-                      const hasMovedBy = !!stepTooltip.movedBy;
-                      const boxH = hasMovedBy ? 64 : 50;
-                      return (
-                        <g>
-                          <rect x={tx} y={ty} width={150} height={boxH} rx={6} ry={6}
-                            fill="var(--ink)" opacity={0.92}
-                          />
-                          <text x={tx + 10} y={ty + 15} fontSize="9.5" fontWeight="700" fill="#fff" opacity="0.65">
-                            {stepTooltip.date}
-                          </text>
-                          <text x={tx + 10} y={ty + 31} fontSize="12" fontWeight="800" fill="#fff">
-                            {stepTooltip.label.length > 16 ? stepTooltip.label.slice(0, 15) + '…' : stepTooltip.label}
-                          </text>
-                          {hasMovedBy && (
-                            <text x={tx + 10} y={ty + 50} fontSize="10" fontWeight="500" fill="#fff" opacity="0.75">
-                              {'by ' + (stepTooltip.movedBy!.length > 17 ? stepTooltip.movedBy!.slice(0, 16) + '…' : stepTooltip.movedBy)}
-                            </text>
+                    {stepTooltip && (
+                      <div style={{
+                        position: 'absolute',
+                        left: `${(stepTooltip.x / width) * 100}%`,
+                        top: `${(stepTooltip.y / height) * 100}%`,
+                        transform: 'translate(-50%, -105%)',
+                        zIndex: 1000,
+                        background: 'rgba(20, 25, 12, 0.98)',
+                        backdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        borderRadius: '8px',
+                        padding: '12px',
+                        color: '#fff',
+                        fontSize: '12px',
+                        boxShadow: 'var(--shadow-lg)',
+                        pointerEvents: 'none',
+                        width: '230px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                        transition: 'all 0.1s ease',
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '6px', fontWeight: 'bold' }}>
+                          <span style={{ color: 'var(--olive)' }}>{stepTooltip.label}</span>
+                          <span>Step {stepTooltip.stepNumber}</span>
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.65)' }}>
+                            <strong>Date:</strong> {stepTooltip.date}
+                          </div>
+                          {stepTooltip.fromStepName && (
+                            <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.65)' }}>
+                              <strong>From Step:</strong> {stepTooltip.fromStepName}
+                            </div>
                           )}
-                        </g>
-                      );
-                    })()}
-                    
-                    {/* X-axis date labels */}
-                    {(() => {
-                      const labelsToRender = [];
-                      if (points.length > 0) {
-                        labelsToRender.push(points[0]);
-                        if (points.length > 2) {
-                          labelsToRender.push(points[Math.floor(points.length / 2)]);
-                        }
-                        if (points.length > 1) {
-                          labelsToRender.push(points[points.length - 1]);
-                        }
-                      }
-                      return labelsToRender.map((p, idx) => (
-                        <text key={idx} x={p.x} y={height - 10} textAnchor={idx === 0 ? 'start' : idx === labelsToRender.length - 1 ? 'end' : 'middle'} fontSize="9.5" fill="var(--muted)" fontWeight="600">
-                          {format(p.date, 'd MMM')}
-                        </text>
-                      ));
-                    })()}
-                  </svg>
+                          {stepTooltip.movedBy && (
+                            <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.65)' }}>
+                              <strong>Updated by:</strong> {stepTooltip.movedBy}
+                            </div>
+                          )}
+                          {stepTooltip.teamName && (
+                            <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.65)' }}>
+                              <strong>Owning Team:</strong> {stepTooltip.teamName}
+                            </div>
+                          )}
+                          {stepTooltip.reasonNote && (
+                            <div style={{ 
+                              fontSize: '11px', 
+                              color: '#e5e7eb', 
+                              fontStyle: 'italic', 
+                              marginTop: '4px', 
+                              borderTop: '1px dashed rgba(255,255,255,0.15)', 
+                              paddingTop: '6px',
+                              whiteSpace: 'normal',
+                              wordBreak: 'break-word',
+                              lineHeight: '1.4'
+                            }}>
+                              "{stepTooltip.reasonNote}"
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 );
               })()}
             </div>

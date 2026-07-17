@@ -24,6 +24,7 @@ model Organisation {
   teams               Team[]
   teamInvites         TeamInvite[]
   users               User[]
+  problems            Problem[]
 }
 
 model OnboardingInvite {
@@ -104,6 +105,7 @@ model User {
   rejectedTasks   Task[]               @relation("RejectedBy")
   organisation    Organisation         @relation(fields: [organisationId], references: [id])
   viewPreferences UserViewPreference[]
+  problems        Problem[]
 }
 
 model Step {
@@ -158,6 +160,7 @@ model Client {
   steps          Step[]        @relation("ClientSteps")
   stepHistory    StepHistory[]
   tasks          Task[]
+  problems       Problem[]
 }
 
 model Task {
@@ -353,4 +356,19 @@ enum DraftKind {
   raise_blocker
   request_extension
   add_task
+}
+
+model Problem {
+  id             String       @id @default(uuid())
+  organisationId String
+  clientId       String?
+  userId         String       // who raised it
+  title          String
+  description    String?
+  status         String       @default("open") // open, resolved
+  createdAt      DateTime     @default(now())
+  resolvedAt     DateTime?
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
 }

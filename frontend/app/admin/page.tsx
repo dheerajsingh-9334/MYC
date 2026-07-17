@@ -10,7 +10,7 @@ import {
   Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity,
   ArrowRight, BarChart3, Search, Bell, Check, X, Download, Play,
   Sun, Moon, Shield, CheckCircle, Hourglass, Ban, Sparkles, Megaphone,
-  ListChecks, XCircle, Filter
+  ListChecks, XCircle, Filter, Hand
 } from 'lucide-react';
 import { format, differenceInCalendarDays, startOfDay } from 'date-fns';
 import SectionCard from '@/components/ui/SectionCard';
@@ -87,11 +87,25 @@ export default function AdminDashboard() {
   const [exportFormat, setExportFormat] = useState('csv');
 
   // Admin Tasks State
-  const [adminTaskTab, setAdminTaskTab] = useState<'active' | 'completed' | 'rejected'>('active');
+  const [adminTaskTab, setAdminTaskTab] = useState<'active' | 'completed' | 'rejected' | 'problems'>('active');
   const [adminTaskSearch, setAdminTaskSearch] = useState('');
   const [adminTaskScope, setAdminTaskScope] = useState<'my' | 'all'>('all');
   const [adminTaskPriority, setAdminTaskPriority] = useState<'all' | 'high' | 'normal'>('all');
   const [showHoverFilter, setShowHoverFilter] = useState(false);
+  const [adminTaskLimit, setAdminTaskLimit] = useState(20);
+  const [bannerProblemsLimit, setBannerProblemsLimit] = useState(5);
+
+  useEffect(() => {
+    setAdminTaskLimit(20);
+  }, [adminTaskTab, adminTaskSearch, adminTaskScope, adminTaskPriority]);
+
+  const handleBannerProblemsScroll = (e: React.UIEvent<HTMLElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollTop + clientHeight >= scrollHeight - 20) {
+      const openCount = problemsList.filter((p: any) => p.status === 'open').length;
+      setBannerProblemsLimit(prev => Math.min(prev + 3, openCount));
+    }
+  };
   const [growthTooltip, setGrowthTooltip] = useState<{ x: number; y: number; label: string; val: number } | null>(null);
   const [expStartDate, setExpStartDate] = useState('');
   const [expEndDate, setExpEndDate] = useState('');
@@ -187,6 +201,14 @@ export default function AdminDashboard() {
     retry: false,
   });
 
+  const { data: problemsList = [], refetch: refetchProblems } = useQuery<any[]>({
+    queryKey: ['problems'],
+    queryFn: () => apiFetch('/api/problems'),
+    refetchInterval: AUTO_REFRESH_MS,
+    enabled: user?.role === 'admin',
+    retry: false,
+  });
+
   const approveExtensionMut = useMutation({
     mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
       apiFetch(`/api/tasks/${id}/approve-extension`, {
@@ -197,6 +219,13 @@ export default function AdminDashboard() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-dashboard'] });
     },
+  });
+
+  const resolveProblemMutation = useMutation({
+    mutationFn: (id: string) => apiFetch(`/api/problems/${id}/resolve`, { method: 'PATCH' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['problems'] });
+    }
   });
 
   const data: AdminData = liveData || EMPTY_DATA;
@@ -410,13 +439,41 @@ export default function AdminDashboard() {
   }, [allTasks, user, adminTaskScope, adminTaskPriority]);
 
   const visibleAdminTasks = useMemo(() => {
-    let list = groupedAdminTasks[adminTaskTab];
+    if (adminTaskTab === 'problems') return [];
+    let list = groupedAdminTasks[adminTaskTab] || [];
     if (adminTaskSearch.trim()) {
       const q = adminTaskSearch.toLowerCase();
       list = list.filter((t: any) => (t.title?.toLowerCase().includes(q) || t.client?.brandName?.toLowerCase().includes(q)));
     }
     return list;
   }, [groupedAdminTasks, adminTaskTab, adminTaskSearch]);
+
+  const filteredAdminProblems = useMemo(() => {
+    const term = adminTaskSearch.trim().toLowerCase();
+    if (!term) return problemsList;
+    return problemsList.filter((p: any) => 
+      p.title.toLowerCase().includes(term) ||
+      (p.description && p.description.toLowerCase().includes(term)) ||
+      (p.user?.fullName && p.user.fullName.toLowerCase().includes(term)) ||
+      (p.client && (p.client.brandName || p.client.fullName).toLowerCase().includes(term))
+    );
+  }, [problemsList, adminTaskSearch]);
+
+  const scrollableAdminTasks = useMemo(() => {
+    return visibleAdminTasks.slice(0, adminTaskLimit);
+  }, [visibleAdminTasks, adminTaskLimit]);
+
+  const scrollableAdminProblems = useMemo(() => {
+    return filteredAdminProblems.slice(0, adminTaskLimit);
+  }, [filteredAdminProblems, adminTaskLimit]);
+
+  const handleAdminScroll = (e: React.UIEvent<HTMLElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollTop + clientHeight >= scrollHeight - 20) {
+      const totalLength = adminTaskTab === 'problems' ? filteredAdminProblems.length : visibleAdminTasks.length;
+      setAdminTaskLimit(prev => Math.min(prev + 10, totalLength));
+    }
+  };
 
   const allTimeJoinData = useMemo(() => {
     const sorted = [...allClients].map(c => {
@@ -614,6 +671,154 @@ export default function AdminDashboard() {
           })}
         </div>
 
+        {/* Raised Hands / Problems section */}
+        {problemsList.filter((p: any) => p.status === 'open').length > 0 && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.04) 0%, rgba(239, 68, 68, 0.01) 100%)',
+            border: '1px solid rgba(239, 68, 68, 0.18)',
+            borderRadius: 12,
+            padding: '20px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 16,
+            boxShadow: '0 4px 20px rgba(239, 68, 68, 0.04)',
+            marginBottom: 20,
+            position: 'relative',
+            overflow: 'hidden',
+          }}>
+            {/* Red accent bar on the left */}
+            <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'var(--red)' }} />
+            
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 8,
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--red)',
+                }}>
+                  <Hand size={18} style={{ transform: 'rotate(-10deg)' }} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--red)', letterSpacing: '-0.2px', margin: 0 }}>Active Hand Raises / Problems Awaiting Review</h3>
+                  <p style={{ fontSize: 12, color: 'var(--muted)', margin: '2px 0 0' }}>Team members have flagged these issues needing admin assistance.</p>
+                </div>
+              </div>
+              <span style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: 'var(--red)',
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: 99,
+                letterSpacing: '0.3px',
+                textTransform: 'uppercase',
+              }}>
+                {problemsList.filter((p: any) => p.status === 'open').length} Action Needed
+              </span>
+            </div>
+            
+            <div
+              onScroll={handleBannerProblemsScroll}
+              style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 420, overflowY: 'auto', paddingRight: 2 }}
+            >
+              {problemsList
+                .filter((p: any) => p.status === 'open')
+                .slice(0, bannerProblemsLimit)
+                .map((problem: any) => (
+                <div key={problem.id} style={{
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  padding: '14px 18px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  gap: 16,
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                  transition: 'all 0.2s',
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 3px 8px rgba(239, 68, 68, 0.05)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+                  (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
+                }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{problem.title}</span>
+                      <span style={{ fontSize: 11, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--border)' }} />
+                        Raised by {problem.user?.fullName} ({problem.user?.teamName || 'Unassigned'})
+                      </span>
+                      {problem.client && (
+                        <span 
+                          onClick={() => router.push(`/clients/${problem.client.id}`)}
+                          style={{
+                            fontSize: 10.5,
+                            fontWeight: 600,
+                            color: 'var(--olive-dark)',
+                            background: 'var(--olive-50)',
+                            padding: '2px 8px',
+                            borderRadius: 6,
+                            cursor: 'pointer',
+                            transition: 'background 0.15s',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-100)'}
+                          onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'}
+                        >
+                          Client: {problem.client.brandName || problem.client.fullName}
+                        </span>
+                      )}
+                    </div>
+                    {problem.description && (
+                      <p style={{ fontSize: 12.5, color: 'var(--ink-2)', marginTop: 6, marginBottom: 0, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
+                        {problem.description}
+                      </p>
+                    )}
+                    <span style={{ fontSize: 10.5, color: 'var(--soft)', display: 'block', marginTop: 8 }}>
+                      Raised on {new Date(problem.createdAt).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => resolveProblemMutation.mutate(problem.id)}
+                    disabled={resolveProblemMutation.isPending}
+                    style={{
+                      padding: '8px 16px',
+                      background: 'var(--green)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      flexShrink: 0,
+                      boxShadow: '0 2px 4px rgba(22, 163, 74, 0.15)',
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
+                  >
+                    Mark Resolved
+                  </button>
+                </div>
+              ))}
+              {problemsList.filter((p: any) => p.status === 'open').length > bannerProblemsLimit && (
+                <div style={{ textAlign: 'center', paddingTop: 4, fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>
+                  Scroll down to load more · {problemsList.filter((p: any) => p.status === 'open').length - bannerProblemsLimit} more remaining
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Row 3: Split Screen (My Tasks | Client Analysis & Graph) */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
           
@@ -668,7 +873,7 @@ export default function AdminDashboard() {
                     <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--muted)' }} />
                     <input
                       type="text"
-                      placeholder="Search tasks..."
+                      placeholder={adminTaskTab === 'problems' ? "Search problems..." : "Search tasks..."}
                       value={adminTaskSearch}
                       onChange={(e) => setAdminTaskSearch(e.target.value)}
                       style={{ padding: '5px 8px 5px 26px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, outline: 'none', background: 'var(--surface-2)', color: 'var(--ink)', width: '100%' }}
@@ -752,7 +957,8 @@ export default function AdminDashboard() {
                 {[
                   { key: 'active', label: adminTaskScope === 'all' ? 'All Active' : 'My Tasks', count: groupedAdminTasks.active.length, icon: ListChecks, accent: 'var(--olive)', bg: 'var(--olive-50)' },
                   { key: 'completed', label: 'Completed', count: groupedAdminTasks.completed.length, icon: CircleCheck, accent: 'var(--green)', bg: 'var(--green-bg)' },
-                  { key: 'rejected', label: 'Rejected', count: groupedAdminTasks.rejected.length, icon: XCircle, accent: 'var(--rejected)', bg: 'var(--rejected-bg)' }
+                  { key: 'rejected', label: 'Rejected', count: groupedAdminTasks.rejected.length, icon: XCircle, accent: 'var(--rejected)', bg: 'var(--rejected-bg)' },
+                  { key: 'problems', label: 'Problems', count: problemsList.filter((p: any) => p.status === 'open').length, icon: Hand, accent: 'var(--red)', bg: 'var(--red-bg)' }
                 ].map(t => {
                   const isActive = adminTaskTab === t.key;
                   return (
@@ -766,11 +972,102 @@ export default function AdminDashboard() {
               </div>
 
               <div style={{ padding: 0 }}>
-                {visibleAdminTasks.length === 0 ? (
+                {adminTaskTab === 'problems' ? (
+                  filteredAdminProblems.length === 0 ? (
+                    <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)' }}>
+                      <Hand size={32} style={{ color: 'var(--muted)', opacity: 0.4, marginBottom: 12, display: 'block', margin: '0 auto' }} />
+                      <div style={{ fontSize: 14, fontWeight: 600 }}>
+                        {adminTaskSearch.trim() ? 'No matching problems found' : 'No problems reported'}
+                      </div>
+                      <p style={{ fontSize: 12, color: 'var(--soft)', marginTop: 4 }}>
+                        {adminTaskSearch.trim() ? 'Try adjusting your search query.' : 'Any hand raises from staff will appear here.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <ul
+                      onScroll={handleAdminScroll}
+                      style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', maxHeight: 580, overflowY: 'auto' }}
+                    >
+                      {scrollableAdminProblems.map((problem: any, idx: number) => {
+                        const isOpen = problem.status === 'open';
+                        const stripe = isOpen ? 'var(--red)' : 'var(--green)';
+                        return (
+                          <li
+                            key={problem.id}
+                            style={{
+                              position: 'relative',
+                              display: 'grid',
+                              gridTemplateColumns: '3px 1fr auto',
+                              gap: 14,
+                              padding: '12px 20px',
+                              borderBottom: idx === scrollableAdminProblems.length - 1 ? 'none' : '1px solid var(--surface-2)',
+                              background: isOpen ? 'rgba(239, 68, 68, 0.02)' : 'transparent',
+                              transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = isOpen ? 'rgba(239, 68, 68, 0.05)' : 'var(--surface)'; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = isOpen ? 'rgba(239, 68, 68, 0.02)' : 'transparent'; }}
+                          >
+                            <div style={{ background: stripe, borderRadius: 3 }} />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: 'var(--muted)', flexWrap: 'wrap' }}>
+                                <span style={{ fontWeight: 500, color: 'var(--ink-2)' }}>
+                                  {problem.user?.fullName}{problem.user?.teamName ? ` · ${problem.user.teamName}` : ''}
+                                </span>
+                                {problem.client && (
+                                  <>
+                                    <span>·</span>
+                                    <span
+                                      onClick={() => router.push(`/clients/${problem.client.id}`)}
+                                      style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--olive-dark)', background: 'var(--olive-50)', padding: '1px 6px', borderRadius: 4, cursor: 'pointer', transition: 'background 0.15s' }}
+                                      onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-100)'}
+                                      onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'}
+                                    >
+                                      {problem.client.brandName || problem.client.fullName}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginTop: 3 }}>{problem.title}</div>
+                              {problem.description && (
+                                <div style={{ fontSize: 11.5, color: 'var(--ink-2)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 480 }}>
+                                  {problem.description}
+                                </div>
+                              )}
+                              <div style={{ fontSize: 11.5, color: 'var(--soft)', marginTop: 2 }}>
+                                Raised: {new Date(problem.createdAt).toLocaleString('en-IN')}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {isOpen ? (
+                                <span style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'var(--red-bg)', color: 'var(--red)', fontSize: 11, fontWeight: 700, letterSpacing: '0.2px', textTransform: 'uppercase' }}>Open</span>
+                              ) : (
+                                <span style={{ padding: '3px 8px', borderRadius: 6, border: '1px solid var(--green-bg)', background: 'var(--green-bg)', color: 'var(--green)', fontSize: 11, fontWeight: 700, letterSpacing: '0.2px', textTransform: 'uppercase' }}>Resolved</span>
+                              )}
+                              {isOpen && (
+                                <button
+                                  onClick={() => resolveProblemMutation.mutate(problem.id)}
+                                  disabled={resolveProblemMutation.isPending}
+                                  style={{ padding: '5px 12px', background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(22,163,74,0.1)' }}
+                                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.85'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
+                                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
+                                >
+                                  Resolve
+                                </button>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )
+                ) : visibleAdminTasks.length === 0 ? (
                   <div style={{ padding: '30px', textAlign: 'center', color: 'var(--muted)' }}>No matching tasks found.</div>
                 ) : (
-                  <ul style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', maxHeight: 580, overflowY: 'auto' }}>
-                    {visibleAdminTasks.map((t: any, idx: number) => {
+                  <ul 
+                    onScroll={handleAdminScroll}
+                    style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', maxHeight: 580, overflowY: 'auto' }}
+                  >
+                    {scrollableAdminTasks.map((t: any, idx: number) => {
                       const isAlerted = t.isAlerted;
                       const stripe = isAlerted ? 'var(--red)' : adminTaskTab === 'completed' ? 'var(--green)' : adminTaskTab === 'rejected' ? 'var(--rejected)' : 'var(--olive)';
                       const due = format(new Date(t.dueDate), 'EEE d MMM');
@@ -779,7 +1076,7 @@ export default function AdminDashboard() {
                       const daysDiff = differenceInCalendarDays(startOfDay(new Date(t.dueDate)), todayStart);
                       
                       return (
-                        <li key={t.id} onClick={() => t.client?.id && router.push(`/clients/${t.client.id}`)} style={{ position: 'relative', display: 'grid', gridTemplateColumns: '3px 1fr auto', gap: 14, padding: '12px 20px', borderBottom: idx === visibleAdminTasks.length - 1 ? 'none' : '1px solid var(--surface-2)', cursor: 'pointer', background: isAlerted ? 'rgba(220, 38, 38, 0.05)' : 'transparent' }}>
+                        <li key={t.id} onClick={() => t.client?.id && router.push(`/clients/${t.client.id}`)} style={{ position: 'relative', display: 'grid', gridTemplateColumns: '3px 1fr auto', gap: 14, padding: '12px 20px', borderBottom: idx === scrollableAdminTasks.length - 1 ? 'none' : '1px solid var(--surface-2)', cursor: 'pointer', background: isAlerted ? 'rgba(220, 38, 38, 0.05)' : 'transparent' }}>
                           <div style={{ background: stripe, borderRadius: 3 }} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', color: 'var(--muted)' }}>
@@ -819,7 +1116,7 @@ export default function AdminDashboard() {
                 <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Client Growth Over Time</div>
                 <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Cumulative client onboarding (all-time)</div>
               </div>
-              <div style={{ width: '100%', height: 180 }}>
+              <div style={{ width: '100%', height: 180, position: 'relative' }}>
                 {(() => {
                   const { labels, data, clientsByMonth } = allTimeJoinData;
                   const maxVal = Math.max(...data, 10);
@@ -848,87 +1145,119 @@ export default function AdminDashboard() {
                     : '';
 
                   return (
-                    <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-                      <defs>
-                        <linearGradient id="adminChartGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--olive)" stopOpacity="0.25" />
-                          <stop offset="100%" stopColor="var(--olive)" stopOpacity="0.00" />
-                        </linearGradient>
-                      </defs>
-                      
-                      {/* Grid Lines */}
-                      {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
-                        const y = padding + chartHeight * pct;
-                        const val = Math.round(maxVal - pct * range);
-                        return (
-                          <g key={idx}>
-                            <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="4 4" />
-                            <text x={padding - 8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--muted)" fontWeight="600">{val}</text>
+                    <>
+                      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                        <defs>
+                          <linearGradient id="adminChartGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--olive)" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="var(--olive)" stopOpacity="0.00" />
+                          </linearGradient>
+                        </defs>
+                        
+                        {/* Grid Lines */}
+                        {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
+                          const y = padding + chartHeight * pct;
+                          const val = Math.round(maxVal - pct * range);
+                          return (
+                            <g key={idx}>
+                              <line x1={padding} y1={y} x2={width - padding} y2={y} stroke="var(--border)" strokeWidth="1" strokeDasharray="4 4" />
+                              <text x={padding - 8} y={y + 4} textAnchor="end" fontSize="10" fill="var(--muted)" fontWeight="600">{val}</text>
+                            </g>
+                          );
+                        })}
+                        
+                        {/* Area Path */}
+                        {areaD && <path d={areaD} fill="url(#adminChartGrad)" />}
+                        
+                        {/* Line Path */}
+                        {pathD && <path d={pathD} fill="none" stroke="var(--olive)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+                        
+                        {/* Data Points */}
+                        {points.map((p, idx) => (
+                          <g key={idx} style={{ cursor: 'pointer' }}
+                            onMouseEnter={() => setGrowthTooltip({ x: p.x, y: p.y, label: p.label, val: p.val })}
+                            onMouseLeave={() => setGrowthTooltip(null)}
+                          >
+                            <circle cx={p.x} cy={p.y} r={growthTooltip?.label === p.label ? 6 : 4}
+                              fill={growthTooltip?.label === p.label ? 'var(--olive)' : 'var(--surface)'}
+                              stroke="var(--olive)" strokeWidth="2"
+                              style={{ transition: 'r 0.15s, fill 0.15s' }}
+                            />
                           </g>
-                        );
-                      })}
-                      
-                      {/* Area Path */}
-                      {areaD && <path d={areaD} fill="url(#adminChartGrad)" />}
-                      
-                      {/* Line Path */}
-                      {pathD && <path d={pathD} fill="none" stroke="var(--olive)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
-                      
-                      {/* Data Points */}
-                      {points.map((p, idx) => (
-                        <g key={idx} style={{ cursor: 'pointer' }}
-                          onMouseEnter={() => setGrowthTooltip({ x: p.x, y: p.y, label: p.label, val: p.val })}
-                          onMouseLeave={() => setGrowthTooltip(null)}
-                        >
-                          <circle cx={p.x} cy={p.y} r={growthTooltip?.label === p.label ? 6 : 4}
-                            fill={growthTooltip?.label === p.label ? 'var(--olive)' : 'var(--surface)'}
-                            stroke="var(--olive)" strokeWidth="2"
-                            style={{ transition: 'r 0.15s, fill 0.15s' }}
-                          />
-                        </g>
-                      ))}
+                        ))}
+                        
+                        {/* X Axis Labels */}
+                        {points.map((p, idx) => {
+                          const step = Math.ceil(points.length / 6);
+                          if (idx % step !== 0 && idx !== points.length - 1) return null;
+                          return (
+                            <text key={idx} x={p.x} y={height - padding + 16} textAnchor="middle" fontSize="10" fill="var(--muted)" fontWeight="600">
+                              {p.label}
+                            </text>
+                          );
+                        })}
+                      </svg>
 
                       {/* Hover Tooltip */}
                       {growthTooltip && (() => {
-                        const tx = Math.min(growthTooltip.x + 8, width - 135);
-                        const ty = Math.max(growthTooltip.y - 70, padding);
                         const names = (clientsByMonth || {})[growthTooltip.label] || [];
-                        const visibleNames = names.slice(0, 4);
-                        const extra = names.length - visibleNames.length;
-                        const boxH = 34 + visibleNames.length * 14 + (extra > 0 ? 14 : 0);
                         return (
-                          <g>
-                            <rect x={tx} y={ty} width={130} height={boxH} rx={6} ry={6}
-                              fill="var(--ink)" opacity={0.93}
-                            />
-                            <text x={tx + 10} y={ty + 14} fontSize="10" fontWeight="700" fill="#fff" opacity="0.7">
-                              {growthTooltip.label} · {growthTooltip.val} client{growthTooltip.val !== 1 ? 's' : ''}
-                            </text>
-                            {visibleNames.map((name, i) => (
-                              <text key={i} x={tx + 10} y={ty + 28 + i * 14} fontSize="11" fontWeight="600" fill="#fff">
-                                {'· ' + (name.length > 14 ? name.slice(0, 13) + '…' : name)}
-                              </text>
-                            ))}
-                            {extra > 0 && (
-                              <text x={tx + 10} y={ty + 28 + visibleNames.length * 14} fontSize="10" fontWeight="500" fill="#fff" opacity="0.6">
-                                +{extra} more
-                              </text>
+                          <div style={{
+                            position: 'absolute',
+                            left: `${(growthTooltip.x / 500) * 100}%`,
+                            top: `${(growthTooltip.y / 180) * 100}%`,
+                            transform: 'translate(-50%, -105%)',
+                            zIndex: 1000,
+                            background: 'rgba(20, 25, 12, 0.98)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            borderRadius: '8px',
+                            padding: '12px',
+                            color: '#fff',
+                            fontSize: '12px',
+                            boxShadow: 'var(--shadow-lg)',
+                            pointerEvents: 'none',
+                            width: '210px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                            transition: 'all 0.1s ease',
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '6px', fontWeight: 'bold' }}>
+                              <span>{growthTooltip.label}</span>
+                              <span style={{ color: 'var(--olive)' }}>{growthTooltip.val} Cumulative</span>
+                            </div>
+                            <div style={{ fontSize: '10.5px', color: 'rgba(255, 255, 255, 0.65)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              Joined in Month ({names.length}):
+                            </div>
+                            {names.length === 0 ? (
+                              <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', fontStyle: 'italic' }}>None</div>
+                            ) : (
+                              <ul style={{ 
+                                margin: 0, 
+                                paddingLeft: '16px', 
+                                listStyleType: 'disc', 
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                gap: '4px', 
+                                maxHeight: '110px', 
+                                overflowY: 'auto',
+                                fontSize: '11.5px',
+                                lineHeight: '1.4',
+                                color: '#f3f4f6',
+                                pointerEvents: 'auto',
+                              }}>
+                                {names.map((name, i) => (
+                                  <li key={i} style={{ fontWeight: 500 }}>
+                                    {name}
+                                  </li>
+                                ))}
+                              </ul>
                             )}
-                          </g>
+                          </div>
                         );
                       })()}
-                      
-                      {/* X Axis Labels */}
-                      {points.map((p, idx) => {
-                        const step = Math.ceil(points.length / 6);
-                        if (idx % step !== 0 && idx !== points.length - 1) return null;
-                        return (
-                          <text key={idx} x={p.x} y={height - padding + 16} textAnchor="middle" fontSize="10" fill="var(--muted)" fontWeight="600">
-                            {p.label}
-                          </text>
-                        );
-                      })}
-                    </svg>
+                    </>
                   );
                 })()}
               </div>

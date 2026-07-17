@@ -11,15 +11,16 @@ import { ClientCombobox, ClientOption } from '@/components/ui/ClientCombobox';
 import {
   isPast, isToday, format, addDays, differenceInDays,
 } from 'date-fns';
-import { USE_MOCK, MOCK_TASKS } from '@/lib/mockData';
+import { USE_MOCK, MOCK_TASKS, MOCK_CLIENTS } from '@/lib/mockData';
 import {
   Search, XCircle, RotateCcw, ChevronLeft, ChevronRight, ChevronDown,
   ArrowUpDown, CircleCheck, Clock, TriangleAlert, Eye,
   Check, X, FolderOpen, Link2, Upload, FileText, Plus, ExternalLink, AlertCircle,
-  Play, Pause, Pin, Ban, Filter, Edit2, Trash2, ChevronsDown, ChevronsUp
+  Play, Pause, Pin, Ban, Filter, Edit2, Trash2, ChevronsDown, ChevronsUp, Hand
 } from 'lucide-react';
 import ActionDropdown from '@/components/ui/ActionDropdown';
 import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
+import RaiseHandModal from '@/components/ui/RaiseHandModal';
 
 const AUTO_REFRESH_MS = 30_000;
 const PAGE_SIZE = 15;
@@ -33,6 +34,8 @@ export default function TasksPage() {
   const [showCSVModal, setShowCSVModal] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
+  const [showRaiseHandModal, setShowRaiseHandModal] = useState(false);
+  const [selectedTaskForProblem, setSelectedTaskForProblem] = useState<any | null>(null);
 
   // Filters alert
   const [search, setSearch] = useState('');
@@ -140,7 +143,7 @@ export default function TasksPage() {
   const { data: liveClients = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: () => apiFetch('/api/clients'),
-    enabled: !USE_MOCK && showAddTask && isAdmin,
+    enabled: !USE_MOCK && (showRaiseHandModal || (showAddTask && isAdmin)),
     retry: false,
   });
 
@@ -662,12 +665,11 @@ export default function TasksPage() {
             {clientFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{clientOptions.find(c => c.id === clientFilter)?.label}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setClientFilter('')} /></span>)}
             {assigneeFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{assigneeOptions.find(a => a.id === assigneeFilter)?.name}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setAssigneeFilter('')} /></span>)}
             {priorityFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{priorityFilter}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setPriorityFilter('')} /></span>)}
-            {/* Only show "My Tasks" pill for admins (staff/leader have no toggle) */}
-            {isAdmin && tasksScope === 'mine' && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>My Tasks<X size={10} style={{ cursor: 'pointer' }} onClick={() => setTasksScope('all')} /></span>)}
-            {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || (isAdmin && tasksScope === 'mine')) && (
-              <button onClick={() => { setChipFilter(''); setTeamFilter(''); setClientFilter(''); setAssigneeFilter(''); setPriorityFilter(''); if (isAdmin) setTasksScope('all'); }}
-                style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Clear all</button>
-            )}
+             {tasksScope === 'mine' && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>My Tasks<X size={10} style={{ cursor: 'pointer' }} onClick={() => setTasksScope('all')} /></span>)}
+             {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || tasksScope === 'mine') && (
+               <button onClick={() => { setChipFilter(''); setTeamFilter(''); setClientFilter(''); setAssigneeFilter(''); setPriorityFilter(''); setTasksScope('all'); }}
+                 style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Clear all</button>
+             )}
           </div>
 
           {/* Right: Search | Expand | Collapse | Filters | Add Task */}
@@ -706,8 +708,7 @@ export default function TasksPage() {
               </button>
               {showFilters && (
                 <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 260, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 999, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {/* Task Visibility toggle — only available for admins */}
-                  {isAdmin && (<div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Task Visibility</label><div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}><button onClick={() => setTasksScope('all')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: tasksScope === 'all' ? 'var(--olive)' : 'transparent', color: tasksScope === 'all' ? '#fff' : 'var(--ink-2)' }}>All Tasks</button><button onClick={() => setTasksScope('mine')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: tasksScope === 'mine' ? 'var(--olive)' : 'transparent', color: tasksScope === 'mine' ? '#fff' : 'var(--ink-2)' }}>My Tasks</button></div></div>)}
+                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Task Visibility</label><div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}><button onClick={() => setTasksScope('all')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: tasksScope === 'all' ? 'var(--olive)' : 'transparent', color: tasksScope === 'all' ? '#fff' : 'var(--ink-2)' }}>All Tasks</button><button onClick={() => setTasksScope('mine')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: tasksScope === 'mine' ? 'var(--olive)' : 'transparent', color: tasksScope === 'mine' ? '#fff' : 'var(--ink-2)' }}>My Tasks</button></div></div>
                   <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Status</label><select value={chipFilter} onChange={(e) => setChipFilter(e.target.value as ChipKind)} style={{ ...selectStyle, width: '100%' }}>{chips.map(c => (<option key={c.key} value={c.key}>{c.label} ({c.count})</option>))}</select></div>
                   <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Team</label><select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All teams</option>{teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
                   <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Client</label><ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="All clients" /></div>
@@ -852,6 +853,10 @@ export default function TasksPage() {
                               onStatusChange={(id, status) => statusMut.mutate({ id, status })}
                               onUpdateTask={(task) => setEditingTask(task)}
                               onDeleteTask={(id) => { const t = clientTasks.find(t => t.id === id); setDeleteConfirm({ id, title: t?.title || 'this task' }); }}
+                              onRaiseHand={() => {
+                                setSelectedTaskForProblem(t);
+                                setShowRaiseHandModal(true);
+                              }}
                             />
                           ))}
                         </Fragment>
@@ -1264,6 +1269,17 @@ export default function TasksPage() {
           users={liveUsers || []}
         />
       )}
+      {showRaiseHandModal && (
+        <RaiseHandModal
+          open={showRaiseHandModal}
+          onClose={() => {
+            setShowRaiseHandModal(false);
+            setSelectedTaskForProblem(null);
+          }}
+          clients={USE_MOCK ? MOCK_CLIENTS : liveClients}
+          preselectedTask={selectedTaskForProblem}
+        />
+      )}
     </AppLayout>
   );
 }
@@ -1271,7 +1287,7 @@ export default function TasksPage() {
 // ── Staff / admin task row ────────────────────────────────────────────────
 
 function StaffTaskRow({
-  task: t, isAdmin, isLeader, isNested, taskIndex, totalTasks, onPinToggle, onAlertToggle, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend, onStartTimer, onStopTimer, onStatusChange, onUpdateTask, onDeleteTask,
+  task: t, isAdmin, isLeader, isNested, taskIndex, totalTasks, onPinToggle, onAlertToggle, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend, onStartTimer, onStopTimer, onStatusChange, onUpdateTask, onDeleteTask, onRaiseHand,
 }: {
   task: any; isAdmin: boolean; isLeader?: boolean; isNested?: boolean;
   taskIndex?: number; totalTasks?: number;
@@ -1289,6 +1305,7 @@ function StaffTaskRow({
   onStatusChange?: (id: string, status: string) => void;
   onUpdateTask?: (task: any) => void;
   onDeleteTask?: (id: string) => void;
+  onRaiseHand?: () => void;
 }) {
   const done = t.status === 'complete';
   const rej = t.status === 'rejected' || t.status === 'cancelled';
@@ -1485,6 +1502,11 @@ function StaffTaskRow({
                 onClick: () => onExtend?.(),
               });
             }
+            dropdownActions.push({
+              label: 'Raise Hand',
+              icon: <Hand size={13} />,
+              onClick: onRaiseHand,
+            });
           }
 
           // Admin actions
