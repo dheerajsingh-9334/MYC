@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Folder, FolderOpen, FileText, Search, Lock,
   Link2, X, ExternalLink, Eye, Trash2, Plus, AlertCircle, Edit2,
+  ChevronsUp, ChevronsDown,
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
@@ -258,6 +259,26 @@ export default function VaultPage() {
     });
   }, [vault.folders, search]);
 
+  const allClientsIds = useMemo(() => filteredFolders.map(f => f.id), [filteredFolders]);
+  const allStepsIds = useMemo(() => filteredFolders.flatMap(f => (f.children || []).map(s => s.id)), [filteredFolders]);
+
+  const allExpanded = useMemo(() => {
+    if (filteredFolders.length === 0) return false;
+    const clientsAllExpanded = allClientsIds.every(id => expandedClients.has(id));
+    const stepsAllExpanded = allStepsIds.every(id => expandedSteps.has(id));
+    return clientsAllExpanded && stepsAllExpanded;
+  }, [expandedClients, expandedSteps, allClientsIds, allStepsIds, filteredFolders]);
+
+  const toggleAll = () => {
+    if (allExpanded) {
+      setExpandedClients(new Set());
+      setExpandedSteps(new Set());
+    } else {
+      setExpandedClients(new Set(allClientsIds));
+      setExpandedSteps(new Set(allStepsIds));
+    }
+  };
+
   const toggleClient = (id: string) => setExpandedClients(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const toggleStep = (id: string) => setExpandedSteps(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
@@ -285,7 +306,7 @@ export default function VaultPage() {
             )}
           </div>
 
-          {/* Right: Search | Expand | Collapse | Add Drive Link */}
+          {/* Right: Search | Toggle Expand/Collapse | Add Drive Link */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <div style={{ position: 'relative', width: 200 }}>
               <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
@@ -294,18 +315,12 @@ export default function VaultPage() {
             </div>
             <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
             <button
-              onClick={() => { setExpandedClients(new Set(filteredFolders.map(f => f.id))); setExpandedSteps(new Set(filteredFolders.flatMap(f => (f.children || []).map(s => s.id)))); }}
+              onClick={toggleAll}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
-              Expand all
-            </button>
-            <button
-              onClick={() => { setExpandedClients(new Set()); setExpandedSteps(new Set()); }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}>
-              Collapse all
+              {allExpanded ? <ChevronsUp size={13} /> : <ChevronsDown size={13} />}
+              {allExpanded ? 'Collapse all' : 'Expand all'}
             </button>
             <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
             <button onClick={() => setShowAddModal(true)}

@@ -188,12 +188,10 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
 
       const activePinnedClients = clientsList.filter((c: any) => (clientIds.includes(c.id) || c.isPinned === true) && c.status !== 'completed');
       const activePinnedTasks = tasksList.filter((t: any) => 
-        (taskIds.includes(t.id) || t.isPinned === true) && 
+        (taskIds.includes(t.id) || t.isPinned === true || t.isAlerted === true) && 
         t.status !== 'complete' && 
         t.status !== 'rejected' && 
-        t.status !== 'cancelled' &&
-        t.status !== 'blocked' &&
-        t.status !== 'extension_requested'
+        t.status !== 'cancelled'
       );
 
       // Prevent state updates if values haven't changed
@@ -278,10 +276,10 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
       updatePinned();
       window.dispatchEvent(new Event('pinned-updated'));
       
-      if (user?.role === 'admin' && task.isPinned) {
+      if (user?.role === 'admin' && (task.isPinned || task.isAlerted)) {
         apiFetch(`/api/tasks/${task.id}`, {
           method: 'PATCH',
-          body: JSON.stringify({ isPinned: false }),
+          body: JSON.stringify({ isPinned: false, isAlerted: false }),
         }).then(() => {
           qc.invalidateQueries({ queryKey: ['tasks'] });
           qc.invalidateQueries({ queryKey: ['standup'] });

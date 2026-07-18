@@ -6,7 +6,7 @@ import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, X, Check, TriangleAlert, CircleCheck, Clock, Search, ChevronLeft, ChevronRight, Download, TrendingUp, PieChart, Pencil, FileText, Move, Activity, Settings, Plus, Edit2, Trash2, User, History } from 'lucide-react';
+import { ArrowLeft, X, Check, TriangleAlert, CircleCheck, Clock, Search, ChevronLeft, ChevronRight, Download, TrendingUp, PieChart, Pencil, FileText, Move, Activity, Settings, Plus, Edit2, Trash2, User, History, AlertCircle } from 'lucide-react';
 import { USE_MOCK, MOCK_CLIENTS, MOCK_STEPS, MOCK_CLIENT_DETAIL } from '@/lib/mockData';
 import { useFormDraft } from '@/lib/useFormDraft';
 import { format, addDays, differenceInCalendarDays, startOfDay, isPast, isToday, formatDistanceToNow } from 'date-fns';
@@ -160,28 +160,6 @@ export default function ClientDetailPane({
     if (!addTaskForm.teamName) return liveUsers as any[];
     return (liveUsers as any[]).filter((u) => u.teamName === addTaskForm.teamName && u.isActive !== false);
   }, [liveUsers, addTaskForm.teamName]);
-
-  const addTaskMut = useMutation({
-    mutationFn: () => apiFetch('/api/tasks', {
-      method: 'POST',
-      body: JSON.stringify({
-        clientId: String(id),
-        title: addTaskForm.title,
-        description: addTaskForm.description || undefined,
-        priority: addTaskForm.priority,
-        dueDate: addTaskForm.dueDate,
-        assignedToId: addTaskForm.assignedToId,
-      }),
-    }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['client', id] });
-      qc.invalidateQueries({ queryKey: ['clients'] });
-      setShowAddTask(false);
-      setAddTaskForm({ teamName: '', title: '', description: '', priority: 'normal', dueDate: '', assignedToId: '' });
-      setAddTaskError('');
-    },
-    onError: (e: any) => setAddTaskError(e.message || 'Failed to create task'),
-  });
 
   const completeMut = useMutation({
     mutationFn: ({ id: taskId, proofLink, proofDescription }: { id: string; proofLink?: string; proofDescription?: string }) =>
@@ -359,6 +337,41 @@ export default function ClientDetailPane({
     : null;
   const client: any = USE_MOCK ? mockClient : liveClient;
   const steps: any[] = USE_MOCK ? MOCK_STEPS : liveSteps;
+
+  const isClientTeamValid = useMemo(() => {
+    if (!addTaskForm.teamName) return true;
+    return (steps as any[]).some(
+      (s) => s.owningTeamName.toLowerCase() === addTaskForm.teamName.toLowerCase()
+    );
+  }, [addTaskForm.teamName, steps]);
+
+  const addTaskMut = useMutation({
+    mutationFn: () => {
+      const matchedStep = (steps as any[]).find(
+        (s) => s.owningTeamName.toLowerCase() === addTaskForm.teamName.toLowerCase()
+      );
+      return apiFetch('/api/tasks', {
+        method: 'POST',
+        body: JSON.stringify({
+          clientId: String(id),
+          stepId: matchedStep ? matchedStep.id : undefined,
+          title: addTaskForm.title,
+          description: addTaskForm.description || undefined,
+          priority: addTaskForm.priority,
+          dueDate: addTaskForm.dueDate,
+          assignedToId: addTaskForm.assignedToId,
+        }),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['client', id] });
+      qc.invalidateQueries({ queryKey: ['clients'] });
+      setShowAddTask(false);
+      setAddTaskForm({ teamName: '', title: '', description: '', priority: 'normal', dueDate: '', assignedToId: '' });
+      setAddTaskError('');
+    },
+    onError: (e: any) => setAddTaskError(e.message || 'Failed to create task'),
+  });
   const isLoading = USE_MOCK ? false : liveLoading;
 
   const currentTasks: any[] = client?.tasks || [];
@@ -1947,9 +1960,8 @@ export default function ClientDetailPane({
                 </div>
                 <button onClick={() => setShowAddTask(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
               </div>
-
               <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
-                {/* Team (dropdown) — drives assignee filter */}
+                 {/* Team (dropdown) — drives assignee filter */}
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Team *</label>
                   <select
@@ -1960,6 +1972,12 @@ export default function ClientDetailPane({
                     <option value="">Select team…</option>
                     {teamOptions.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
+                  {addTaskForm.teamName && !isClientTeamValid && (
+                    <div style={{ color: 'var(--red)', fontSize: 11, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                      <span>Warning: This client does not have a pipeline step owned by {addTaskForm.teamName}.</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Task name */}
@@ -2035,12 +2053,12 @@ export default function ClientDetailPane({
                 <button onClick={() => setShowAddTask(false)} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
                 <button
                   onClick={() => { setAddTaskError(''); addTaskMut.mutate(); }}
-                  disabled={addTaskMut.isPending || !addTaskForm.teamName || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId}
+                  disabled={addTaskMut.isPending || !addTaskForm.teamName || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId || !isClientTeamValid}
                   style={{
                     padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500,
                     background: 'var(--olive)', color: '#fff',
-                    cursor: addTaskMut.isPending ? 'not-allowed' : 'pointer',
-                    opacity: addTaskMut.isPending || !addTaskForm.teamName || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId ? 0.5 : 1,
+                    cursor: (addTaskMut.isPending || !isClientTeamValid) ? 'not-allowed' : 'pointer',
+                    opacity: addTaskMut.isPending || !addTaskForm.teamName || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId || !isClientTeamValid ? 0.5 : 1,
                   }}
                 >
                   {addTaskMut.isPending ? 'Adding…' : 'Add Task'}

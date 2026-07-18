@@ -161,6 +161,13 @@ export default function TasksPage() {
     retry: false,
   });
 
+  const isClientTeamValid = useMemo(() => {
+    if (!addTaskForm.clientId || !addTaskForm.teamName) return true;
+    return (addTaskClientSteps as any[]).some(
+      (s) => s.owningTeamName.toLowerCase() === addTaskForm.teamName.toLowerCase()
+    );
+  }, [addTaskForm.clientId, addTaskForm.teamName, addTaskClientSteps]);
+
   const addTaskMut = useMutation({
     mutationFn: () => apiFetch('/api/tasks', {
       method: 'POST',
@@ -1132,7 +1139,7 @@ export default function TasksPage() {
             <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Project / Client *</label>
-                <select value={addTaskForm.clientId} onChange={(e) => setAddTaskForm(f => ({ ...f, clientId: e.target.value, stepId: '' }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                <select value={addTaskForm.clientId} onChange={(e) => setAddTaskForm(f => ({ ...f, clientId: e.target.value, stepId: '', teamName: '', assignedToId: '' }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
                   <option value="">Select project / client...</option>
                   {liveClients.map((c: any) => (
                     <option key={c.id} value={c.id}>{c.brandName || c.fullName}</option>
@@ -1143,10 +1150,19 @@ export default function TasksPage() {
               {addTaskForm.clientId && (
                 <div style={{ marginBottom: 12 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Pipeline Step (optional, defaults to current step)</label>
-                  <select value={addTaskForm.stepId} onChange={(e) => setAddTaskForm(f => ({ ...f, stepId: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                  <select value={addTaskForm.stepId} onChange={(e) => {
+                    const stepVal = e.target.value;
+                    const matchedStep = (addTaskClientSteps as any[]).find(s => s.id === stepVal);
+                    setAddTaskForm(f => ({
+                      ...f,
+                      stepId: stepVal,
+                      teamName: matchedStep ? matchedStep.owningTeamName : f.teamName,
+                      assignedToId: matchedStep && matchedStep.owningTeamName !== f.teamName ? '' : f.assignedToId
+                    }));
+                  }} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
                     <option value="">Use current step...</option>
                     {addTaskClientSteps.map((s: any) => (
-                      <option key={s.id} value={s.id}>Step {s.stepNumber} — {s.name}</option>
+                      <option key={s.id} value={s.id}>Step {s.stepNumber} — {s.name} ({s.owningTeamName})</option>
                     ))}
                   </select>
                 </div>
@@ -1160,10 +1176,27 @@ export default function TasksPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 12 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Team *</label>
-                  <select value={addTaskForm.teamName} onChange={(e) => setAddTaskForm(f => ({ ...f, teamName: e.target.value, assignedToId: '' }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                  <select value={addTaskForm.teamName} onChange={(e) => {
+                    const teamVal = e.target.value;
+                    const matchedStep = (addTaskClientSteps as any[]).find(
+                      (s: any) => s.owningTeamName.toLowerCase() === teamVal.toLowerCase()
+                    );
+                    setAddTaskForm(f => ({
+                      ...f,
+                      teamName: teamVal,
+                      assignedToId: '',
+                      stepId: matchedStep ? matchedStep.id : f.stepId
+                    }));
+                  }} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
                     <option value="">Select team...</option>
                     {addTaskTeamOptions.map((t: string) => <option key={t} value={t}>{t}</option>)}
                   </select>
+                  {addTaskForm.clientId && addTaskForm.teamName && !isClientTeamValid && (
+                    <div style={{ color: 'var(--red)', fontSize: 11, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                      <span>Warning: This client does not have a pipeline step owned by {addTaskForm.teamName}.</span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Assignee *</label>
@@ -1198,8 +1231,8 @@ export default function TasksPage() {
             {/* Modal footer */}
             <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
               <button onClick={() => setShowAddTask(false)} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
-              <button onClick={() => { setAddTaskError(''); addTaskMut.mutate(); }} disabled={addTaskMut.isPending || !addTaskForm.clientId || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId}
-                style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (addTaskMut.isPending || !addTaskForm.clientId || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId) ? 0.6 : 1 }}>
+              <button onClick={() => { setAddTaskError(''); addTaskMut.mutate(); }} disabled={addTaskMut.isPending || !addTaskForm.clientId || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId || !isClientTeamValid}
+                style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (addTaskMut.isPending || !addTaskForm.clientId || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId || !isClientTeamValid) ? 0.6 : 1 }}>
                 {addTaskMut.isPending ? 'Adding…' : 'Add Task'}
               </button>
             </div>

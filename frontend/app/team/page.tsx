@@ -6,7 +6,7 @@ import { USE_MOCK, MOCK_TEAM } from '@/lib/mockData';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
-import { Folder, FolderOpen, Shield, UserCheck, Users, Plus, X, CircleAlert, Search, Trash2, Edit2 } from 'lucide-react';
+import { Folder, FolderOpen, Shield, UserCheck, Users, Plus, X, CircleAlert, Search, Trash2, Edit2, ChevronsUp, ChevronsDown } from 'lucide-react';
 import DashboardHeader from '@/components/ui/DashboardHeader';
 import ActionDropdown from '@/components/ui/ActionDropdown';
 import UpdateTeamMemberModal from '@/components/pipeline/UpdateTeamMemberModal';
@@ -195,8 +195,19 @@ export default function TeamPage() {
   const toggle = (name: string) => {
     setExpandedTeams((s) => { const n = new Set(s); if (n.has(name)) n.delete(name); else n.add(name); return n; });
   };
-  const expandAll = () => setExpandedTeams(new Set([...tree.map(([n]) => n), 'Administrators']));
-  const collapseAll = () => setExpandedTeams(new Set());
+  const allTeamNamesForToggle = useMemo(() => [...tree.map(([n]) => n), 'Administrators'], [tree]);
+  const allExpanded = useMemo(() => {
+    if (allTeamNamesForToggle.length === 0) return false;
+    return allTeamNamesForToggle.every(name => expandedTeams.has(name));
+  }, [expandedTeams, allTeamNamesForToggle]);
+
+  const toggleAll = () => {
+    if (allExpanded) {
+      setExpandedTeams(new Set());
+    } else {
+      setExpandedTeams(new Set(allTeamNamesForToggle));
+    }
+  };
 
   const createMut = useMutation({
     mutationFn: () => apiFetch('/api/teams/invite', {
@@ -373,8 +384,22 @@ export default function TeamPage() {
 
             <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px' }} />
 
-            <button onClick={expandAll} style={btnSecondary}>Expand all</button>
-            <button onClick={collapseAll} style={btnSecondary}>Collapse all</button>
+            <button
+              onClick={toggleAll}
+              style={{
+                ...btnSecondary,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '5px 10px',
+                height: 30,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}
+            >
+              {allExpanded ? <ChevronsUp size={13} /> : <ChevronsDown size={13} />}
+              {allExpanded ? 'Collapse all' : 'Expand all'}
+            </button>
 
             {isAdmin && (
               <>

@@ -233,6 +233,16 @@ export default function StandupPage() {
     }));
 
     try {
+      const current = JSON.parse(localStorage.getItem('pinned_tasks') || '[]');
+      let updated;
+      if (nextStatus) {
+        updated = Array.from(new Set([...current, id]));
+      } else {
+        updated = current.filter((x: string) => x !== id);
+      }
+      localStorage.setItem('pinned_tasks', JSON.stringify(updated));
+      window.dispatchEvent(new Event('pinned-updated'));
+
       await highlightMut.mutateAsync(id);
     } catch (err) {
       // Revert if error
@@ -240,6 +250,17 @@ export default function StandupPage() {
         ...prev,
         [id]: currentStatus
       }));
+      try {
+        const current = JSON.parse(localStorage.getItem('pinned_tasks') || '[]');
+        let updated;
+        if (currentStatus) {
+          updated = Array.from(new Set([...current, id]));
+        } else {
+          updated = current.filter((x: string) => x !== id);
+        }
+        localStorage.setItem('pinned_tasks', JSON.stringify(updated));
+        window.dispatchEvent(new Event('pinned-updated'));
+      } catch (e) {}
     }
   };
 
@@ -250,17 +271,37 @@ export default function StandupPage() {
       [clientId]: nextStatus
     }));
     try {
+      const current = JSON.parse(localStorage.getItem('pinned_clients') || '[]');
+      let updated;
+      if (nextStatus) {
+        updated = Array.from(new Set([...current, clientId]));
+      } else {
+        updated = current.filter((x: string) => x !== clientId);
+      }
+      localStorage.setItem('pinned_clients', JSON.stringify(updated));
+      window.dispatchEvent(new Event('pinned-updated'));
+
       await apiFetch(`/api/clients/${clientId}/${nextStatus ? 'pin' : 'unpin'}`, {
         method: 'PATCH'
       });
       qc.invalidateQueries({ queryKey: ['standup'] });
       qc.invalidateQueries({ queryKey: ['clients'] });
-      window.dispatchEvent(new Event('pinned-updated'));
     } catch (err) {
       setLocalClientPinned(prev => ({
         ...prev,
         [clientId]: currentPinStatus
       }));
+      try {
+        const current = JSON.parse(localStorage.getItem('pinned_clients') || '[]');
+        let updated;
+        if (currentPinStatus) {
+          updated = Array.from(new Set([...current, clientId]));
+        } else {
+          updated = current.filter((x: string) => x !== clientId);
+        }
+        localStorage.setItem('pinned_clients', JSON.stringify(updated));
+        window.dispatchEvent(new Event('pinned-updated'));
+      } catch (e) {}
     }
   };
 

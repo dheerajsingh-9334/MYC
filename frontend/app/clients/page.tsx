@@ -110,19 +110,30 @@ export default function ClientsPage() {
     } catch (e) {}
   }, []);
 
-  const togglePinClient = (id: string, e: React.MouseEvent) => {
+  const togglePinClient = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
       const current = JSON.parse(localStorage.getItem('pinned_clients') || '[]');
+      const isPinned = current.includes(id);
+      const nextStatus = !isPinned;
       let updated;
-      if (current.includes(id)) {
-        updated = current.filter((x: string) => x !== id);
-      } else {
+      if (nextStatus) {
         updated = [...current, id];
+      } else {
+        updated = current.filter((x: string) => x !== id);
       }
       localStorage.setItem('pinned_clients', JSON.stringify(updated));
       setPinnedClientIds(updated);
       window.dispatchEvent(new Event('pinned-updated'));
+
+      // If admin, update database
+      if (isAdmin) {
+        await apiFetch(`/api/clients/${id}/${nextStatus ? 'pin' : 'unpin'}`, {
+          method: 'PATCH'
+        });
+        qc.invalidateQueries({ queryKey: ['clients'] });
+        qc.invalidateQueries({ queryKey: ['standup'] });
+      }
     } catch (err) {}
   };
 

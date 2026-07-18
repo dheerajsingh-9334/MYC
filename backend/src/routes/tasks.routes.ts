@@ -65,14 +65,57 @@ router.post(
       }
 
       // Default the step to client's current step if not provided
-      const finalStepId = stepId || client.currentStepId;
-      const step = await prisma.step.findFirst({
-        where: { id: finalStepId, organisationId: req.user.orgId },
+      const clientSteps = await prisma.step.findMany({
+        where: {
+          clientId,
+          organisationId: req.user.orgId,
+          isActive: true,
+        },
       });
-      if (!step) {
-        res.status(404).json({ error: "Step not found" });
+
+      const assigneeTeams = assignee.teamName
+        ? assignee.teamName
+            .split(",")
+            .map((t) => t.trim().toLowerCase())
+            .filter(Boolean)
+        : [];
+
+      if (assigneeTeams.length === 0) {
+        res.status(400).json({ error: "Assignee does not belong to any team" });
         return;
       }
+
+      // Find a step where owningTeamName matches one of assignee's teams
+      const matchedStep = clientSteps.find((s) =>
+        assigneeTeams.includes(s.owningTeamName.toLowerCase())
+      );
+
+      if (!matchedStep) {
+        res.status(400).json({
+          error: `Client does not have a pipeline step owned by the assignee's team(s): ${assignee.teamName}`,
+        });
+        return;
+      }
+
+      const finalStep = stepId
+        ? clientSteps.find((s) => s.id === stepId)
+        : matchedStep;
+
+      if (!finalStep) {
+        res.status(400).json({
+          error: "Selected step not found or does not belong to this client's active pipeline.",
+        });
+        return;
+      }
+
+      if (!assigneeTeams.includes(finalStep.owningTeamName.toLowerCase())) {
+        res.status(400).json({
+          error: `The step '${finalStep.name}' is owned by '${finalStep.owningTeamName}', but the assignee belongs to '${assignee.teamName}'`,
+        });
+        return;
+      }
+
+      const finalStepId = finalStep.id;
 
       const task = await prisma.task.create({
         data: {

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import bcrypt from 'bcryptjs';
+import { sendInvitationEmail } from '../services/email.service';
 
 const router = Router();
 
@@ -165,7 +166,6 @@ router.post('/invite', requireAuth, requireRole('admin'), async (req: Request, r
 
     let emailSent = false;
     try {
-      const { sendInvitationEmail } = require('../services/email.service');
       emailSent = await sendInvitationEmail(email, link, org?.name || 'your organisation');
     } catch (mailErr) {
       console.error('[teams.invite] Failed to send email:', mailErr);
