@@ -4,6 +4,8 @@ import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, getUser } from '@/lib/api';
 import { User, Phone, Lock, Check, AlertCircle, X } from 'lucide-react';
+import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+
 
 interface ProfileModalProps {
   open: boolean;
@@ -77,6 +79,10 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (whatsappNumber && !isValidPhone(whatsappNumber)) {
+      setErrorMsg('Invalid WhatsApp number format. Must be 7 to 15 digits.');
+      return;
+    }
     if (password && password !== confirmPassword) {
       setErrorMsg('Passwords do not match.');
       return;
@@ -87,6 +93,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
 
     updateMut.mutate(payload);
   };
+
 
   if (!mounted || !open) return null;
 
@@ -260,11 +267,16 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
                         type="text"
                         placeholder="+91 98765 43210"
                         value={whatsappNumber}
-                        onChange={(e) => setWhatsappNumber(e.target.value)}
+                        onChange={(e) => {
+                          setErrorMsg('');
+                          setWhatsappNumber(sanitizePhoneInput(e.target.value));
+                        }}
                         className="profile-input"
+                        style={whatsappNumber && !isValidPhone(whatsappNumber) ? { borderColor: 'var(--red)', background: 'var(--red-bg)' } : {}}
                       />
                     </div>
                   </div>
+
 
                   <div>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Profile Picture URL (from another website)</label>

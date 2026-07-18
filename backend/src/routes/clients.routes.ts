@@ -7,6 +7,8 @@ import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { notifyClientStatusChanged, notifyClientAdded } from '../services/notify.service';
 import { computeClientStatus, advanceClientToStep, handleManualStepMove, initializeClientPipeline, importClientWithCustomPipeline } from '../services/pipeline.service';
 import { uploadToCloudinary } from '../services/cloudinary.service';
+import { validatePhone } from '../utils/validation';
+
 
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
@@ -220,6 +222,11 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
   try {
     const { fullName, brandName, email, whatsappNumber, notes } = req.body;
     if (!fullName) { res.status(400).json({ error: 'fullName is required' }); return; }
+    if (whatsappNumber && !validatePhone(whatsappNumber)) {
+      res.status(400).json({ error: 'Invalid WhatsApp number format. Must be 7-15 digits.' });
+      return;
+    }
+
 
     // Find any existing step to satisfy the foreign key constraint initially
     const firstStep = await prisma.step.findFirst({
@@ -280,6 +287,11 @@ router.put('/:id', requireAuth, requireRole('admin'), async (req: Request, res: 
       include: { currentStep: true },
     });
     if (!client) { res.status(404).json({ error: 'Client not found' }); return; }
+    if (whatsappNumber && !validatePhone(whatsappNumber)) {
+      res.status(400).json({ error: 'Invalid WhatsApp number format. Must be 7-15 digits.' });
+      return;
+    }
+
 
     const updated = await prisma.client.update({
       where: { id: req.params.id },

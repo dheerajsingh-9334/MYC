@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useFormDraft, DraftStatus } from '@/lib/useFormDraft';
+import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -45,6 +47,8 @@ export default function OnboardFormPage() {
   const [step, setStep] = useState<Step>('loading');
   const [prefill, setPrefill] = useState<any>({});
   const [tokenReady, setTokenReady] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
+
 
   // The hook is created unconditionally; we gate its I/O on `enabled`
   // until the token is validated. We seed it with prefill once the
@@ -101,12 +105,30 @@ export default function OnboardFormPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draftStatus]);
 
-  const f = (k: keyof OnboardData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-    setForm(p => ({ ...p, [k]: e.target.value }));
+  const f = (k: keyof OnboardData) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    let val = e.target.value;
+    if (k === 'whatsappNumber') {
+      val = sanitizePhoneInput(val);
+      if (phoneError) setPhoneError('');
+    }
+    setForm(p => ({ ...p, [k]: val }));
+  };
 
   const goToSection = (next: number) => {
     setForm(p => ({ ...p, section: next }));
   };
+
+  const handleContinue = () => {
+    if (section === 0) {
+      if (!isValidPhone(form.whatsappNumber)) {
+        setPhoneError('Invalid WhatsApp number format. Must be 7 to 15 digits.');
+        return;
+      }
+      setPhoneError('');
+    }
+    goToSection(section + 1);
+  };
+
 
   const handleSubmit = async () => {
     const res = await fetch(`${API_BASE}/api/onboarding/submit/${token}`, {
@@ -140,14 +162,25 @@ export default function OnboardFormPage() {
     </label>
   );
 
-  const field = (key: keyof typeof form, labelText: string, placeholder?: string, req?: boolean, type?: string) => (
-    <div style={{ marginBottom: 20 }}>
-      {label(labelText, req)}
-      <input type={type || 'text'} placeholder={placeholder} value={form[key] as string}
-        onChange={f(key)}
-        style={inputStyle(form[key] as string)} />
-    </div>
-  );
+  const field = (key: keyof typeof form, labelText: string, placeholder?: string, req?: boolean, type?: string) => {
+    const isPhone = key === 'whatsappNumber';
+    const hasError = isPhone && !!phoneError;
+    const currentStyle = {
+      ...inputStyle(form[key] as string),
+      ...(hasError ? { borderColor: '#B23B2D', background: '#FFF7F6' } : {})
+    };
+
+    return (
+      <div style={{ marginBottom: 20 }}>
+        {label(labelText, req)}
+        <input type={type || 'text'} placeholder={placeholder} value={form[key] as string}
+          onChange={f(key)}
+          style={currentStyle} />
+        {hasError && <div style={{ color: '#B23B2D', fontSize: 12, marginTop: 4 }}>{phoneError}</div>}
+      </div>
+    );
+  };
+
 
   // ── States ──
   if (step === 'loading') return (
@@ -370,11 +403,12 @@ export default function OnboardFormPage() {
           ) : <div />}
 
           {section < 3 ? (
-            <button onClick={() => goToSection(section + 1)}
+            <button onClick={handleContinue}
               disabled={section === 0 && (!form.fullName || !form.email || !form.whatsappNumber)}
               style={{ padding: '11px 28px', background: !form.fullName && section === 0 ? '#9C9C9C' : 'var(--olive)', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: !form.fullName && section === 0 ? 'not-allowed' : 'pointer', transition: 'background 0.15s' }}>
               Continue →
             </button>
+
           ) : (
             <button onClick={handleSubmit}
               disabled={!form.fullName || !form.eventTopic}

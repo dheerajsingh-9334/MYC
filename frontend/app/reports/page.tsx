@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiFetch, getUser } from '@/lib/api';
+import { restrictNumericKeyDown } from '@/lib/validation';
+
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { 
@@ -470,7 +472,11 @@ export default function ReportsPage() {
                           type="number"
                           placeholder="e.g. 5000 (leave blank or 0 to hide margin details)"
                           value={paramBudget}
-                          onChange={e => setParamBudget(e.target.value)}
+                          onKeyDown={restrictNumericKeyDown}
+                          onChange={e => {
+                            const cleanVal = e.target.value.replace(/[^0-9]/g, '');
+                            setParamBudget(cleanVal);
+                          }}
                           style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}
                         />
                       </div>

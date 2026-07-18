@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
+import { validateSlaDays } from '../utils/validation';
+
 
 const router = Router();
 
@@ -116,6 +118,11 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 router.put('/:id', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { name, owningTeamName, slaDays, description } = req.body;
+    if (slaDays !== undefined && !validateSlaDays(slaDays)) {
+      res.status(400).json({ error: 'SLA days must be a positive integer.' });
+      return;
+    }
+
     const step = await prisma.step.findFirst({
       where: { id: req.params.id, organisationId: req.user.orgId },
     });
@@ -136,7 +143,12 @@ router.put('/:id', requireAuth, requireRole('admin'), async (req: Request, res: 
 router.patch('/:id', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { name, owningTeamName, slaDays, description, taskTemplates, clientId } = req.body;
+    if (slaDays !== undefined && !validateSlaDays(slaDays)) {
+      res.status(400).json({ error: 'SLA days must be a positive integer.' });
+      return;
+    }
     let stepId = req.params.id;
+
 
     const step = await prisma.step.findFirst({
       where: { id: stepId, organisationId: req.user.orgId },
@@ -258,7 +270,12 @@ router.delete('/:id/templates/:templateId', requireAuth, requireRole('admin'), a
 router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { name, owningTeamName, slaDays, description, stepNumber, clientId } = req.body;
+    if (slaDays !== undefined && !validateSlaDays(slaDays)) {
+      res.status(400).json({ error: 'SLA days must be a positive integer.' });
+      return;
+    }
     if (!name || !owningTeamName) {
+
       res.status(400).json({ error: 'name and owningTeamName are required' });
       return;
     }

@@ -7,6 +7,8 @@ import Topbar from '@/components/layout/Topbar';
 import SectionCard from '@/components/ui/SectionCard';
 import { format } from 'date-fns';
 import { User, Phone, Lock, Calendar, Shield, Users, Check, AlertCircle, BarChart2 } from 'lucide-react';
+import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+
 
 const GRADIENTS = [
   { id: 'olive', label: 'Olive Forest', value: 'linear-gradient(135deg, var(--olive), var(--olive-light))' },
@@ -72,6 +74,10 @@ export default function ProfilePage() {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (whatsappNumber && !isValidPhone(whatsappNumber)) {
+      setErrorMsg('Invalid WhatsApp number format. Must be 7 to 15 digits.');
+      return;
+    }
     if (password && password !== confirmPassword) {
       setErrorMsg('Passwords do not match.');
       return;
@@ -82,6 +88,7 @@ export default function ProfilePage() {
 
     updateMut.mutate(payload);
   };
+
 
   if (isLoading || !profile) {
     return (
@@ -223,11 +230,16 @@ export default function ProfilePage() {
                       type="text"
                       placeholder="+91 98765 43210"
                       value={whatsappNumber}
-                      onChange={(e) => setWhatsappNumber(e.target.value)}
+                      onChange={(e) => {
+                        setErrorMsg('');
+                        setWhatsappNumber(sanitizePhoneInput(e.target.value));
+                      }}
                       className="profile-input"
+                      style={whatsappNumber && !isValidPhone(whatsappNumber) ? { borderColor: 'var(--red)', background: 'var(--red-bg)' } : {}}
                     />
                   </div>
                 </div>
+
 
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Profile Picture URL (from another website)</label>

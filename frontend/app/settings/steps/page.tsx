@@ -1,5 +1,7 @@
 'use client';
 import { useState, useMemo } from 'react';
+import { restrictNumericKeyDown } from '@/lib/validation';
+
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -486,7 +488,13 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                   type="number"
                   min={1}
                   value={inlineAddForm.slaDays}
-                  onChange={(e) => setInlineAddForm((f) => ({ ...f, slaDays: parseInt(e.target.value) || 1 }))}
+                  onKeyDown={restrictNumericKeyDown}
+                  onChange={(e) => {
+                    const cleanVal = e.target.value.replace(/[^0-9]/g, '');
+                    const parsed = parseInt(cleanVal, 10);
+                    setInlineAddForm((f) => ({ ...f, slaDays: isNaN(parsed) || parsed < 1 ? 1 : parsed }));
+                  }}
+
                   style={{
                     width: '100%',
                     padding: '8px 10px',
@@ -536,7 +544,12 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                   min={1}
                   placeholder={`defaults to ${clientSteps.length + 1}`}
                   value={inlineAddForm.stepNumber}
-                  onChange={(e) => setInlineAddForm((f) => ({ ...f, stepNumber: e.target.value }))}
+                  onKeyDown={restrictNumericKeyDown}
+                  onChange={(e) => {
+                    const cleanVal = e.target.value.replace(/[^0-9]/g, '');
+                    setInlineAddForm((f) => ({ ...f, stepNumber: cleanVal }));
+                  }}
+
                   style={{
                     width: '100%',
                     padding: '8px 10px',
@@ -668,7 +681,13 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                           type="number"
                           min={1}
                           value={inlineEditForm.slaDays}
-                          onChange={(e) => setInlineEditForm((f) => ({ ...f, slaDays: parseInt(e.target.value) || 1 }))}
+                          onKeyDown={restrictNumericKeyDown}
+                          onChange={(e) => {
+                            const cleanVal = e.target.value.replace(/[^0-9]/g, '');
+                            const parsed = parseInt(cleanVal, 10);
+                            setInlineEditForm((f) => ({ ...f, slaDays: isNaN(parsed) || parsed < 1 ? 1 : parsed }));
+                          }}
+
                           style={{
                             width: '100%',
                             padding: '8px 10px',
@@ -824,11 +843,15 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                                   type="number"
                                   min={1}
                                   value={t.relativeDueDay}
+                                  onKeyDown={restrictNumericKeyDown}
                                   onChange={(e) => {
+                                    const cleanVal = e.target.value.replace(/[^0-9]/g, '');
+                                    const parsed = parseInt(cleanVal, 10);
                                     const updated = [...inlineEditForm.taskTemplates];
-                                    updated[idx].relativeDueDay = parseInt(e.target.value) || 1;
+                                    updated[idx].relativeDueDay = isNaN(parsed) || parsed < 1 ? 1 : parsed;
                                     setInlineEditForm((f) => ({ ...f, taskTemplates: updated }));
                                   }}
+
                                   style={{
                                     width: 60,
                                     padding: '6px 8px',

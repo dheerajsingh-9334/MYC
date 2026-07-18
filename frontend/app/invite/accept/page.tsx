@@ -2,6 +2,8 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Shield, UserCheck, KeyRound, Phone, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -71,8 +73,14 @@ function AcceptInviteContent() {
       setFormError('Passwords do not match.');
       return;
     }
+    if (whatsappNumber.trim() && !isValidPhone(whatsappNumber)) {
+      setFormError('Invalid WhatsApp number. Must be 7 to 15 digits.');
+      return;
+    }
+
 
     setSubmitting(true);
+
 
     try {
       const res = await fetch(`${API_BASE}/api/teams/invite/accept`, {
@@ -206,9 +214,17 @@ function AcceptInviteContent() {
                 type="tel"
                 placeholder="+91 98765 43210"
                 value={whatsappNumber}
-                onChange={(e) => setWhatsappNumber(e.target.value)}
-                style={{ ...inputStyle, paddingLeft: 38 }}
+                onChange={(e) => {
+                  setFormError(null);
+                  setWhatsappNumber(sanitizePhoneInput(e.target.value));
+                }}
+                style={{
+                  ...inputStyle,
+                  paddingLeft: 38,
+                  ...(whatsappNumber.trim() && !isValidPhone(whatsappNumber) ? { borderColor: 'var(--red, #B23B2D)', background: 'var(--red-bg, #FDF3F2)' } : {})
+                }}
               />
+
             </div>
             <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, display: 'block' }}>
               Used for operational updates and task notifications.

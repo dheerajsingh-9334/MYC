@@ -3,6 +3,8 @@ import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import bcrypt from 'bcryptjs';
 import { sendInvitationEmail } from '../services/email.service';
+import { validatePhone } from '../utils/validation';
+
 
 const router = Router();
 
@@ -219,6 +221,11 @@ router.post('/invite/accept', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'token, fullName, and password are required' });
       return;
     }
+    if (whatsappNumber && !validatePhone(whatsappNumber)) {
+      res.status(400).json({ error: 'Invalid WhatsApp number format. Must be 7-15 digits.' });
+      return;
+    }
+
     if (String(password).length < 8) {
       res.status(400).json({ error: 'Password must be at least 8 characters' });
       return;

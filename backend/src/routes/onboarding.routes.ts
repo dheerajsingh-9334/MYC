@@ -4,6 +4,8 @@ import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { advanceClientToStep, initializeClientPipeline } from '../services/pipeline.service';
 import { notifyClientAdded } from '../services/notify.service';
+import { validatePhone } from '../utils/validation';
+
 
 const router = Router();
 
@@ -12,6 +14,11 @@ router.post('/invite', requireAuth, requireRole('admin'), async (req: Request, r
   try {
     const { sentToName, sentToEmail, sentToWhatsapp } = req.body;
     if (!sentToName) { res.status(400).json({ error: 'sentToName required' }); return; }
+    if (sentToWhatsapp && !validatePhone(sentToWhatsapp)) {
+      res.status(400).json({ error: 'Invalid WhatsApp number format. Must be 7-15 digits.' });
+      return;
+    }
+
 
     const invite = await prisma.onboardingInvite.create({
       data: {
@@ -83,6 +90,12 @@ router.post('/submit/:token', async (req: Request, res: Response) => {
       niche, experience, audienceSize, revenueGoal,
       eventTopic, eventFormat, brandColors, brandTone, notes,
     } = req.body;
+
+    if (whatsappNumber && !validatePhone(whatsappNumber)) {
+      res.status(400).json({ error: 'Invalid WhatsApp number format. Must be 7-15 digits.' });
+      return;
+    }
+
 
     // Create application
     const application = await prisma.pendingApplication.create({

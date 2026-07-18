@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X } from 'lucide-react';
+import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+
 
 interface Props {
   open: boolean;
@@ -15,6 +17,8 @@ type UpdateClientData = { fullName: string; brandName: string; email: string; wh
 
 export default function UpdateClientModal({ open, onClose, onSuccess, client }: Props) {
   const [form, setForm] = useState<UpdateClientData>({ fullName: '', brandName: '', email: '', whatsappNumber: '', notes: '' });
+  const [phoneError, setPhoneError] = useState('');
+
 
   useEffect(() => {
     if (client && open) {
@@ -103,10 +107,22 @@ export default function UpdateClientModal({ open, onClose, onSuccess, client }: 
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>WhatsApp</label>
-              <input value={form.whatsappNumber} onChange={e => setForm(f => ({ ...f, whatsappNumber: e.target.value }))} placeholder="+91 98765 43210"
-                style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}
+              <input value={form.whatsappNumber}
+                onChange={e => {
+                  setPhoneError('');
+                  setForm(f => ({ ...f, whatsappNumber: sanitizePhoneInput(e.target.value) }));
+                }}
+                placeholder="+91 98765 43210"
+                style={{
+                  width: '100%', padding: '9px 12px',
+                  border: phoneError ? '1px solid var(--red)' : '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)',
+                  background: phoneError ? 'var(--red-bg)' : 'var(--surface)', outline: 'none'
+                }}
               />
+              {phoneError && <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4, display: 'block' }}>{phoneError}</span>}
             </div>
+
           </div>
           <div style={{ marginBottom: 4 }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Notes</label>
@@ -126,12 +142,20 @@ export default function UpdateClientModal({ open, onClose, onSuccess, client }: 
             Cancel
           </button>
           <button
-            onClick={() => mutation.mutate(form)}
+            onClick={() => {
+              if (form.whatsappNumber && !isValidPhone(form.whatsappNumber)) {
+                setPhoneError('Invalid WhatsApp number. Must be 7 to 15 digits.');
+                return;
+              }
+              setPhoneError('');
+              mutation.mutate(form);
+            }}
             disabled={mutation.isPending || !form.fullName}
             style={{ padding: '8px 14px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: mutation.isPending || !form.fullName ? 'var(--soft)' : 'var(--olive)', color: '#fff', cursor: mutation.isPending || !form.fullName ? 'not-allowed' : 'pointer' }}
           >
             {mutation.isPending ? 'Updating...' : 'Update Client'}
           </button>
+
         </div>
       </div>
     </div>

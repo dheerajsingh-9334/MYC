@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X } from 'lucide-react';
+import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+
 
 interface Props {
   open: boolean;
@@ -28,6 +30,8 @@ export default function UpdateTeamMemberModal({ open, onClose, onSuccess, member
   });
 
   const [error, setError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
+
 
   useEffect(() => {
     if (member && open) {
@@ -141,11 +145,21 @@ export default function UpdateTeamMemberModal({ open, onClose, onSuccess, member
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>WhatsApp Number</label>
             <input
               value={form.whatsappNumber}
-              onChange={(e) => setForm(f => ({ ...f, whatsappNumber: e.target.value }))}
+              onChange={(e) => {
+                setPhoneError('');
+                setForm(f => ({ ...f, whatsappNumber: sanitizePhoneInput(e.target.value) }));
+              }}
               placeholder="e.g. +91 98765 43210"
-              style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}
+              style={{
+                width: '100%', padding: '9px 12px',
+                border: phoneError ? '1px solid var(--red)' : '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)',
+                background: phoneError ? 'var(--red-bg)' : 'var(--surface)', outline: 'none'
+              }}
             />
+            {phoneError && <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 4, display: 'block' }}>{phoneError}</span>}
           </div>
+
 
           {error && (
             <div style={{ padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 'var(--radius-sm)', fontSize: 13, marginTop: 12 }}>
@@ -160,10 +174,19 @@ export default function UpdateTeamMemberModal({ open, onClose, onSuccess, member
             Cancel
           </button>
           <button
-            onClick={() => { setError(''); mutation.mutate(form); }}
+            onClick={() => {
+              if (form.whatsappNumber && !isValidPhone(form.whatsappNumber)) {
+                setPhoneError('Invalid WhatsApp number. Must be 7 to 15 digits.');
+                return;
+              }
+              setPhoneError('');
+              setError('');
+              mutation.mutate(form);
+            }}
             disabled={mutation.isPending || !form.fullName}
             style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (mutation.isPending || !form.fullName) ? 0.6 : 1 }}
           >
+
             {mutation.isPending ? 'Updating...' : 'Update Member'}
           </button>
         </div>

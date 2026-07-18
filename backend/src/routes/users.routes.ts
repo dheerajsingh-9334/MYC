@@ -5,6 +5,8 @@ import prisma from '../prisma/client';
 import { requireAuth, requireRole } from '../middleware/auth.middleware';
 import { uploadToCloudinary } from '../services/cloudinary.service';
 import { sendPasswordChangedEmail } from '../services/email.service';
+import { validatePhone } from '../utils/validation';
+
 
 const router = Router();
 const upload = multer({
@@ -91,6 +93,12 @@ router.patch('/me', requireAuth, async (req: Request, res: Response) => {
   try {
     const userId = req.user.userId;
     const { fullName, whatsappNumber, password, avatarUrl } = req.body;
+
+    if (whatsappNumber && !validatePhone(whatsappNumber)) {
+      res.status(400).json({ error: 'Invalid WhatsApp number format. Must be 7-15 digits.' });
+      return;
+    }
+
 
     const updateData: any = {};
     if (fullName !== undefined) updateData.fullName = fullName;
@@ -277,6 +285,11 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
 router.patch('/:id', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { fullName, role, teamName, whatsappNumber } = req.body;
+    if (whatsappNumber && !validatePhone(whatsappNumber)) {
+      res.status(400).json({ error: 'Invalid WhatsApp number format. Must be 7-15 digits.' });
+      return;
+    }
+
     if (role !== undefined) {
       const validRoles = ['admin', 'team_leader', 'team_member'];
       if (!validRoles.includes(role)) {
