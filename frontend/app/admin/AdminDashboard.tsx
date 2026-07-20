@@ -33,7 +33,7 @@ interface AdminData {
   recentCompletions: Array<{ id: string; title: string; completedAt: string; assignee: string; team: string; client: string; step: string; }>;
   pendingExtensions?: Array<{ id: string; title: string; dueDate: string; extensionRequestedDate: string; extensionReason: string; assignee: string; team: string; client: string; step: string; }>;
   // Replaces separate /api/clients and /api/tasks calls
-  clientList?: Array<{ id: string; fullName: string; brandName: string; status: string; computedStatus: string; daysInStep: number; currentStep: any; dateJoined: string; createdAt: string; }>;
+  clientList?: Array<{ id: string; fullName: string; brandName: string; status: string; computedStatus: string; daysInStep: number; currentStep: any; dateJoined: string | null; createdAt: string; }>;
   taskList?: Array<{ id: string; title: string; status: string; priority: string; dueDate: string; completedAt: string | null; assignedToId: string; stepId: string; client: any; step: any; assignedTo: any; }>;
 }
 
@@ -486,10 +486,10 @@ export default function AdminDashboard() {
         clientsByMonth: { 'Jan': [], 'Feb': [], 'Mar': [], 'Apr': [] }
       };
     }
-    const sorted = [...allClients].map(c => {
+    const sorted = [...allClients].map((c: any) => {
       const date = new Date(c.dateJoined || c.createdAt || c.addedAt || new Date());
       return { ...c, parsedDate: date };
-    }).sort((a, b) => a.parsedDate.getTime() - b.parsedDate.getTime());
+    }).sort((a: any, b: any) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
     if (sorted.length === 0) {
       return { labels: ['Start', 'Now'], data: [0, 0], clientsByMonth: {} as Record<string, string[]> };
@@ -1443,7 +1443,7 @@ export default function AdminDashboard() {
                         <select value={expClientId} onChange={e => setExpClientId(e.target.value)}
                           style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}>
                           <option value="">All Clients</option>
-                          {clientsList.map((c: any) => (
+                          {allClients.map((c: any) => (
                             <option key={c.id} value={c.id}>{c.brandName || c.fullName}</option>
                           ))}
                         </select>

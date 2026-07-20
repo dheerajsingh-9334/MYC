@@ -146,7 +146,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
           id: true, fullName: true, brandName: true, status: true,
           stepEnteredAt: true, dateJoined: true, createdAt: true,
           currentStep: {
-            select: { id: true, name: true, stepNumber: true, slaDays: true, owningTeamName: true, isFinal: true },
+            select: { id: true, name: true, stepNumber: true, slaDays: true, owningTeamName: true },
           },
         },
         orderBy: { createdAt: 'desc' },

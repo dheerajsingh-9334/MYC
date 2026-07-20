@@ -197,7 +197,6 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         isPinned: true, isAlerted: true,
         isTimerRunning: true, timerStartedAt: true, timeSpentSeconds: true,
         inProgressAt: true,
-        proofLink: true, proofDescription: true,
         client: { select: { id: true, fullName: true, brandName: true, email: true } },
         step: { select: { id: true, name: true, stepNumber: true, owningTeamName: true, slaDays: true } },
         assignedTo: { select: { id: true, fullName: true, email: true, teamName: true } },
