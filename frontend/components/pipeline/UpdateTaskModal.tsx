@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface Props {
   open: boolean;
@@ -107,13 +108,10 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users 
         {mutation.isPending && (
           <div style={{
             position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.85)',
-            backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center', zIndex: 10,
-            borderRadius: 'var(--radius-lg)',
+            backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', zIndex: 10, borderRadius: 'var(--radius-lg)',
           }}>
-            <div style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTop: '3px solid var(--olive)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-            <p style={{ marginTop: 12, color: 'var(--ink-2)', fontSize: 13, fontWeight: 500 }}>Updating task...</p>
-            <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+            <LoadingSpinner size={36} color="var(--olive)" label="Updating task..." />
           </div>
         )}
         {/* Modal header */}

@@ -8,6 +8,7 @@ import SectionCard from '@/components/ui/SectionCard';
 import { format } from 'date-fns';
 import { User, Phone, Lock, Calendar, Shield, Users, Check, AlertCircle, BarChart2 } from 'lucide-react';
 import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+import { FormSkeleton } from '@/components/ui/SkeletonLoader';
 
 
 const GRADIENTS = [
@@ -94,10 +95,7 @@ export default function ProfilePage() {
     return (
       <AppLayout>
         <Topbar title="My Profile" subtitle="Manage your profile & details" />
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 120px)', gap: 12, color: 'var(--muted)' }}>
-          <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--olive)', animation: 'spin 1s linear infinite' }} />
-          <span style={{ fontSize: 13, fontWeight: 500 }}>Loading profile data...</span>
-        </div>
+        <FormSkeleton fieldsCount={5} />
       </AppLayout>
     );
   }

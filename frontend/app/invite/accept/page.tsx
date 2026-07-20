@@ -3,6 +3,8 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Shield, UserCheck, KeyRound, Phone, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+import { Skeleton, PulseStyle } from '@/components/ui/SkeletonLoader';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -117,9 +119,18 @@ function AcceptInviteContent() {
     return (
       <div style={containerStyle}>
         <div style={cardStyle}>
-          <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <div style={spinnerStyle}></div>
-            <p style={{ marginTop: 20, color: 'var(--muted)', fontSize: 14 }}>Verifying your invitation...</p>
+          <PulseStyle />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <Skeleton height={48} width={48} borderRadius={12} />
+              <Skeleton height={28} width={180} />
+              <Skeleton height={16} width={240} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+              <Skeleton height={38} width="100%" borderRadius={8} />
+              <Skeleton height={38} width="100%" borderRadius={8} />
+              <Skeleton height={38} width="100%" borderRadius={8} />
+            </div>
           </div>
         </div>
       </div>
@@ -281,7 +292,14 @@ function AcceptInviteContent() {
               cursor: submitting ? 'not-allowed' : 'pointer',
             }}
           >
-            {submitting ? 'Setting up account...' : 'Create Account & Join'}
+            {submitting ? (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <LoadingSpinner size={14} color="#fff" />
+                <span>Setting up account...</span>
+              </div>
+            ) : (
+              'Create Account & Join'
+            )}
           </button>
         </form>
       </div>
@@ -294,9 +312,18 @@ export default function AcceptInvitePage() {
     <Suspense fallback={
       <div style={containerStyle}>
         <div style={cardStyle}>
-          <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <div style={spinnerStyle}></div>
-            <p style={{ marginTop: 20, color: 'var(--muted)', fontSize: 14 }}>Loading page...</p>
+          <PulseStyle />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+              <Skeleton height={48} width={48} borderRadius={12} />
+              <Skeleton height={28} width={180} />
+              <Skeleton height={16} width={240} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
+              <Skeleton height={38} width="100%" borderRadius={8} />
+              <Skeleton height={38} width="100%" borderRadius={8} />
+              <Skeleton height={38} width="100%" borderRadius={8} />
+            </div>
           </div>
         </div>
       </div>
@@ -448,12 +475,3 @@ const checkContainerStyle: React.CSSProperties = {
   margin: '0 auto 20px',
 };
 
-const spinnerStyle: React.CSSProperties = {
-  width: 32,
-  height: 32,
-  border: '3px solid #E5E4DC',
-  borderTop: '3px solid var(--olive)',
-  borderRadius: '50%',
-  animation: 'spin 1s linear infinite',
-  margin: '0 auto',
-};

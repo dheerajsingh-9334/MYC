@@ -1,5 +1,5 @@
 'use client';
-import { Plus, Search, Pin, Megaphone, Shield, Sun, Moon, X, Download } from 'lucide-react';
+import { Plus, Search, Pin, Megaphone, Shield, Sun, Moon, X, Download, Menu } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import NotificationBell from '@/components/ui/NotificationBell';
@@ -292,7 +292,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
 
   return (
     <div style={{ position: 'sticky', top: 0, width: '100%', zIndex: 100 }}>
-      <header style={{
+      <header className="topbar-header" style={{
         background: 'var(--surface)',
         borderBottom: '1px solid var(--border)',
         padding: '0 20px',
@@ -302,6 +302,32 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
         gap: 16,
         boxSizing: 'border-box',
       }}>
+        {/* Mobile Hamburger Button */}
+        <button
+          className="mobile-hamburger"
+          onClick={() => {
+            if (typeof document !== 'undefined') {
+              document.body.classList.add('sidebar-mobile-open');
+            }
+          }}
+          style={{
+            display: 'none',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 32,
+            height: 32,
+            borderRadius: 'var(--radius-sm)',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border)',
+            color: 'var(--ink-2)',
+            cursor: 'pointer',
+            flexShrink: 0,
+          }}
+          title="Open menu"
+        >
+          <Menu size={18} />
+        </button>
+
         <div style={{ minWidth: 0, flexShrink: 1 }}>
           <h1 style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h1>
           {subtitle && (

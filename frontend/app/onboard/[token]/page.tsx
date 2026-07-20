@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useFormDraft, DraftStatus } from '@/lib/useFormDraft';
 import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+import { Skeleton, PulseStyle } from '@/components/ui/SkeletonLoader';
 
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -184,8 +185,30 @@ export default function OnboardFormPage() {
 
   // ── States ──
   if (step === 'loading') return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAFAF7' }}>
-      <div style={{ fontSize: 14, color: '#6B6B6B' }}>Verifying your invite link...</div>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#FAFAF7', fontFamily: 'Inter, system-ui, sans-serif' }}>
+      <PulseStyle />
+      {/* Skeleton Header */}
+      <div style={{ background: 'linear-gradient(135deg, var(--olive-dark) 0%, var(--olive) 100%)', padding: '20px 24px' }}>
+        <div style={{ maxWidth: 640, margin: '0 auto', width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Skeleton height={24} width={120} borderRadius={6} style={{ background: 'rgba(255,255,255,0.2)' }} />
+          <Skeleton height={16} width={100} borderRadius={4} style={{ background: 'rgba(255,255,255,0.2)' }} />
+        </div>
+      </div>
+      {/* Skeleton Content */}
+      <div style={{ maxWidth: 640, margin: '0 auto', padding: '32px 20px', width: '100%', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Skeleton height={28} width={150} />
+          <Skeleton height={14} width={280} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <Skeleton height={14} width={100} />
+              <Skeleton height={38} width="100%" borderRadius={8} />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 

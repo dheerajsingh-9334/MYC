@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X } from 'lucide-react';
 import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 
 interface Props {
@@ -64,13 +65,10 @@ export default function UpdateClientModal({ open, onClose, onSuccess, client }: 
         {mutation.isPending && (
           <div style={{
             position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.85)',
-            backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center', zIndex: 10,
-            borderRadius: 'var(--radius-lg)',
+            backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', zIndex: 10, borderRadius: 'var(--radius-lg)',
           }}>
-            <div style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTop: '3px solid var(--olive)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-            <p style={{ marginTop: 12, color: 'var(--ink-2)', fontSize: 13, fontWeight: 500 }}>Updating client...</p>
-            <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+            <LoadingSpinner size={36} color="var(--olive)" label="Updating client..." />
           </div>
         )}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>

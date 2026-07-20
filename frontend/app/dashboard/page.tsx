@@ -2,7 +2,20 @@
 import { useState, useEffect, Suspense } from 'react';
 import { getUser } from '@/lib/api';
 import { useRouter } from 'next/navigation';
-import StaffDashboard from './StaffDashboard';
+import dynamic from 'next/dynamic';
+import AppLayout from '@/components/layout/AppLayout';
+import Topbar from '@/components/layout/Topbar';
+import { DashboardSkeleton } from '@/components/ui/SkeletonLoader';
+
+const StaffDashboard = dynamic(() => import('./StaffDashboard'), {
+  loading: () => (
+    <AppLayout>
+      <Topbar title="Dashboard" subtitle="My tasks and timeline" />
+      <DashboardSkeleton />
+    </AppLayout>
+  ),
+  ssr: false,
+});
 
 function DashboardContent() {
   const [user, setUser] = useState<any>(null);
@@ -19,7 +32,12 @@ function DashboardContent() {
   }, [router]);
 
   if (loading || user?.role === 'admin') {
-    return <div style={{ minHeight: '100vh', background: 'var(--bg)' }} />;
+    return (
+      <AppLayout>
+        <Topbar title="Dashboard" subtitle="My tasks and timeline" />
+        <DashboardSkeleton />
+      </AppLayout>
+    );
   }
 
   return <StaffDashboard />;
@@ -27,9 +45,15 @@ function DashboardContent() {
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div style={{ minHeight: '100vh', background: 'var(--bg)' }} />}>
+    <Suspense fallback={
+      <AppLayout>
+        <Topbar title="Dashboard" subtitle="My tasks and timeline" />
+        <DashboardSkeleton />
+      </AppLayout>
+    }>
       <DashboardContent />
     </Suspense>
   );
 }
+
 

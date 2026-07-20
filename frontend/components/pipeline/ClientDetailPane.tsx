@@ -14,6 +14,8 @@ import { ManageStepsPanel } from '@/app/settings/steps/page';
 import ActionDropdown from '@/components/ui/ActionDropdown';
 import UpdateClientModal from '@/components/pipeline/UpdateClientModal';
 import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
+import { ClientDetailSkeleton } from '@/components/ui/SkeletonLoader';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 // Short step labels for the pipeline track
 const STEP_LABELS = [
@@ -804,13 +806,17 @@ export default function ClientDetailPane({
   if (isLoading) {
     if (embedded) {
       return (
-        <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)', fontFamily: 'Instrument Serif, serif', fontSize: 20 }}>Loading client…</div>
+        <div style={{ padding: 'var(--page-pad)' }}>
+          <ClientDetailSkeleton />
+        </div>
       );
     }
     return (
       <AppLayout>
         <Topbar title="Client Detail" />
-        <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)', fontFamily: 'Instrument Serif, serif', fontSize: 20 }}>Loading client…</div>
+        <div style={{ padding: 'var(--page-pad)' }}>
+          <ClientDetailSkeleton />
+        </div>
       </AppLayout>
     );
   }
@@ -893,33 +899,12 @@ export default function ClientDetailPane({
   const content = (
     <div style={{ padding: '16px 20px', flex: 1 }}>
       {(deleteClientMut.isPending || deleteTaskMut.isPending) && (
-        <div style={{
-          position: 'fixed',
-          inset: 0,
-          background: 'rgba(20,25,12,0.45)',
-          backdropFilter: 'blur(4px)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-        }}>
-          <div style={{
-            width: 40,
-            height: 40,
-            border: '3px solid #E5E4DC',
-            borderTop: '3px solid var(--olive)',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-          }} />
-          <p style={{ marginTop: 16, color: '#fff', fontSize: 14, fontWeight: 500 }}>Processing request...</p>
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
-        </div>
+        <LoadingSpinner
+          fullPage
+          size={40}
+          color="#fff"
+          label="Processing request..."
+        />
       )}
 
       {/* Back / Close button */}
@@ -1011,62 +996,64 @@ export default function ClientDetailPane({
           </div>
 
           {/* Dynamic pipeline track */}
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${steps.length || 1}, 1fr)`, gap: 0, position: 'relative' }}>
-            {/* Connecting line */}
-            <div style={{ position: 'absolute', top: 18, left: '5%', right: '5%', height: 2, background: 'var(--border)', zIndex: 0 }} />
+          <div style={{ overflowX: 'auto', paddingBottom: 8 }} className="custom-scrollbar">
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${steps.length || 1}, 1fr)`, gap: 0, position: 'relative', minWidth: 800 }}>
+              {/* Connecting line */}
+              <div style={{ position: 'absolute', top: 18, left: '5%', right: '5%', height: 2, background: 'var(--border)', zIndex: 0 }} />
 
-            {steps.map((step, i) => {
-              const stepNum = step.stepNumber;
-              const completed = stepNum < currentStepNum;
-              const current = stepNum === currentStepNum;
-              const future = stepNum > currentStepNum;
+              {steps.map((step, i) => {
+                const stepNum = step.stepNumber;
+                const completed = stepNum < currentStepNum;
+                const current = stepNum === currentStepNum;
+                const future = stepNum > currentStepNum;
 
-              return (
-                <div key={step.id}
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, position: 'relative', zIndex: 1, cursor: isAdmin ? 'pointer' : 'default', padding: '4px 2px' }}>
-                  {/* Circle */}
-                  <div style={{
-                    width: 36, height: 36, borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
-                    background: completed ? 'var(--olive)' : current ? 'var(--surface)' : 'var(--surface)',
-                    border: `2px solid ${completed ? 'var(--olive)' : current ? 'var(--olive)' : 'var(--border)'}`,
-                    color: completed ? '#fff' : current ? 'var(--olive)' : 'var(--muted)',
-                    boxShadow: current ? '0 0 0 4px var(--olive-50)' : 'none',
-                  }}>
-                    {completed ? '✓' : stepNum}
-                  </div>
+                return (
+                  <div key={step.id}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, position: 'relative', zIndex: 1, cursor: isAdmin ? 'pointer' : 'default', padding: '4px 2px' }}>
+                    {/* Circle */}
+                    <div style={{
+                      width: 36, height: 36, borderRadius: '50%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, fontWeight: 700, transition: 'all 0.15s',
+                      background: completed ? 'var(--olive)' : current ? 'var(--surface)' : 'var(--surface)',
+                      border: `2px solid ${completed ? 'var(--olive)' : current ? 'var(--olive)' : 'var(--border)'}`,
+                      color: completed ? '#fff' : current ? 'var(--olive)' : 'var(--muted)',
+                      boxShadow: current ? '0 0 0 4px var(--olive-50)' : 'none',
+                    }}>
+                      {completed ? '✓' : stepNum}
+                    </div>
 
-                  {/* Pulse dot for current */}
-                  {current && (
-                    <span style={{
-                      position: 'absolute', top: 14,
-                      width: 8, height: 8, background: 'var(--olive)', borderRadius: '50%',
-                      animation: 'pulse 2s infinite',
-                    }} />
-                  )}
-
-                  {/* Label */}
-                  <div style={{
-                    fontSize: 11, textAlign: 'center', lineHeight: 1.3, maxWidth: 80,
-                    fontWeight: current ? 600 : 500,
-                    color: current ? 'var(--olive)' : completed ? 'var(--ink-2)' : 'var(--muted)',
-                  }}>
-                    {step.name}
-                    {durations[step.id] && (
-                      <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, fontStyle: 'italic', fontWeight: 400 }}>
-                        ⏱️ {durations[step.id]}
-                      </div>
+                    {/* Pulse dot for current */}
+                    {current && (
+                      <span style={{
+                        position: 'absolute', top: 14,
+                        width: 8, height: 8, background: 'var(--olive)', borderRadius: '50%',
+                        animation: 'pulse 2s infinite',
+                      }} />
                     )}
+
+                    {/* Label */}
+                    <div style={{
+                      fontSize: 11, textAlign: 'center', lineHeight: 1.3, maxWidth: 80,
+                      fontWeight: current ? 600 : 500,
+                      color: current ? 'var(--olive)' : completed ? 'var(--ink-2)' : 'var(--muted)',
+                    }}>
+                      {step.name}
+                      {durations[step.id] && (
+                        <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2, fontStyle: 'italic', fontWeight: 400 }}>
+                          ⏱️ {durations[step.id]}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {/* ── CLIENT ANALYTICS (CHARTS) ────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+        <div className="charts-grid">
           
           {/* Step Changes Over Time */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1373,7 +1360,7 @@ export default function ClientDetailPane({
         </div>
 
         {/* ── DETAIL GRID ─────────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '78fr 22fr' : '1fr', gap: 20 }}>
+        <div className="client-detail-grid" style={{ gridTemplateColumns: isAdmin ? undefined : '1fr' }}>
 
           {/* Current step tasks */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
@@ -1549,7 +1536,14 @@ export default function ClientDetailPane({
                                   disabled={!blockerNote || blockerMut.isPending}
                                   style={{ padding: '7px 12px', background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
                                 >
-                                  {blockerMut.isPending ? '...' : 'Raise'}
+                                  {blockerMut.isPending ? (
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                      <LoadingSpinner size={12} color="#fff" />
+                                      <span>Raising...</span>
+                                    </div>
+                                  ) : (
+                                    'Raise'
+                                  )}
                                 </button>
                                 <button
                                   onClick={() => { setBlockerTaskId(null); setBlockerNote(''); }}
@@ -1895,7 +1889,14 @@ export default function ClientDetailPane({
                   disabled={USE_MOCK ? false : (!moveToStepId || !moveReason || moveMutation.isPending)}
                   onClick={() => USE_MOCK ? setShowMoveStep(false) : moveMutation.mutate({ toStepId: moveToStepId, reasonNote: moveReason })}
                   style={{ padding: '8px 14px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--olive)', color: '#fff', cursor: 'pointer' }}>
-                  {moveMutation.isPending ? 'Moving…' : 'Move Client'}
+                  {moveMutation.isPending ? (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <LoadingSpinner size={12} color="#fff" />
+                      <span>Moving...</span>
+                    </div>
+                  ) : (
+                    'Move Client'
+                  )}
                 </button>
               </div>
             </div>
@@ -1939,7 +1940,14 @@ export default function ClientDetailPane({
                   disabled={!newStatus || !statusReason || statusMutation.isPending || newStatus === client.status}
                   onClick={() => statusMutation.mutate({ status: newStatus })}
                   style={{ padding: '8px 14px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--olive)', color: '#fff', cursor: (!newStatus || !statusReason || statusMutation.isPending || newStatus === client.status) ? 'not-allowed' : 'pointer', opacity: (!newStatus || !statusReason || statusMutation.isPending || newStatus === client.status) ? 0.5 : 1 }}>
-                  {statusMutation.isPending ? 'Updating…' : 'Update Status'}
+                  {statusMutation.isPending ? (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <LoadingSpinner size={12} color="#fff" />
+                      <span>Updating...</span>
+                    </div>
+                  ) : (
+                    'Update Status'
+                  )}
                 </button>
               </div>
             </div>
@@ -2061,7 +2069,14 @@ export default function ClientDetailPane({
                     opacity: addTaskMut.isPending || !addTaskForm.teamName || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId || !isClientTeamValid ? 0.5 : 1,
                   }}
                 >
-                  {addTaskMut.isPending ? 'Adding…' : 'Add Task'}
+                  {addTaskMut.isPending ? (
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <LoadingSpinner size={12} color="#fff" />
+                      <span>Adding...</span>
+                    </div>
+                  ) : (
+                    'Add Task'
+                  )}
                 </button>
               </div>
             </div>

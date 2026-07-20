@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
 import { useState } from 'react';
+import { ListSkeleton } from '@/components/ui/SkeletonLoader';
 import { format } from 'date-fns';
 import { Check, X, Info, UserPlus } from 'lucide-react';
 import { useFormDraft } from '@/lib/useFormDraft';
@@ -330,7 +331,7 @@ export default function OnboardingQueuePage() {
         {/* Applications list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {isLoading ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'var(--muted)' }}>Loading applications...</div>
+            <ListSkeleton count={4} />
           ) : filtered.length === 0 ? (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 48, textAlign: 'center' }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>

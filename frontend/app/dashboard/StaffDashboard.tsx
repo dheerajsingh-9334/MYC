@@ -34,6 +34,7 @@ import {
   Hand,
 } from 'lucide-react';
 import RaiseHandModal from '@/components/ui/RaiseHandModal';
+import { DashboardSkeleton } from '@/components/ui/SkeletonLoader';
 import {
   differenceInCalendarDays,
   format,
@@ -691,18 +692,7 @@ export default function StaffDashboard() {
     return (
       <AppLayout>
         <Topbar title="Dashboard" subtitle="Loading..." />
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 36, height: 36, border: '3px solid var(--border)', borderTopColor: 'var(--olive)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-            <div style={{ fontSize: 13, color: 'var(--muted)', fontWeight: 500 }}>Loading dashboard...</div>
-            <style>{`
-              @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-              }
-            `}</style>
-          </div>
-        </div>
+        <DashboardSkeleton />
       </AppLayout>
     );
   }
@@ -713,7 +703,7 @@ export default function StaffDashboard() {
         title="Dashboard"
         subtitle={`${user?.fullName || 'You'} · ${grouped.active.length} active · ${grouped.completed.length} completed`}
       />
-      <div style={{ padding: '16px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, boxSizing: 'border-box', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, boxSizing: 'border-box', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
 
         {/* Top metrics row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
@@ -798,7 +788,7 @@ export default function StaffDashboard() {
         </div>
 
         {/* Bottom Split Layout: 70% Tasks (Left) and 30% Calendar (Right) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '7fr 3fr', gap: 16, alignItems: 'stretch', flex: 1, minHeight: 0 }}>
+        <div className="dashboard-split-grid" style={{ alignItems: 'stretch', flex: 1, minHeight: 0 }}>
           
           {/* Left 70% Column */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>

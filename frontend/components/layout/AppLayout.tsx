@@ -35,6 +35,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar />
+      <div
+        className="sidebar-overlay"
+        onClick={() => {
+          if (typeof document !== 'undefined') {
+            document.body.classList.remove('sidebar-mobile-open');
+          }
+        }}
+      />
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflowY: 'auto' }}>
         {children}
       </main>

@@ -5,7 +5,7 @@ import { clearTokens, getUser } from '@/lib/api';
 import {
   LayoutDashboard, Sun, CheckSquare, Users, Settings,
   TrendingUp, LogOut, GitBranch, Shield, UserCheck,
-  FolderLock, Activity, BarChart3, Bell,
+  FolderLock, Activity, BarChart3, Bell, X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { USE_MOCK } from '@/lib/mockData';
@@ -55,6 +55,12 @@ export default function Sidebar() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.body.classList.remove('sidebar-mobile-open');
+    }
+  }, [pathname]);
+
   const handleLogout = () => {
     clearTokens();
     router.push('/login');
@@ -100,10 +106,10 @@ export default function Sidebar() {
   };
 
   return (
-    <aside style={{
+    <aside className="sidebar-container" style={{
       background: 'var(--surface)', borderRight: '1px solid var(--border)',
       padding: '0 0 20px 0', position: 'sticky', top: 0, height: '100vh',
-      display: 'flex', flexDirection: 'column', width: '240px', flexShrink: 0,
+      display: 'flex', flexDirection: 'column', width: 'var(--sidebar-w)', flexShrink: 0,
     }}>
       {/* Brand */}
       <div style={{
@@ -115,11 +121,32 @@ export default function Sidebar() {
         borderBottom: '1px solid var(--border)',
         marginBottom: 16,
         boxSizing: 'border-box',
+        justifyContent: 'space-between',
       }}>
-        <div style={{ width: 36, height: 36, background: 'var(--olive)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: 'Instrument Serif, serif', letterSpacing: '0.5px' }}>M</div>
-        <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 19, color: 'var(--ink)', letterSpacing: '0.3px' }}>
-          My<span style={{ color: 'var(--olive)', fontStyle: 'italic' }}>C</span>Ops
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 36, height: 36, background: 'var(--olive)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: 'Instrument Serif, serif', letterSpacing: '0.5px' }}>M</div>
+          <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 19, color: 'var(--ink)', letterSpacing: '0.3px' }}>
+            My<span style={{ color: 'var(--olive)', fontStyle: 'italic' }}>C</span>Ops
+          </div>
         </div>
+        <button
+          className="mobile-sidebar-close"
+          onClick={() => {
+            if (typeof document !== 'undefined') {
+              document.body.classList.remove('sidebar-mobile-open');
+            }
+          }}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--muted)',
+            cursor: 'pointer',
+            padding: 4,
+            display: 'none',
+          }}
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {/* Role context banner (for non-admin) */}

@@ -7,6 +7,7 @@ import Topbar from '@/components/layout/Topbar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X, Plus, Trash2, Settings, ChevronRight, Briefcase, Search, Clock, Shield } from 'lucide-react';
+import { Skeleton, PulseStyle } from '@/components/ui/SkeletonLoader';
 
 type Template = {
   id?: string;
@@ -153,7 +154,18 @@ export default function StepConfigPage() {
             }}
           >
             {loadingClients ? (
-              <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Loading clients...</div>
+              <div style={{ padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <PulseStyle />
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Skeleton height={32} width={32} borderRadius={8} />
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <Skeleton height={14} width="70%" />
+                      <Skeleton height={10} width="40%" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : scrollableClients.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No clients match.</div>
             ) : (
@@ -620,8 +632,34 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
 
         {/* Steps List */}
         {loadingSteps ? (
-          <div style={{ textAlign: 'center', padding: 20, color: 'var(--muted)', fontSize: 13 }}>
-            Loading steps...
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <PulseStyle />
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  padding: 14,
+                  background: 'var(--surface-2)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '60%' }}>
+                    <Skeleton height={20} width={24} borderRadius={4} />
+                    <Skeleton height={16} width="80%" />
+                  </div>
+                  <Skeleton height={24} width={50} borderRadius={4} />
+                </div>
+                <div style={{ display: 'flex', gap: 16 }}>
+                  <Skeleton height={12} width={120} />
+                  <Skeleton height={12} width={80} />
+                </div>
+              </div>
+            ))}
           </div>
         ) : clientSteps.length === 0 ? (
           <div

@@ -8,6 +8,7 @@ import SectionCard from '@/components/ui/SectionCard';
 import { apiFetch, getUser } from '@/lib/api';
 import { USE_MOCK, MOCK_TASKS, MOCK_TEAM, MOCK_CLIENTS } from '@/lib/mockData';
 import { TrendingUp, Users, Target, Clock, ArrowRight, Sparkles } from 'lucide-react';
+import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 
 export default function PerformancePage() {
   const [user, setUser] = useState<any>(null);
@@ -28,17 +29,19 @@ export default function PerformancePage() {
     }).catch(err => console.error('Failed to refresh user:', err));
   }, []);
 
-  const { data: liveTasks = [] } = useQuery<any[]>({
+  const { data: liveTasks = [], isLoading: loadingTasks } = useQuery<any[]>({
     queryKey: ['tasks'],
     queryFn: () => apiFetch('/api/tasks'),
     enabled: !USE_MOCK,
   });
 
-  const { data: liveClients = [] } = useQuery<any[]>({
+  const { data: liveClients = [], isLoading: loadingClients } = useQuery<any[]>({
     queryKey: ['clients'],
     queryFn: () => apiFetch('/api/clients'),
     enabled: !USE_MOCK,
   });
+
+  const isLoading = !USE_MOCK && (loadingTasks || loadingClients);
 
   const tasksList = useMemo(() => {
     // If USE_MOCK is false, only use liveTasks if they actually contain completed items to keep analytics populated
@@ -197,11 +200,20 @@ export default function PerformancePage() {
     };
   }, [clientsList]);
 
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <Topbar title="Performance Analytics" subtitle="Standard cycle-time, team efficiency, and client timelines" />
+        <TableSkeleton columnsCount={4} rowsCount={8} hasBulkActions={false} />
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <Topbar title="Performance Analytics" subtitle="Standard cycle-time, team efficiency, and client timelines" />
       
-      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
         
         {/* KPI Row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>

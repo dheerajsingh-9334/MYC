@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch, getUser } from '@/lib/api';
 import { User, Phone, Lock, Check, AlertCircle, X } from 'lucide-react';
 import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 
 interface ProfileModalProps {
@@ -178,8 +179,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
           <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
             {isLoading ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: 12, color: 'var(--muted)' }}>
-                <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: 'var(--olive)', animation: 'spin 1s linear infinite' }} />
-                <span style={{ fontSize: 13, fontWeight: 500 }}>Loading profile data...</span>
+                <LoadingSpinner size={24} color="var(--olive)" label="Loading profile data..." />
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -347,7 +347,14 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
                 className="btn-primary"
                 style={{ opacity: updateMut.isPending ? 0.75 : 1 }}
               >
-                {updateMut.isPending ? 'Saving changes...' : 'Save Settings'}
+                {updateMut.isPending ? (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <LoadingSpinner size={12} color="#fff" />
+                    <span>Saving changes...</span>
+                  </div>
+                ) : (
+                  'Save Settings'
+                )}
               </button>
             </div>
           )}
