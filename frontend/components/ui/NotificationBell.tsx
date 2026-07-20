@@ -19,15 +19,15 @@ const TYPE_ICONS: Record<string, string> = {
 };
 
 const TYPE_BG: Record<string, string> = {
-  task_assigned:         '#f0f9f0',
-  task_overdue:          '#fff8f0',
-  task_completed:        '#e8f5ee',
-  blocker_raised:        '#fff0f0',
-  step_advanced:         '#f0f4ff',
-  extension_request:     '#fffbf0',
-  client_status_changed: '#f5f0ff',
-  notif_alert:           '#fff0f0',
-  highlight_broadcast:   '#fffde6',
+  task_assigned:         'var(--green-bg)',
+  task_overdue:          'var(--amber-bg)',
+  task_completed:        'var(--green-bg)',
+  blocker_raised:        'var(--red-bg)',
+  step_advanced:         'var(--blue-bg, var(--surface-2))',
+  extension_request:     'var(--amber-bg)',
+  client_status_changed: 'var(--surface-2)',
+  notif_alert:           'var(--red-bg)',
+  highlight_broadcast:   'var(--amber-bg)',
 };
 
 export default function NotificationBell() {

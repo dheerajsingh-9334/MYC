@@ -22,7 +22,7 @@ import ActionDropdown from '@/components/ui/ActionDropdown';
 import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
 import RaiseHandModal from '@/components/ui/RaiseHandModal';
 import { TableSkeleton } from '@/components/ui/SkeletonLoader';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { LoadingSpinner, BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 const AUTO_REFRESH_MS = 30_000;
 const PAGE_SIZE = 15;
@@ -119,6 +119,7 @@ export default function TasksPage() {
     assignedToId: '',
   });
   const [addTaskError, setAddTaskError] = useState('');
+  const [addTaskFieldErrors, setAddTaskFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!USE_MOCK) setUser(getUser());
@@ -188,6 +189,7 @@ export default function TasksPage() {
       setShowAddTask(false);
       setAddTaskForm({ clientId: '', stepId: '', teamName: '', title: '', description: '', priority: 'normal', dueDate: '', assignedToId: '' });
       setAddTaskError('');
+      setAddTaskFieldErrors({});
     },
     onError: (e: any) => setAddTaskError(e.message || 'Failed to create task'),
   });
@@ -204,10 +206,17 @@ export default function TasksPage() {
   });
 
   const addTaskTeamOptions = useMemo(() => {
+    // If a client is selected, restrict to teams that own steps in their pipeline
+    if (addTaskForm.clientId && (addTaskClientSteps as any[]).length > 0) {
+      const pipelineTeams = new Set<string>();
+      (addTaskClientSteps as any[]).forEach((s) => { if (s.owningTeamName) pipelineTeams.add(s.owningTeamName); });
+      return Array.from(pipelineTeams).sort();
+    }
+    // Fallback: all active teams from users
     const set = new Set<string>();
     (liveUsers as any[]).forEach((u) => { if (u.teamName && u.isActive !== false) set.add(u.teamName); });
     return Array.from(set).sort();
-  }, [liveUsers]);
+  }, [liveUsers, addTaskForm.clientId, addTaskClientSteps]);
 
   const addTaskAssignees = useMemo(() => {
     if (!addTaskForm.teamName) return liveUsers as any[];
@@ -879,7 +888,9 @@ export default function TasksPage() {
                 onClick={() => { deleteTaskMut.mutate(deleteConfirm.id); setDeleteConfirm(null); }}
                 disabled={deleteTaskMut.isPending}
                 style={{ padding: '8px 18px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: '#dc2626', color: '#fff', cursor: 'pointer', opacity: deleteTaskMut.isPending ? 0.7 : 1 }}>
-                {deleteTaskMut.isPending ? 'Deleting…' : 'Delete Task'}
+                {deleteTaskMut.isPending ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Deleting…</span>
+                ) : 'Delete Task'}
               </button>
             </div>
           </div>
@@ -1010,7 +1021,9 @@ export default function TasksPage() {
               <button onClick={() => rejectMut.mutate({ id: rejectTaskId, note: rejectionNote })}
                 disabled={!rejectionNote || rejectMut.isPending}
                 style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: '#B0436A', color: '#fff', cursor: !rejectionNote ? 'not-allowed' : 'pointer', opacity: !rejectionNote ? 0.5 : 1 }}>
-                {rejectMut.isPending ? 'Sending…' : 'Send back'}
+                {rejectMut.isPending ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Sending…</span>
+                ) : 'Send back'}
               </button>
             </div>
           </div>
@@ -1045,7 +1058,9 @@ export default function TasksPage() {
               <button onClick={() => blockMut.mutate({ id: blockerTaskId, note: blockerNote })}
                 disabled={!blockerNote || blockMut.isPending}
                 style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: !blockerNote ? 'not-allowed' : 'pointer', opacity: !blockerNote ? 0.5 : 1 }}>
-                {blockMut.isPending ? 'Submitting…' : 'Submit Blocker'}
+                {blockMut.isPending ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Submitting…</span>
+                ) : 'Submit Blocker'}
               </button>
             </div>
           </div>
@@ -1089,7 +1104,9 @@ export default function TasksPage() {
               <button onClick={() => extendMut.mutate({ id: extendTaskId, date: extensionDate, reason: extensionReason })}
                 disabled={!extensionDate || !extensionReason || extendMut.isPending}
                 style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: (!extensionDate || !extensionReason) ? 'not-allowed' : 'pointer', opacity: (!extensionDate || !extensionReason) ? 0.5 : 1 }}>
-                {extendMut.isPending ? 'Submitting…' : 'Submit Request'}
+                {extendMut.isPending ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Submitting…</span>
+                ) : 'Submit Request'}
               </button>
             </div>
           </div>
@@ -1097,7 +1114,7 @@ export default function TasksPage() {
       )}
       {showAddTask && isAdmin && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
-          onClick={(e) => { if (e.target === e.currentTarget) setShowAddTask(false); }}>
+          onClick={(e) => { if (e.target === e.currentTarget) { setShowAddTask(false); setAddTaskFieldErrors({}); setAddTaskError(''); } }}>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 500, boxShadow: 'var(--shadow-lg)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {/* Modal header */}
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
@@ -1110,13 +1127,21 @@ export default function TasksPage() {
             {/* Modal body */}
             <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
               <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Project / Client *</label>
-                <select value={addTaskForm.clientId} onChange={(e) => setAddTaskForm(f => ({ ...f, clientId: e.target.value, stepId: '', teamName: '', assignedToId: '' }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: addTaskFieldErrors.clientId ? 'var(--red)' : 'var(--ink-2)', marginBottom: 5 }}>Project / Client *</label>
+                <select
+                  value={addTaskForm.clientId}
+                  onChange={(e) => {
+                    setAddTaskForm(f => ({ ...f, clientId: e.target.value, stepId: '', teamName: '', assignedToId: '' }));
+                    setAddTaskFieldErrors(fe => ({ ...fe, clientId: '' }));
+                  }}
+                  style={{ width: '100%', padding: '9px 12px', border: `1px solid ${addTaskFieldErrors.clientId ? 'var(--red)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: addTaskFieldErrors.clientId ? 'var(--red-bg)' : 'var(--surface)', outline: 'none' }}
+                >
                   <option value="">Select project / client...</option>
                   {liveClients.map((c: any) => (
                     <option key={c.id} value={c.id}>{c.brandName || c.fullName}</option>
                   ))}
                 </select>
+                {addTaskFieldErrors.clientId && <span style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4, display: 'block' }}>⚠ {addTaskFieldErrors.clientId}</span>}
               </div>
 
               {addTaskForm.clientId && (
@@ -1141,28 +1166,35 @@ export default function TasksPage() {
               )}
 
               <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Task Title *</label>
-                <input value={addTaskForm.title} onChange={(e) => setAddTaskForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Write Facebook Ad Copy" style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: addTaskFieldErrors.title ? 'var(--red)' : 'var(--ink-2)', marginBottom: 5 }}>Task Title *</label>
+                <input
+                  value={addTaskForm.title}
+                  onChange={(e) => { setAddTaskForm(f => ({ ...f, title: e.target.value })); setAddTaskFieldErrors(fe => ({ ...fe, title: '' })); }}
+                  placeholder="e.g. Write Facebook Ad Copy"
+                  style={{ width: '100%', padding: '9px 12px', border: `1px solid ${addTaskFieldErrors.title ? 'var(--red)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: addTaskFieldErrors.title ? 'var(--red-bg)' : 'var(--surface)', outline: 'none' }}
+                />
+                {addTaskFieldErrors.title && <span style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4, display: 'block' }}>⚠ {addTaskFieldErrors.title}</span>}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 12 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Team *</label>
-                  <select value={addTaskForm.teamName} onChange={(e) => {
-                    const teamVal = e.target.value;
-                    const matchedStep = (addTaskClientSteps as any[]).find(
-                      (s: any) => s.owningTeamName.toLowerCase() === teamVal.toLowerCase()
-                    );
-                    setAddTaskForm(f => ({
-                      ...f,
-                      teamName: teamVal,
-                      assignedToId: '',
-                      stepId: matchedStep ? matchedStep.id : f.stepId
-                    }));
-                  }} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: addTaskFieldErrors.teamName ? 'var(--red)' : 'var(--ink-2)', marginBottom: 5 }}>Team *</label>
+                  <select
+                    value={addTaskForm.teamName}
+                    onChange={(e) => {
+                      const teamVal = e.target.value;
+                      const matchedStep = (addTaskClientSteps as any[]).find(
+                        (s: any) => s.owningTeamName.toLowerCase() === teamVal.toLowerCase()
+                      );
+                      setAddTaskForm(f => ({ ...f, teamName: teamVal, assignedToId: '', stepId: matchedStep ? matchedStep.id : f.stepId }));
+                      setAddTaskFieldErrors(fe => ({ ...fe, teamName: '' }));
+                    }}
+                    style={{ width: '100%', padding: '9px 12px', border: `1px solid ${addTaskFieldErrors.teamName ? 'var(--red)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: addTaskFieldErrors.teamName ? 'var(--red-bg)' : 'var(--surface)', outline: 'none' }}
+                  >
                     <option value="">Select team...</option>
                     {addTaskTeamOptions.map((t: string) => <option key={t} value={t}>{t}</option>)}
                   </select>
+                  {addTaskFieldErrors.teamName && <span style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4, display: 'block' }}>⚠ {addTaskFieldErrors.teamName}</span>}
                   {addTaskForm.clientId && addTaskForm.teamName && !isClientTeamValid && (
                     <div style={{ color: 'var(--red)', fontSize: 11, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
                       <AlertCircle size={13} style={{ flexShrink: 0 }} />
@@ -1171,11 +1203,16 @@ export default function TasksPage() {
                   )}
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Assignee *</label>
-                  <select value={addTaskForm.assignedToId} onChange={(e) => setAddTaskForm(f => ({ ...f, assignedToId: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: addTaskFieldErrors.assignedToId ? 'var(--red)' : 'var(--ink-2)', marginBottom: 5 }}>Assignee *</label>
+                  <select
+                    value={addTaskForm.assignedToId}
+                    onChange={(e) => { setAddTaskForm(f => ({ ...f, assignedToId: e.target.value })); setAddTaskFieldErrors(fe => ({ ...fe, assignedToId: '' })); }}
+                    style={{ width: '100%', padding: '9px 12px', border: `1px solid ${addTaskFieldErrors.assignedToId ? 'var(--red)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: addTaskFieldErrors.assignedToId ? 'var(--red-bg)' : 'var(--surface)', outline: 'none' }}
+                  >
                     <option value="">Select assignee...</option>
                     {addTaskAssignees.map((u: any) => <option key={u.id} value={u.id}>{u.fullName}</option>)}
                   </select>
+                  {addTaskFieldErrors.assignedToId && <span style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4, display: 'block' }}>⚠ {addTaskFieldErrors.assignedToId}</span>}
                 </div>
               </div>
 
@@ -1189,7 +1226,25 @@ export default function TasksPage() {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Due Date *</label>
-                  <input type="date" value={addTaskForm.dueDate} onChange={(e) => setAddTaskForm(f => ({ ...f, dueDate: e.target.value }))} style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }} />
+                  <input
+                    type="date"
+                    value={addTaskForm.dueDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => { setAddTaskForm(f => ({ ...f, dueDate: e.target.value })); setAddTaskFieldErrors(fe => ({ ...fe, dueDate: '' })); }}
+                    style={{
+                      width: '100%', padding: '9px 12px',
+                      border: `1px solid ${(addTaskFieldErrors.dueDate || (addTaskForm.dueDate && addTaskForm.dueDate < new Date().toISOString().split('T')[0])) ? 'var(--red)' : 'var(--border)'}`,
+                      borderRadius: 'var(--radius-sm)', fontSize: 13.5,
+                      color: 'var(--ink)',
+                      background: (addTaskFieldErrors.dueDate || (addTaskForm.dueDate && addTaskForm.dueDate < new Date().toISOString().split('T')[0])) ? 'var(--red-bg)' : 'var(--surface)',
+                      outline: 'none',
+                    }}
+                  />
+                  {(addTaskFieldErrors.dueDate || (addTaskForm.dueDate && addTaskForm.dueDate < new Date().toISOString().split('T')[0])) && (
+                    <span style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4, display: 'block' }}>
+                      ⚠ {addTaskFieldErrors.dueDate || 'Due date cannot be in the past'}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1202,10 +1257,30 @@ export default function TasksPage() {
             </div>
             {/* Modal footer */}
             <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
-              <button onClick={() => setShowAddTask(false)} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
-              <button onClick={() => { setAddTaskError(''); addTaskMut.mutate(); }} disabled={addTaskMut.isPending || !addTaskForm.clientId || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId || !isClientTeamValid}
-                style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (addTaskMut.isPending || !addTaskForm.clientId || !addTaskForm.title.trim() || !addTaskForm.dueDate || !addTaskForm.assignedToId || !isClientTeamValid) ? 0.6 : 1 }}>
-                {addTaskMut.isPending ? 'Adding…' : 'Add Task'}
+              <button onClick={() => { setShowAddTask(false); setAddTaskFieldErrors({}); setAddTaskError(''); }} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
+              <button onClick={() => {
+                const today = new Date().toISOString().split('T')[0];
+                // Per-field validation
+                const fieldErrs: Record<string, string> = {};
+                if (!addTaskForm.clientId) fieldErrs.clientId = 'Please select a client / project';
+                if (!addTaskForm.title.trim()) fieldErrs.title = 'Task title is required';
+                if (!addTaskForm.teamName) fieldErrs.teamName = 'Please select a team';
+                if (!addTaskForm.assignedToId) fieldErrs.assignedToId = 'Please select an assignee';
+                if (!addTaskForm.dueDate) fieldErrs.dueDate = 'Due date is required';
+                else if (addTaskForm.dueDate < today) fieldErrs.dueDate = 'Due date cannot be in the past';
+                if (Object.keys(fieldErrs).length > 0) {
+                  setAddTaskFieldErrors(fieldErrs);
+                  setAddTaskError('Please fill in all required fields before submitting.');
+                  return;
+                }
+                setAddTaskFieldErrors({});
+                setAddTaskError('');
+                addTaskMut.mutate();
+              }} disabled={addTaskMut.isPending}
+                style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: addTaskMut.isPending ? 'not-allowed' : 'pointer', opacity: addTaskMut.isPending ? 0.7 : 1 }}>
+                {addTaskMut.isPending ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Adding…</span>
+                ) : 'Add Task'}
               </button>
             </div>
           </div>

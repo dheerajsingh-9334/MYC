@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { User, Phone, Lock, Calendar, Shield, Users, Check, AlertCircle, BarChart2 } from 'lucide-react';
 import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
 import { FormSkeleton } from '@/components/ui/SkeletonLoader';
+import { BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 
 const GRADIENTS = [
@@ -294,7 +295,9 @@ export default function ProfilePage() {
                   className="btn-primary"
                   style={{ opacity: updateMut.isPending ? 0.75 : 1 }}
                 >
-                  {updateMut.isPending ? 'Saving changes...' : 'Save Settings'}
+                  {updateMut.isPending ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Saving changes...</span>
+                  ) : 'Save Settings'}
                 </button>
               </div>
 

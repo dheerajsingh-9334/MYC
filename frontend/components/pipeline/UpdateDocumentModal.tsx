@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X } from 'lucide-react';
+import { BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 interface Props {
   open: boolean;
@@ -151,7 +152,9 @@ export default function UpdateDocumentModal({ open, onClose, onSuccess, doc }: P
             disabled={mutation.isPending || !form.title.trim() || (isDrive && !form.driveUrl?.trim())}
             style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (mutation.isPending || !form.title.trim() || (isDrive && !form.driveUrl?.trim())) ? 0.6 : 1 }}
           >
-            {mutation.isPending ? 'Updating...' : 'Update Document'}
+            {mutation.isPending ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Updating...</span>
+            ) : 'Update Document'}
           </button>
         </div>
       </div>

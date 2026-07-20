@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { useFormDraft } from '@/lib/useFormDraft';
 import { X } from 'lucide-react';
 import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
+import { BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 
 interface Props {
@@ -24,6 +25,7 @@ export default function AddClientModal({ open, onClose, onSuccess }: Props) {
   const form = draft.data;
   const setForm = draft.setData;
   const [phoneError, setPhoneError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
 
   const mutation = useMutation({
@@ -41,6 +43,8 @@ export default function AddClientModal({ open, onClose, onSuccess }: Props) {
     },
     onSuccess: async () => {
       await draft.clear();
+      setFieldErrors({});
+      setPhoneError('');
       onSuccess();
       onClose();
     },
@@ -75,10 +79,15 @@ export default function AddClientModal({ open, onClose, onSuccess }: Props) {
         <div style={{ padding: '20px 24px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Coach Name *</label>
-              <input className="form-input" value={form.fullName} onChange={e => setForm(f => ({ ...f, fullName: e.target.value }))} placeholder="e.g. Priya Sharma"
-                style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: fieldErrors.fullName ? 'var(--red)' : 'var(--ink-2)', marginBottom: 5 }}>Coach Name *</label>
+              <input
+                className="form-input"
+                value={form.fullName}
+                onChange={e => { setForm(f => ({ ...f, fullName: e.target.value })); setFieldErrors(fe => ({ ...fe, fullName: '' })); }}
+                placeholder="e.g. Priya Sharma"
+                style={{ width: '100%', padding: '9px 12px', border: `1px solid ${fieldErrors.fullName ? 'var(--red)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: fieldErrors.fullName ? 'var(--red-bg)' : 'var(--surface)', outline: 'none' }}
               />
+              {fieldErrors.fullName && <span style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4, display: 'block' }}>⚠ {fieldErrors.fullName}</span>}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Brand Name</label>
@@ -89,10 +98,15 @@ export default function AddClientModal({ open, onClose, onSuccess }: Props) {
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Email</label>
-              <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="priya@coaching.com"
-                style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: fieldErrors.email ? 'var(--red)' : 'var(--ink-2)', marginBottom: 5 }}>Email</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={e => { setForm(f => ({ ...f, email: e.target.value })); setFieldErrors(fe => ({ ...fe, email: '' })); }}
+                placeholder="priya@coaching.com"
+                style={{ width: '100%', padding: '9px 12px', border: `1px solid ${fieldErrors.email ? 'var(--red)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: fieldErrors.email ? 'var(--red-bg)' : 'var(--surface)', outline: 'none' }}
               />
+              {fieldErrors.email && <span style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4, display: 'block' }}>⚠ {fieldErrors.email}</span>}
             </div>
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>WhatsApp</label>
@@ -132,17 +146,24 @@ export default function AddClientModal({ open, onClose, onSuccess }: Props) {
           </button>
           <button
             onClick={() => {
+              const errs: Record<string, string> = {};
+              if (!form.fullName.trim()) errs.fullName = 'Coach name is required';
+              if (form.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) errs.email = 'Please enter a valid email address';
               if (form.whatsappNumber && !isValidPhone(form.whatsappNumber)) {
                 setPhoneError('Invalid WhatsApp number. Must be 7 to 15 digits.');
-                return;
+              } else {
+                setPhoneError('');
               }
-              setPhoneError('');
+              if (Object.keys(errs).length > 0) { setFieldErrors(errs); return; }
+              setFieldErrors({});
               mutation.mutate(form);
             }}
             disabled={mutation.isPending || !form.fullName}
             style={{ padding: '8px 14px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: mutation.isPending || !form.fullName ? 'var(--soft)' : 'var(--olive)', color: '#fff', cursor: mutation.isPending || !form.fullName ? 'not-allowed' : 'pointer' }}
           >
-            {mutation.isPending ? 'Adding...' : 'Add & Start Pipeline'}
+            {mutation.isPending ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Adding...</span>
+            ) : 'Add & Start Pipeline'}
           </button>
 
         </div>

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X } from 'lucide-react';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { LoadingSpinner, BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 interface Props {
   open: boolean;
@@ -229,7 +229,9 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users 
             disabled={mutation.isPending || !form.title.trim() || !form.dueDate || !form.assignedToId}
             style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (mutation.isPending || !form.title.trim() || !form.dueDate || !form.assignedToId) ? 0.6 : 1 }}
           >
-            {mutation.isPending ? 'Updating...' : 'Update Task'}
+            {mutation.isPending ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Updating...</span>
+            ) : 'Update Task'}
           </button>
         </div>
       </div>

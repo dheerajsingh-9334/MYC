@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X } from 'lucide-react';
 import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { LoadingSpinner, BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 
 interface Props {
@@ -151,7 +151,9 @@ export default function UpdateClientModal({ open, onClose, onSuccess, client }: 
             disabled={mutation.isPending || !form.fullName}
             style={{ padding: '8px 14px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: mutation.isPending || !form.fullName ? 'var(--soft)' : 'var(--olive)', color: '#fff', cursor: mutation.isPending || !form.fullName ? 'not-allowed' : 'pointer' }}
           >
-            {mutation.isPending ? 'Updating...' : 'Update Client'}
+            {mutation.isPending ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Updating...</span>
+            ) : 'Update Client'}
           </button>
 
         </div>

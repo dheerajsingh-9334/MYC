@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { Check, X, Info, UserPlus } from 'lucide-react';
 import { useFormDraft } from '@/lib/useFormDraft';
 import { useViewPreference } from '@/lib/useViewPreference';
+import { BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 // ─── helpers ────────────────────────────────────────────────────
 const appStatusStyle: Record<string, { bg: string; color: string; label: string }> = {
@@ -84,7 +85,9 @@ function InviteModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
                 <button onClick={onClose} style={{ flex: 1, padding: '9px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
                 <button onClick={() => mutation.mutate(form)} disabled={!form.sentToName || mutation.isPending}
                   style={{ flex: 2, padding: '9px', background: !form.sentToName ? 'var(--soft)' : 'var(--olive)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: !form.sentToName ? 'not-allowed' : 'pointer' }}>
-                  {mutation.isPending ? 'Generating link...' : 'Generate invite link'}
+                  {mutation.isPending ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Generating...</span>
+                  ) : 'Generate invite link'}
                 </button>
               </div>
 
@@ -110,7 +113,9 @@ function InviteModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-100)'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive-50)'; }}
                 >
-                  {mutation.isPending ? 'Generating magic link...' : 'Generate Magic Link (Client fills details)'}
+                  {mutation.isPending ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner color="var(--olive-dark)" /> Generating...</span>
+                  ) : 'Generate Magic Link (Client fills details)'}
                 </button>
               </div>
             </>
@@ -216,7 +221,9 @@ function ApplicationRow({ app, onAction }: { app: any; onAction: () => void }) {
               <button onClick={() => approveMut.mutate()}
                 disabled={approveMut.isPending}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-                <Check size={14} /> {approveMut.isPending ? 'Approving...' : 'Approve & start pipeline'}
+                <Check size={14} /> {approveMut.isPending ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Approving...</span>
+                ) : 'Approve & start pipeline'}
               </button>
               <button onClick={() => setShowNote(showNote === 'info' ? null : 'info')}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--blue-bg)', color: 'var(--blue)', border: '1px solid #B0C8E0', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
@@ -234,7 +241,11 @@ function ApplicationRow({ app, onAction }: { app: any; onAction: () => void }) {
                   <button onClick={() => showNote === 'reject' ? rejectMut.mutate() : infoMut.mutate()}
                     disabled={!reviewNote || rejectMut.isPending || infoMut.isPending}
                     style={{ marginTop: 8, padding: '7px 14px', background: showNote === 'reject' ? 'var(--red)' : 'var(--blue)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: !reviewNote ? 'not-allowed' : 'pointer', opacity: !reviewNote ? 0.6 : 1 }}>
-                    {showNote === 'reject' ? (rejectMut.isPending ? 'Rejecting...' : 'Confirm reject') : (infoMut.isPending ? 'Sending...' : 'Send request')}
+                    {showNote === 'reject' ? (
+                      rejectMut.isPending ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Rejecting...</span> : 'Confirm reject'
+                    ) : (
+                      infoMut.isPending ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Sending...</span> : 'Send request'
+                    )}
                   </button>
                 </div>
               )}

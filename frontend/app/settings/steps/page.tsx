@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X, Plus, Trash2, Settings, ChevronRight, Briefcase, Search, Clock, Shield } from 'lucide-react';
 import { Skeleton, PulseStyle } from '@/components/ui/SkeletonLoader';
+import { BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 type Template = {
   id?: string;
@@ -624,7 +625,9 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                   opacity: addStepMutation.isPending || !inlineAddForm.name || !inlineAddForm.owningTeamName ? 0.6 : 1,
                 }}
               >
-                {addStepMutation.isPending ? 'Adding...' : 'Add'}
+                {addStepMutation.isPending ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><BtnSpinner size={11} /> Adding...</span>
+                ) : 'Add'}
               </button>
             </div>
           </div>
@@ -960,7 +963,9 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                           opacity: editStepMutation.isPending || !inlineEditForm.name || !inlineEditForm.owningTeamName ? 0.6 : 1,
                         }}
                       >
-                        {editStepMutation.isPending ? 'Saving...' : 'Save'}
+                        {editStepMutation.isPending ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><BtnSpinner size={11} /> Saving...</span>
+                        ) : 'Save'}
                       </button>
                     </div>
                   </div>

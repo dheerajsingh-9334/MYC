@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X } from 'lucide-react';
 import { isValidPhone, sanitizePhoneInput } from '@/lib/validation';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { LoadingSpinner, BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 
 interface Props {
@@ -185,7 +185,9 @@ export default function UpdateTeamMemberModal({ open, onClose, onSuccess, member
             style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (mutation.isPending || !form.fullName) ? 0.6 : 1 }}
           >
 
-            {mutation.isPending ? 'Updating...' : 'Update Member'}
+            {mutation.isPending ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Updating...</span>
+            ) : 'Update Member'}
           </button>
         </div>
       </div>

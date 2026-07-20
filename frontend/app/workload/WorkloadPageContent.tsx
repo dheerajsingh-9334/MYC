@@ -17,7 +17,7 @@ import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 import { deriveSparkline } from '@/lib/sparkline';
 
 const TEAMS = ['Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 'Account Manager', 'Content Team'];
-
+import { BtnSpinner } from '@/components/ui/LoadingSpinner';
 interface AdminData {
   orgStats: {
     totalClients: number; activeClients: number; completedClients: number;
@@ -1168,7 +1168,9 @@ export default function AdminDashboard() {
                           fontSize: 11.5, fontWeight: 600, color: 'var(--ink-2)', cursor: 'pointer'
                         }}
                       >
-                        {clearNotifsMut.isPending ? 'Clearing...' : 'Clear All'}
+                        {clearNotifsMut.isPending ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><BtnSpinner size={11} /> Clearing...</span>
+                        ) : 'Clear All'}
                       </button>
                     </div>
 

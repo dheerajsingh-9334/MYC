@@ -15,6 +15,7 @@ import SectionCard from '@/components/ui/SectionCard';
 import { deriveSparkline } from '@/lib/sparkline';
 import { SVGLineChart, SVGFunnelChart } from '@/components/ui/Charts';
 import { TableSkeleton } from '@/components/ui/SkeletonLoader';
+import { BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 interface AdminData {
   orgStats: {
@@ -524,7 +525,9 @@ export default function NotificationsPageContent() {
                           fontSize: 11.5, fontWeight: 600, color: 'var(--ink-2)', cursor: 'pointer'
                         }}
                       >
-                        {clearNotifsMut.isPending ? 'Clearing...' : 'Clear All'}
+                        {clearNotifsMut.isPending ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><BtnSpinner size={11} /> Clearing...</span>
+                        ) : 'Clear All'}
                       </button>
                     </div>
 
