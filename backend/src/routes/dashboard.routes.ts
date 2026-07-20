@@ -87,23 +87,26 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       tasks,
       users,
       steps,
-      recentCompletions,
       completedClientsList,
       allClientsList,
       histories,
+      dashboardClientList,
     ] = await Promise.all([
       prisma.client.count({ where: clientFilter }),
       prisma.client.count({ where: activeClientFilter }),
       prisma.client.count({ where: completedClientFilter }),
+      // Tasks with all fields needed for rollup AND recentCompletions log (no separate query)
       prisma.task.findMany({
         where: taskFilter,
         select: {
-          id: true, title: true, status: true, priority: true, dueDate: true, completedAt: true,
-          assignedToId: true, stepId: true,
+          id: true, title: true, status: true, priority: true, dueDate: true,
+          completedAt: true, createdAt: true, inProgressAt: true,
+          assignedToId: true, stepId: true, clientId: true,
           extensionRequestedDate: true, extensionReason: true,
           assignedTo: { select: { id: true, fullName: true, teamName: true, role: true } },
           step: { select: { id: true, name: true, owningTeamName: true, stepNumber: true } },
           client: { select: { id: true, brandName: true, fullName: true } },
+          completedBy: { select: { fullName: true } },
         },
       }),
       prisma.user.findMany({
@@ -114,31 +117,39 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         where: { organisationId: orgId, clientId: null, isActive: true },
         select: { id: true, name: true, stepNumber: true, owningTeamName: true },
       }),
-      prisma.task.findMany({
-        where: taskFilter,
-        orderBy: { createdAt: 'desc' },
-        take: 100,
-        include: {
-          assignedTo: { select: { fullName: true } },
-          client: { select: { brandName: true, fullName: true } },
-          step: { select: { name: true, owningTeamName: true } },
-          completedBy: { select: { fullName: true } },
-        },
-      }),
+      // Completed clients — only fields needed for avgCompletionTime calculation
       prisma.client.findMany({
         where: completedClientFilter,
-        include: { stepHistory: { orderBy: { createdAt: 'desc' }, take: 1 } },
+        select: {
+          id: true, createdAt: true, dateJoined: true,
+          stepHistory: { select: { createdAt: true }, orderBy: { createdAt: 'desc' }, take: 1 },
+        },
       }),
+      // All clients — only fields needed for step-stay duration calculations
       prisma.client.findMany({
         where: clientFilter,
+        select: { id: true, dateJoined: true, createdAt: true, status: true },
       }),
       prisma.stepHistory.findMany({
         where: stepHistoryFilter,
-        include: {
+        select: {
+          clientId: true, createdAt: true,
           fromStep: { select: { stepNumber: true } },
           toStep: { select: { stepNumber: true } },
         },
         orderBy: { createdAt: 'asc' },
+      }),
+      // Lightweight client list for dashboard display panels (client risk, charts, attention)
+      prisma.client.findMany({
+        where: clientFilter,
+        select: {
+          id: true, fullName: true, brandName: true, status: true,
+          stepEnteredAt: true, dateJoined: true, createdAt: true,
+          currentStep: {
+            select: { id: true, name: true, stepNumber: true, slaDays: true, owningTeamName: true, isFinal: true },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
       }),
     ]);
 
@@ -309,8 +320,10 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       };
     });
 
+    // Build recentCompletions activity log from already-fetched tasks (no extra DB query)
+    const sortedForLogs = [...tasks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 100);
     const logs: any[] = [];
-    (recentCompletions as any[]).forEach((t: any) => {
+    (sortedForLogs as any[]).forEach((t: any) => {
       logs.push({
         id: `${t.id}-created`,
         title: t.title,
@@ -369,6 +382,37 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
     logs.sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
     const finalRecentCompletions = logs.slice(0, 50);
 
+    // Build clientTasksMap for computing client statuses from already-fetched tasks
+    const clientTasksMap = new Map<string, Array<{ status: string; dueDate: Date | string }>>(); 
+    for (const t of tasks) {
+      const clientId = (t as any).clientId;
+      if (clientId) {
+        if (!clientTasksMap.has(clientId)) clientTasksMap.set(clientId, []);
+        clientTasksMap.get(clientId)!.push({ status: t.status, dueDate: t.dueDate });
+      }
+    }
+
+    // Lightweight client list for dashboard panels (risk analysis, charts, attention)
+    const clientList = dashboardClientList.map((c: any) => {
+      const clientTasks = clientTasksMap.get(c.id) || [];
+      const computedStatus = computeClientStatus(clientTasks as any);
+      const daysInStep = Math.floor((Date.now() - new Date(c.stepEnteredAt).getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        id: c.id, fullName: c.fullName, brandName: c.brandName, status: c.status,
+        computedStatus, daysInStep, currentStep: c.currentStep,
+        dateJoined: c.dateJoined, createdAt: c.createdAt,
+      };
+    });
+
+    // Lightweight task list for dashboard task panel
+    const taskList = tasks.map((t: any) => ({
+      id: t.id, title: t.title, status: t.status, priority: t.priority,
+      dueDate: t.dueDate, completedAt: t.completedAt,
+      assignedToId: t.assignedToId, stepId: t.stepId,
+      extensionRequestedDate: t.extensionRequestedDate, extensionReason: t.extensionReason,
+      client: t.client, step: t.step, assignedTo: t.assignedTo,
+    }));
+
     res.json({
       orgStats: {
         totalClients,
@@ -394,11 +438,13 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         dueDate: t.dueDate,
         extensionRequestedDate: t.extensionRequestedDate,
         extensionReason: t.extensionReason,
-        assignee: t.assignedTo?.fullName,
-        team: t.step?.owningTeamName,
-        client: t.client?.brandName || t.client?.fullName,
-        step: t.step?.name,
+        assignee: (t as any).assignedTo?.fullName,
+        team: (t as any).step?.owningTeamName,
+        client: (t as any).client?.brandName || (t as any).client?.fullName,
+        step: (t as any).step?.name,
       })),
+      clientList,
+      taskList,
     });
   } catch (err) {
     console.error('[dashboard.admin] error:', err);

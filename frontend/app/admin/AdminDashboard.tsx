@@ -17,7 +17,7 @@ import SectionCard from '@/components/ui/SectionCard';
 import { DashboardSkeleton } from '@/components/ui/SkeletonLoader';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
-const AUTO_REFRESH_MS = 15000;
+const AUTO_REFRESH_MS = 60_000; // 60s — was 15s, excessive polling hurts performance
 
 interface AdminData {
   orgStats: {
@@ -32,6 +32,9 @@ interface AdminData {
   stepRollup: Array<{ stepId: string; stepNumber: number; name: string; owningTeamName: string; activeTasks: number; overdue: number; blocked: number; completedLast7d: number; averageDurationDays?: number; }>;
   recentCompletions: Array<{ id: string; title: string; completedAt: string; assignee: string; team: string; client: string; step: string; }>;
   pendingExtensions?: Array<{ id: string; title: string; dueDate: string; extensionRequestedDate: string; extensionReason: string; assignee: string; team: string; client: string; step: string; }>;
+  // Replaces separate /api/clients and /api/tasks calls
+  clientList?: Array<{ id: string; fullName: string; brandName: string; status: string; computedStatus: string; daysInStep: number; currentStep: any; dateJoined: string; createdAt: string; }>;
+  taskList?: Array<{ id: string; title: string; status: string; priority: string; dueDate: string; completedAt: string | null; assignedToId: string; stepId: string; client: any; step: any; assignedTo: any; }>;
 }
 
 const EMPTY_DATA: AdminData = {
@@ -147,36 +150,28 @@ export default function AdminDashboard() {
     }
   };
 
-  // Queries for export dropdowns
+  // Queries for export dropdowns — lazy: only fire when export modal is open
   const { data: stepsList = [] } = useQuery({
     queryKey: ['steps'],
     queryFn: () => apiFetch('/api/steps'),
+    enabled: showExportModal,
+    staleTime: 5 * 60_000,
     retry: false,
   });
 
   const { data: teamsList = [] } = useQuery({
     queryKey: ['teams'],
     queryFn: () => apiFetch('/api/teams'),
+    enabled: showExportModal,
+    staleTime: 5 * 60_000,
     retry: false,
   });
 
   const { data: usersList = [] } = useQuery({
     queryKey: ['users'],
     queryFn: () => apiFetch('/api/users'),
-    retry: false,
-  });
-
-  const { data: clientsList = [] } = useQuery({
-    queryKey: ['clients'],
-    queryFn: () => apiFetch('/api/clients'),
-    refetchInterval: AUTO_REFRESH_MS,
-    retry: false,
-  });
-
-  const { data: tasksList = [] } = useQuery<any[]>({
-    queryKey: ['tasks'],
-    queryFn: () => apiFetch('/api/tasks'),
-    refetchInterval: AUTO_REFRESH_MS,
+    enabled: showExportModal,
+    staleTime: 5 * 60_000,
     retry: false,
   });
 
@@ -192,6 +187,7 @@ export default function AdminDashboard() {
     queryFn: () => apiFetch('/api/dashboard/admin'),
     enabled: user?.role === 'admin',
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 30_000,
     retry: false,
   });
 
@@ -201,6 +197,7 @@ export default function AdminDashboard() {
     queryKey: ['standup'],
     queryFn: () => apiFetch('/api/standup'),
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 30_000,
     enabled: user?.role === 'admin',
     retry: false,
   });
@@ -209,9 +206,11 @@ export default function AdminDashboard() {
     queryKey: ['problems'],
     queryFn: () => apiFetch('/api/problems'),
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 30_000,
     enabled: user?.role === 'admin',
     retry: false,
   });
+
 
   const approveExtensionMut = useMutation({
     mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
@@ -234,11 +233,11 @@ export default function AdminDashboard() {
 
   const data: AdminData = liveData || EMPTY_DATA;
 
-  const allClients = USE_MOCK ? MOCK_CLIENTS : clientsList;
-  const allTasks = USE_MOCK ? MOCK_TASKS : (tasksList || []);
+  // Use clientList/taskList from admin dashboard endpoint — no separate /api/clients or /api/tasks calls needed
+  const allClients = USE_MOCK ? MOCK_CLIENTS : (data.clientList || []);
+  const allTasks = USE_MOCK ? MOCK_TASKS : (data.taskList || []);
 
-  const totalClientsCount = allClients.length;
-  const activeClientsCount = allClients.filter((c: any) => c.status === 'active').length;
+  const totalClientsCount = data.orgStats.totalClients || allClients.length;
   const launchedClientsCount = allClients.filter((c: any) => c.status === 'completed' || (c.currentStep?.stepNumber && c.currentStep.stepNumber >= 9)).length;
 
   const avgCompletionTimeStr = useMemo(() => {
@@ -252,9 +251,9 @@ export default function AdminDashboard() {
 
   const overdueClientsCount = allClients.filter((c: any) => c.computedStatus === 'overdue').length;
   const blockedClientsCount = allClients.filter((c: any) => c.computedStatus === 'blocked').length;
-  const activeTasksCount = allTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length;
-  const overdueTasksCount = allTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled' && differenceInCalendarDays(startOfDay(new Date(t.dueDate)), startOfDay(new Date())) < 0).length;
-  const pendingRequestsCount = allTasks.filter((t: any) => t.status === 'extension_requested' || t.status === 'blocked').length;
+  const activeTasksCount = data.orgStats.activeTasks || allTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length;
+  const overdueTasksCount = data.orgStats.overdueTasks || allTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled' && differenceInCalendarDays(startOfDay(new Date(t.dueDate)), startOfDay(new Date())) < 0).length;
+  const pendingRequestsCount = data.orgStats.extensionTasks || allTasks.filter((t: any) => t.status === 'extension_requested' || t.status === 'blocked').length;
 
   const standupItems = useMemo(() => {
     if (USE_MOCK || !standupData?.items) {
@@ -557,11 +556,12 @@ export default function AdminDashboard() {
     return { labels, data };
   }, [allClients]);
 
-  // Fetch notifications
+  // Fetch notifications — no auto-refresh, low frequency updates
   const { data: liveNotifs } = useQuery<any[]>({
     queryKey: ['admin-notifications'],
     queryFn: () => apiFetch('/api/notifications'),
     enabled: user?.role === 'admin',
+    staleTime: 60_000,
     retry: false,
   });
 
@@ -651,7 +651,7 @@ export default function AdminDashboard() {
             },
             {
               title: 'Team Size',
-              value: usersList.filter((u: any) => u.isActive !== false).length,
+              value: data.members.length || 0,
               subtitle: 'Active employees',
               path: '/team',
               accent: 'var(--olive)',

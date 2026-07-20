@@ -22,7 +22,7 @@ import {
   Shield,
 } from 'lucide-react';
 
-const AUTO_REFRESH_MS = 30_000;
+const AUTO_REFRESH_MS = 60_000; // 60s
 
 export default function EnterpriseDashboard() {
   const router = useRouter();
@@ -57,6 +57,7 @@ export default function EnterpriseDashboard() {
     queryKey: ['clients'],
     queryFn: () => apiFetch('/api/clients'),
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 30_000,
     enabled: !USE_MOCK,
   });
 
@@ -64,6 +65,7 @@ export default function EnterpriseDashboard() {
     queryKey: ['tasks'],
     queryFn: () => apiFetch('/api/tasks'),
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 30_000,
     enabled: !USE_MOCK,
   });
 
@@ -71,6 +73,7 @@ export default function EnterpriseDashboard() {
     queryKey: ['notifications'],
     queryFn: () => apiFetch('/api/notifications'),
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 60_000,
     enabled: !USE_MOCK,
   });
 
@@ -78,6 +81,7 @@ export default function EnterpriseDashboard() {
     queryKey: ['standup'],
     queryFn: () => apiFetch('/api/standup'),
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 30_000,
     enabled: !USE_MOCK,
   });
 

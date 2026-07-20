@@ -189,14 +189,19 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
 
     const tasks = await prisma.task.findMany({
       where,
-      include: {
-        client: true,
-        step: true,
-        assignedTo: {
-          select: { id: true, fullName: true, email: true, teamName: true },
-        },
+      select: {
+        id: true, title: true, description: true, status: true, priority: true,
+        dueDate: true, completedAt: true, createdAt: true,
+        assignedToId: true, stepId: true, clientId: true,
+        extensionRequestedDate: true, extensionReason: true, blockerNote: true,
+        isPinned: true, isAlerted: true,
+        isTimerRunning: true, timerStartedAt: true, timeSpentSeconds: true,
+        inProgressAt: true,
+        proofLink: true, proofDescription: true,
+        client: { select: { id: true, fullName: true, brandName: true, email: true } },
+        step: { select: { id: true, name: true, stepNumber: true, owningTeamName: true, slaDays: true } },
+        assignedTo: { select: { id: true, fullName: true, email: true, teamName: true } },
         completedBy: { select: { id: true, fullName: true } },
-        documents: true,
       },
       orderBy: { dueDate: "asc" },
     });
