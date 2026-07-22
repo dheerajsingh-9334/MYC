@@ -462,15 +462,15 @@ export default function TeamPage() {
                     {isAdmin && <th style={{ ...thStyleBase, ...colStyles.actions }}>Actions</th>}
                   </tr>
                 </thead>
-                <tbody>
+                {/* Teams map will use multiple tbodies */}
                   {/* Admins category */}
                   {activeAdmins.length > 0 && (
-                    <>
+                    <tbody key="Administrators">
                       <tr onClick={() => toggle('Administrators')}
-                        style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', userSelect: 'none' }}
+                        style={{ background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s', userSelect: 'none' }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}>
-                        <td colSpan={isAdmin ? 8 : 7} style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
+                        <td colSpan={isAdmin ? 8 : 7} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             <span style={{ 
                               display: 'inline-block',
@@ -584,7 +584,7 @@ export default function TeamPage() {
                           )}
                         </tr>
                       ))}
-                    </>
+                    </tbody>
                   )}
 
                   {/* Teams and members */}
@@ -593,12 +593,12 @@ export default function TeamPage() {
                     const leaderCount = members.filter((m) => m.role === 'team_leader').length;
                     const totalActiveTasks = members.reduce((s, m) => s + ((m.active ?? m._count?.assignedTasks) || 0), 0);
                     return (
-                      <React.Fragment key={teamName}>
+                      <tbody key={teamName}>
                         <tr onClick={() => toggle(teamName)}
-                          style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', userSelect: 'none' }}
+                          style={{ background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s', userSelect: 'none' }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}>
-                          <td colSpan={isAdmin ? 8 : 7} style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
+                          <td colSpan={isAdmin ? 8 : 7} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                               <span style={{ 
                                 display: 'inline-block',
@@ -759,10 +759,9 @@ export default function TeamPage() {
                             </tr>
                           );
                         })}
-                      </React.Fragment>
+                      </tbody>
                     );
                   })}
-                </tbody>
               </table>
             </div>
 

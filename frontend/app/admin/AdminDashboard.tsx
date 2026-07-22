@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
@@ -10,8 +10,9 @@ import {
   Users, UserPlus, CircleCheck, TriangleAlert, Clock, TrendingUp, Activity,
   ArrowRight, BarChart3, Search, Bell, Check, X, Download, Play,
   Sun, Moon, Shield, CheckCircle, Hourglass, Ban, Sparkles, Megaphone,
-  ListChecks, XCircle, Filter, Hand
+  ListChecks, XCircle, Filter, Hand, ChevronDown
 } from 'lucide-react';
+import { ClientCombobox } from '@/components/ui/ClientCombobox';
 import { format, differenceInCalendarDays, startOfDay } from 'date-fns';
 import SectionCard from '@/components/ui/SectionCard';
 import { DashboardSkeleton } from '@/components/ui/SkeletonLoader';
@@ -95,9 +96,21 @@ export default function AdminDashboard() {
   const [adminTaskTab, setAdminTaskTab] = useState<'active' | 'completed' | 'rejected' | 'problems'>('active');
   const [adminTaskSearch, setAdminTaskSearch] = useState('');
   const [adminTaskScope, setAdminTaskScope] = useState<'my' | 'all'>('all');
-  const [adminTaskPriority, setAdminTaskPriority] = useState<'all' | 'high' | 'normal'>('all');
-  const [showHoverFilter, setShowHoverFilter] = useState(false);
+  const [adminTaskPriority, setAdminTaskPriority] = useState<'' | 'high' | 'normal'>('');
+  const [showFilters, setShowFilters] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setShowFilters(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [adminTaskLimit, setAdminTaskLimit] = useState(20);
+  const [clientRiskLimit, setClientRiskLimit] = useState(20);
   const [bannerProblemsLimit, setBannerProblemsLimit] = useState(5);
 
   useEffect(() => {
@@ -106,7 +119,7 @@ export default function AdminDashboard() {
 
   const handleBannerProblemsScroll = (e: React.UIEvent<HTMLElement>) => {
     const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollTop + clientHeight >= scrollHeight - 20) {
+    if (scrollTop + clientHeight >= scrollHeight - 50) {
       const openCount = problemsList.filter((p: any) => p.status === 'open').length;
       setBannerProblemsLimit(prev => Math.min(prev + 3, openCount));
     }
@@ -426,7 +439,7 @@ export default function AdminDashboard() {
         }
       }
       // Filter by Priority
-      if (adminTaskPriority !== 'all') {
+      if (adminTaskPriority !== '') {
         if (t.priority !== adminTaskPriority) {
           return false;
         }
@@ -472,9 +485,20 @@ export default function AdminDashboard() {
 
   const handleAdminScroll = (e: React.UIEvent<HTMLElement>) => {
     const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollTop + clientHeight >= scrollHeight - 20) {
+    if (scrollTop + clientHeight >= scrollHeight - 50) {
       const totalLength = adminTaskTab === 'problems' ? filteredAdminProblems.length : visibleAdminTasks.length;
       setAdminTaskLimit(prev => Math.min(prev + 10, totalLength));
+    }
+  };
+
+  const scrollableClientRisk = useMemo(() => {
+    return sortedClientsForRisk.slice(0, clientRiskLimit);
+  }, [sortedClientsForRisk, clientRiskLimit]);
+
+  const handleClientRiskScroll = (e: React.UIEvent<HTMLElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollTop + clientHeight >= scrollHeight - 50) {
+      setClientRiskLimit(prev => Math.min(prev + 10, sortedClientsForRisk.length));
     }
   };
 
@@ -612,7 +636,7 @@ export default function AdminDashboard() {
         // )}
       />
 
-      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box', minHeight: 0 }}>
         
         {/* Row 2: 5 Stat Cards */}
         <div className="grid-responsive-5">
@@ -850,17 +874,17 @@ export default function AdminDashboard() {
         )}
 
         {/* Row 3: Split Screen (My Tasks | Client Analysis & Graph) */}
-        <div className="grid-responsive-2" style={{ alignItems: 'start' }}>
+        <div className="grid-responsive-2" style={{ alignItems: 'stretch', flex: 1, minHeight: 0 }}>
           
           {/* Left Column: My Tasks */}
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
             <SectionCard 
               title={adminTaskScope === 'all' ? 'All Tasks' : 'My Tasks'}
               subtitle={adminTaskScope === 'all' ? `${groupedAdminTasks.active.length} active · ${groupedAdminTasks.completed.length} completed across all clients` : 'Overdue, due today, and upcoming'}
               padding="0" 
-              style={{ display: 'flex', flexDirection: 'column' }}
+              style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
               action={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                   {/* Segmented Control for Scope */}
                   <div style={{ display: 'inline-flex', background: 'var(--surface-2)', padding: 2, borderRadius: 6, border: '1px solid var(--border)' }}>
                     <button
@@ -899,7 +923,7 @@ export default function AdminDashboard() {
                     </button>
                   </div>
 
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 140 }}>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 130 }}>
                     <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--muted)' }} />
                     <input
                       type="text"
@@ -910,33 +934,34 @@ export default function AdminDashboard() {
                     />
                   </div>
 
-                  {/* Hover Filter Button */}
-                  <div 
-                    style={{ position: 'relative' }}
-                    onMouseEnter={() => setShowHoverFilter(true)}
-                    onMouseLeave={() => setShowHoverFilter(false)}
-                  >
+                  {/* Filter Button */}
+                  <div ref={filterRef} style={{ position: 'relative' }}>
                     <button
+                      onClick={() => setShowFilters(prev => !prev)}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: 6,
-                        height: 28,
-                        padding: '0 10px',
-                        borderRadius: 6,
+                        gap: 5,
+                        padding: '5px 10px',
+                        borderRadius: 'var(--radius-sm)',
                         border: '1px solid var(--border)',
-                        background: 'var(--surface)',
-                        color: 'var(--ink-2)',
-                        fontSize: 12,
+                        background: (adminTaskScope !== 'all' || adminTaskPriority !== '' || showFilters) ? 'var(--olive-50)' : 'var(--surface)',
+                        color: (adminTaskScope !== 'all' || adminTaskPriority !== '' || showFilters) ? 'var(--olive-dark)' : 'var(--ink-2)',
+                        fontSize: 11.5,
                         fontWeight: 600,
                         cursor: 'pointer',
-                        transition: 'all 0.15s',
+                        whiteSpace: 'nowrap',
                       }}
                     >
-                      <Filter size={12} />
-                      Filter
+                      <Filter size={13} /> Filters
+                      {(adminTaskScope !== 'all' || adminTaskPriority !== '' || adminTaskTab !== 'active') && (
+                        <span style={{ background: 'var(--olive)', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700, padding: '1px 5px', marginLeft: 2 }}>
+                          {[adminTaskScope !== 'all', adminTaskPriority !== '', adminTaskTab !== 'active'].filter(Boolean).length}
+                        </span>
+                      )}
+                      <ChevronDown size={11} style={{ opacity: 0.6, transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
                     </button>
-                    {showHoverFilter && (
+                    {showFilters && (
                       <div
                         style={{
                           position: 'absolute',
@@ -944,7 +969,7 @@ export default function AdminDashboard() {
                           right: 0,
                           zIndex: 100,
                           marginTop: 4,
-                          width: 180,
+                          width: 220,
                           padding: 12,
                           background: 'var(--surface)',
                           border: '1px solid var(--border)',
@@ -956,52 +981,46 @@ export default function AdminDashboard() {
                         }}
                       >
                         <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Status</div>
+                          <ClientCombobox
+                            value={adminTaskTab}
+                            onChange={(val) => setAdminTaskTab((val || 'active') as any)}
+                            placeholder="All Active"
+                            searchPlaceholder="Search statuses…"
+                            options={[
+                              { id: 'active', label: `All Active (${groupedAdminTasks.active.length})` },
+                              { id: 'completed', label: `Completed (${groupedAdminTasks.completed.length})` },
+                              { id: 'rejected', label: `Rejected (${groupedAdminTasks.rejected.length})` },
+                              { id: 'problems', label: `Problems (${problemsList.filter((p: any) => p.status === 'open').length})` }
+                            ]}
+                          />
+                        </div>
+
+                        <div>
                           <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Priority</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
-                              <input type="radio" checked={adminTaskPriority === 'all'} onChange={() => setAdminTaskPriority('all')} style={{ cursor: 'pointer' }} />
-                              All Priorities
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
-                              <input type="radio" checked={adminTaskPriority === 'high'} onChange={() => setAdminTaskPriority('high')} style={{ cursor: 'pointer' }} />
-                              High Only
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
-                              <input type="radio" checked={adminTaskPriority === 'normal'} onChange={() => setAdminTaskPriority('normal')} style={{ cursor: 'pointer' }} />
-                              Normal Only
-                            </label>
-                          </div>
+                          <ClientCombobox
+                            value={adminTaskPriority}
+                            onChange={setAdminTaskPriority}
+                            placeholder="All Priorities"
+                            options={[
+                              { id: 'high', label: 'High Only' },
+                              { id: 'normal', label: 'Normal Only' },
+                            ]}
+                          />
                         </div>
                       </div>
                     )}
                   </div>
 
-                  <button onClick={() => router.push('/tasks')} style={{ fontSize: 12, fontWeight: 500, color: 'var(--olive)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <button onClick={() => router.push('/tasks')} style={{ fontSize: 12, fontWeight: 500, color: 'var(--olive)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
                     Open full task manager <ArrowRight size={12} />
                   </button>
                 </div>
               }
             >
-              {/* Filter Tabs */}
-              <div style={{ display: 'flex', gap: 8, padding: '14px 20px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-                {[
-                  { key: 'active', label: adminTaskScope === 'all' ? 'All Active' : 'My Tasks', count: groupedAdminTasks.active.length, icon: ListChecks, accent: 'var(--olive)', bg: 'var(--olive-50)' },
-                  { key: 'completed', label: 'Completed', count: groupedAdminTasks.completed.length, icon: CircleCheck, accent: 'var(--green)', bg: 'var(--green-bg)' },
-                  { key: 'rejected', label: 'Rejected', count: groupedAdminTasks.rejected.length, icon: XCircle, accent: 'var(--rejected)', bg: 'var(--rejected-bg)' },
-                  { key: 'problems', label: 'Problems', count: problemsList.filter((p: any) => p.status === 'open').length, icon: Hand, accent: 'var(--red)', bg: 'var(--red-bg)' }
-                ].map(t => {
-                  const isActive = adminTaskTab === t.key;
-                  return (
-                    <button key={t.key} onClick={() => setAdminTaskTab(t.key as any)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 999, border: `1px solid ${isActive ? t.accent : 'var(--border)'}`, background: isActive ? t.accent : 'var(--surface)', color: isActive ? '#fff' : 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}>
-                      <t.icon size={13} />
-                      {t.label}
-                      <span style={{ background: isActive ? 'rgba(255,255,255,0.25)' : t.bg, color: isActive ? '#fff' : t.accent, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999 }}>{t.count}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Filter Tabs Removed */}
 
-              <div style={{ padding: 0 }}>
+              <div style={{ padding: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                 {adminTaskTab === 'problems' ? (
                   filteredAdminProblems.length === 0 ? (
                     <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--muted)' }}>
@@ -1016,7 +1035,7 @@ export default function AdminDashboard() {
                   ) : (
                     <ul
                       onScroll={handleAdminScroll}
-                      style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', maxHeight: 560, overflowY: 'auto' }}
+                      style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', flex: 1, minHeight: 0, overflowY: 'auto' }}
                     >
                       {scrollableAdminProblems.map((problem: any, idx: number) => {
                         const isOpen = problem.status === 'open';
@@ -1102,7 +1121,7 @@ export default function AdminDashboard() {
                 ) : (
                   <ul 
                     onScroll={handleAdminScroll}
-                    style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', maxHeight: 560, overflowY: 'auto' }}
+                    style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', flex: 1, minHeight: 0, overflowY: 'auto' }}
                   >
                     {scrollableAdminTasks.map((t: any, idx: number) => {
                       const isAlerted = t.isAlerted;
@@ -1145,7 +1164,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Right Column: Client Analysis with Graph */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, height: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, height: '100%', minHeight: 0 }}>
 
             {/* Client Joins Over Time Chart */}
             <div style={{ position: 'relative', width: '100%', padding: '16px 20px', background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1301,13 +1320,13 @@ export default function AdminDashboard() {
             </div>
 
             {/* Client Risk Analysis */}
-            <SectionCard title={allTasks.length === 100 ? "Client Risk Analysis-> 60" : "Client Risk Analysis"} subtitle="Sorted by overdue duration" padding="0">
-              <div style={{ padding: 0 }}>
+            <SectionCard title={allTasks.length === 100 ? "Client Risk Analysis-> 60" : "Client Risk Analysis"} subtitle="Sorted by overdue duration" padding="0" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+              <div style={{ padding: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                 {sortedClientsForRisk.length === 0 ? (
                   <div style={{ padding: '30px', textAlign: 'center', color: 'var(--muted)' }}>No active clients.</div>
                 ) : (
-                  <ul style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', maxHeight: 350, overflowY: 'auto' }}>
-                    {sortedClientsForRisk.map((client: any, idx: number) => {
+                  <ul onScroll={handleClientRiskScroll} style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                    {scrollableClientRisk.map((client: any, idx: number) => {
                       const sc = getClientStatusStyles(client);
                       const stripe = sc.color;
                       return (

@@ -1667,7 +1667,7 @@ export default function ClientDetailPane({
                               }
 
                               return (
-                                <ActionDropdown align="right" actions={dropdownActions} />
+                                <ActionDropdown align="right" direction="up" actions={dropdownActions} />
                               );
                             })()}
                           </td>

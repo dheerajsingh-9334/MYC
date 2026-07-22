@@ -337,8 +337,8 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
           )}
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          {/* Search - decreased size! */}
-          <div style={{ position: 'relative', width: 180 }}>
+          {/* Search */}
+          <div className="topbar-search" style={{ position: 'relative', width: 180 }}>
             <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
             <input
               type="text"
@@ -365,6 +365,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
             <>
               <button
                 onClick={() => setShowBroadcastModal(true)}
+                className="topbar-broadcast-btn"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -384,7 +385,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
               >
-                 <Megaphone size={13} /> Broadcast
+                 <Megaphone size={13} /> <span>Broadcast</span>
               </button>
 
             </>

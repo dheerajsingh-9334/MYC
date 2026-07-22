@@ -23,10 +23,11 @@ export interface SectionCardProps {
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
+  bodyStyle?: CSSProperties;
 }
 
 export default function SectionCard({
-  title, subtitle, action, padding = 0, children, className, style,
+  title, subtitle, action, padding = 0, children, className, style, bodyStyle
 }: SectionCardProps) {
   return (
     <div
@@ -45,12 +46,13 @@ export default function SectionCard({
             padding: '14px 20px',
             borderBottom: '1px solid var(--border)',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'space-between',
-            gap: 12,
+            flexWrap: 'wrap',
+            gap: 8,
           }}
         >
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flexShrink: 1 }}>
             {title && (
               <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>
                 {title}
@@ -62,10 +64,14 @@ export default function SectionCard({
               </div>
             )}
           </div>
-          {action && <div style={{ flexShrink: 0 }}>{action}</div>}
+          {action && (
+            <div style={{ flexShrink: 0, maxWidth: '100%', overflow: 'hidden' }}>
+              {action}
+            </div>
+          )}
         </div>
       )}
-      <div style={{ padding, ...(style?.display === 'flex' ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : {}) }}>
+      <div style={{ padding, ...(style?.display === 'flex' ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : {}), ...bodyStyle }}>
         {children}
       </div>
     </div>

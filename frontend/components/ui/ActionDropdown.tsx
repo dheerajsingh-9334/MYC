@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Pencil } from 'lucide-react';
 
 export interface DropdownAction {
@@ -15,22 +16,35 @@ export interface DropdownAction {
 interface ActionDropdownProps {
   actions: DropdownAction[];
   align?: 'left' | 'right';
+  direction?: 'up' | 'down';
 }
 
-export default function ActionDropdown({ actions, align = 'right' }: ActionDropdownProps) {
+export default function ActionDropdown({ actions, align = 'right', direction = 'down' }: ActionDropdownProps) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLButtonElement>(null);
+  const [rect, setRect] = useState<DOMRect | null>(null);
 
-  // Close dropdown on outside click
+  // Close dropdown on outside click or scroll
   useEffect(() => {
     const onClickOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
+        const portal = document.getElementById('action-dropdown-portal');
+        if (portal && portal.contains(e.target as Node)) return;
         setOpen(false);
       }
     };
+    
+    const onScroll = () => {
+      setOpen(false);
+    };
+
     if (open) {
       document.addEventListener('mousedown', onClickOutside);
-      return () => document.removeEventListener('mousedown', onClickOutside);
+      window.addEventListener('scroll', onScroll, true); // Use capture phase to catch all scrolls
+      return () => {
+        document.removeEventListener('mousedown', onClickOutside);
+        window.removeEventListener('scroll', onScroll, true);
+      };
     }
   }, [open]);
 
@@ -39,12 +53,14 @@ export default function ActionDropdown({ actions, align = 'right' }: ActionDropd
   if (activeActions.length === 0) return null;
 
   return (
-    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+    <div style={{ position: 'relative', display: 'inline-block' }}>
       {/* Trigger Button: Standard Pencil Icon */}
       <button
+        ref={ref}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
+          setRect(e.currentTarget.getBoundingClientRect());
           setOpen((o) => !o);
         }}
         style={{
@@ -75,15 +91,18 @@ export default function ActionDropdown({ actions, align = 'right' }: ActionDropd
         <Pencil size={13} />
       </button>
 
-      {/* Dropdown Popover */}
-      {open && (
+      {/* Dropdown Popover via Portal */}
+      {open && rect && typeof document !== 'undefined' && createPortal(
         <div
+          id="action-dropdown-portal"
           onClick={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute',
-            top: 'calc(100% + 4px)',
-            [align === 'left' ? 'left' : 'right']: 0,
-            zIndex: 9999, // Ensure it floats on top of other content
+            position: 'fixed',
+            ...(direction === 'up' || (window.innerHeight - rect.bottom < 220)
+              ? { bottom: window.innerHeight - rect.top + 4 } 
+              : { top: rect.bottom + 4 }),
+            ...(align === 'left' ? { left: rect.left } : { left: rect.right - 160 }),
+            zIndex: 99999, // Ensure it floats on top of all content
             minWidth: 160,
             background: 'var(--surface)',
             border: '1px solid var(--border)',
@@ -163,7 +182,7 @@ export default function ActionDropdown({ actions, align = 'right' }: ActionDropd
             }
 
             return (
-              <button
+               <button
                 key={idx}
                 type="button"
                 style={itemStyle}
@@ -181,7 +200,8 @@ export default function ActionDropdown({ actions, align = 'right' }: ActionDropd
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

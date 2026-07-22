@@ -795,11 +795,11 @@ export default function StaffDashboard() {
             <SectionCard
               title="My Tasks"
               subtitle="Overdue, due today, and upcoming"
-              style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+              style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}
               padding={0}
               action={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 140 }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 130 }}>
                     <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--muted)' }} />
                     <input
                       type="text"
@@ -850,14 +850,14 @@ export default function StaffDashboard() {
                     )}
                   </div>
 
-                  <button onClick={() => router.push('/tasks')} style={{ fontSize: 12, fontWeight: 500, color: 'var(--olive)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <button onClick={() => router.push('/tasks')} style={{ fontSize: 12, fontWeight: 500, color: 'var(--olive)', background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
                     Open full task manager <ArrowRight size={12} />
                   </button>
                 </div>
               }
             >
               {/* Filter Tabs sub-row */}
-              <div style={{ display: 'flex', gap: 8, padding: '14px 20px 12px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '12px 20px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
                 {tabs.map((t) => {
                   const isActive = t.key === tab;
                   return (
@@ -866,11 +866,12 @@ export default function StaffDashboard() {
                       onClick={() => setTab(t.key)}
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 6,
-                        padding: '6px 12px', borderRadius: 999,
+                        padding: '5px 10px', borderRadius: 999,
                         border: `1px solid ${isActive ? t.accent : 'var(--border)'}`,
                         background: isActive ? t.accent : 'var(--surface)',
                         color: isActive ? '#fff' : 'var(--ink-2)',
                         fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       <t.icon size={13} />

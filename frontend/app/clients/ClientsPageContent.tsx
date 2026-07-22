@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { apiFetch, getUser } from '@/lib/api';
 import AppLayout from '@/components/layout/AppLayout';
@@ -15,6 +15,7 @@ import AddClientModal from '@/components/pipeline/AddClientModal';
 import UpdateClientModal from '@/components/pipeline/UpdateClientModal';
 import CSVImportModal from '@/components/ui/CSVImportModal';
 import ActionDropdown from '@/components/ui/ActionDropdown';
+import { ClientCombobox } from '@/components/ui/ClientCombobox';
 import { TableRowsSkeleton, ClientCardSkeleton } from '@/components/ui/SkeletonLoader';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
@@ -46,7 +47,18 @@ export default function ClientsPage() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-  const [showHoverFilters, setShowHoverFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setShowFilters(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const qc = useQueryClient();
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -360,16 +372,15 @@ export default function ClientsPage() {
     { key: 'on_track',  label: 'On Track',  count: allClients.filter((c: any) => c.computedStatus === 'on_track').length },
   ];
 
-  const thStyleBase: React.CSSProperties = { textAlign: 'left', fontSize: 11.5, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)', padding: '10px 18px', borderBottom: '1px solid var(--border)' };
+  const thStyleBase: React.CSSProperties = { textAlign: 'left', fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)', padding: '10px 18px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' };
   const colStyles = {
-    checkbox: { width: '4%', minWidth: '40px', padding: '10px 0 10px 18px', textAlign: 'center', verticalAlign: 'middle' } as React.CSSProperties,
-    client: { width: '25%', minWidth: '180px' } as React.CSSProperties,
-    step: { width: '18%', minWidth: '130px' } as React.CSSProperties,
-    team: { width: '15%', minWidth: '110px' } as React.CSSProperties,
+    client: { width: '25%', minWidth: '140px' } as React.CSSProperties,
+    step: { width: '15%', minWidth: '110px' } as React.CSSProperties,
+    team: { width: '14%', minWidth: '100px' } as React.CSSProperties,
     status: { width: '12%', minWidth: '90px' } as React.CSSProperties,
-    daysInStep: { width: '12%', minWidth: '90px' } as React.CSSProperties,
-    duration: { width: '12%', minWidth: '90px' } as React.CSSProperties,
-    actions: { width: '6%', minWidth: '70px', textAlign: 'right' } as React.CSSProperties,
+    daysInStep: { width: '10%', minWidth: '85px' } as React.CSSProperties,
+    duration: { width: '16%', minWidth: '120px' } as React.CSSProperties,
+    actions: { width: '8%', minWidth: '70px', textAlign: 'right', paddingRight: '20px' } as React.CSSProperties,
   };
 
   return (
@@ -537,7 +548,7 @@ export default function ClientsPage() {
         title="Clients"
         subtitle={`${allClients.filter((c: any) => c.status === 'active').length} active clients · ${allClients.length} total`}
       />
-      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box', height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box', minHeight: 0, height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
 
         {/* Toolbar — filter pill left, controls right */}
         <div style={{
@@ -594,28 +605,25 @@ export default function ClientsPage() {
               </>
             )}
             {/* Filter Dropdown */}
-            <div
-              onMouseEnter={() => setShowHoverFilters(true)}
-              onMouseLeave={() => setShowHoverFilters(false)}
-              style={{ position: 'relative' }}
-            >
-              <button style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: filter !== 'all' ? 'var(--olive-50)' : 'var(--surface)', color: filter !== 'all' ? 'var(--olive-dark)' : 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                <Filter size={13} /> Filter
+            <div ref={filterRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowFilters(prev => !prev)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: (filter !== 'all' || showFilters) ? 'var(--olive-50)' : 'var(--surface)', color: (filter !== 'all' || showFilters) ? 'var(--olive-dark)' : 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                <Filter size={13} /> Filters
                 {filter !== 'all' && (<span style={{ background: 'var(--olive)', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700, padding: '1px 5px', marginLeft: 2 }}>1</span>)}
-                <ChevronDown size={11} style={{ opacity: 0.6 }} />
+                <ChevronDown size={11} style={{ opacity: 0.6, transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
               </button>
-              {showHoverFilters && (
+              {showFilters && (
                 <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 220, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 999, padding: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 4, padding: '0 8px' }}>Status</div>
-                  {chips.map((chip) => (
-                    <button key={chip.key} onClick={() => setFilter(chip.key)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 10px', borderRadius: 'var(--radius-sm)', fontSize: 12.5, fontWeight: filter === chip.key ? 600 : 500, border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left', background: filter === chip.key ? 'var(--olive-50)' : 'transparent', color: filter === chip.key ? 'var(--olive-dark)' : 'var(--ink-2)', transition: 'all 0.12s' }}
-                      onMouseEnter={e => { if (filter !== chip.key) e.currentTarget.style.background = 'var(--surface-2)'; }}
-                      onMouseLeave={e => { if (filter !== chip.key) e.currentTarget.style.background = 'transparent'; }}>
-                      <span>{chip.label}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', background: 'var(--surface-2)', padding: '1px 6px', borderRadius: 10 }}>{chip.count}</span>
-                    </button>
-                  ))}
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 4, padding: '0 4px' }}>Status</div>
+                  <ClientCombobox
+                    value={filter === 'all' ? '' : filter}
+                    onChange={(val) => setFilter(val || 'all')}
+                    placeholder="All Clients"
+                    searchPlaceholder="Search statuses…"
+                    options={chips.filter(c => c.key !== 'all').map(c => ({ id: c.key, label: `${c.label} (${c.count})` }))}
+                  />
                 </div>
               )}
             </div>
@@ -633,10 +641,9 @@ export default function ClientsPage() {
 
         {/* Table card */}
         <SectionCard
-          style={{ flex: 1, display: 'flex', flexDirection: 'column' }}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
           padding={0}
         >
-
           {viewMode === 'grid' ? (
             <div 
               onScroll={handleClientScroll}
@@ -716,25 +723,6 @@ export default function ClientsPage() {
                               <Pin size={16} style={{ fill: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
                             </button>
                           )}
-                          {isAdmin && (
-                             <div 
-                               onClick={(e) => e.stopPropagation()} 
-                               style={{ display: 'flex', alignItems: 'center', padding: '0 4px 0 2px' }}
-                             >
-                               <input
-                                 type="checkbox"
-                                 checked={selectedClientIds.includes(client.id)}
-                                 onChange={() => {
-                                   setSelectedClientIds(prev => 
-                                     prev.includes(client.id) 
-                                       ? prev.filter(id => id !== client.id) 
-                                       : [...prev, client.id]
-                                   );
-                                 }}
-                                 style={{ cursor: 'pointer', accentColor: 'var(--olive)', width: 14, height: 14 }}
-                               />
-                             </div>
-                           )}
                           <div style={{ width: 36, height: 36, borderRadius: 8, background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, flexShrink: 0 }}>
                             {initials}
                           </div>
@@ -806,37 +794,22 @@ export default function ClientsPage() {
             </div>
           ) : (
             /* Table */
-            <div style={{ padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-              <div 
-                onScroll={handleClientScroll}
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  overflowY: 'auto',
-                  overflowX: 'auto',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)',
-                  background: 'var(--surface)',
-                }}
-              >                 <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <div 
+              onScroll={handleClientScroll}
+              style={{
+                flex: 1,
+                minHeight: 0,
+                overflowY: 'auto',
+                overflowX: 'auto',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)',
+                margin: '16px 20px 20px',
+                background: 'var(--surface)',
+              }}
+            >                 
+              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10 }}>
-                      {isAdmin && (
-                        <th style={{ ...thStyleBase, ...colStyles.checkbox }}>
-                          <input
-                            type="checkbox"
-                            checked={scrollableClients.length > 0 && selectedClientIds.length === scrollableClients.length}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedClientIds(scrollableClients.map((c: any) => c.id));
-                              } else {
-                                setSelectedClientIds([]);
-                              }
-                            }}
-                            style={{ cursor: 'pointer', accentColor: 'var(--olive)', width: 14, height: 14 }}
-                          />
-                        </th>
-                      )}
                       <th style={{ ...thStyleBase, ...colStyles.client }}>Client</th>
                       <th style={{ ...thStyleBase, ...colStyles.step }}>Step</th>
                       <th style={{ ...thStyleBase, ...colStyles.team }}>Team</th>
@@ -848,9 +821,9 @@ export default function ClientsPage() {
                   </thead>
                   <tbody>
                     {(USE_MOCK ? false : isLoading) ? (
-                      <TableRowsSkeleton columnsCount={7} rowsCount={5} hasCheckbox={isAdmin} type="clients" />
+                      <TableRowsSkeleton columnsCount={7} rowsCount={5} hasCheckbox={false} type="clients" />
                     ) : scrollableClients.length === 0 ? (
-                      <tr><td colSpan={isAdmin ? 8 : 7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+                      <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                           <Sparkles size={28} style={{ color: 'var(--olive)' }} />
                           <div>{search ? 'No clients match your search.' : 'No clients found.'}</div>
@@ -873,25 +846,6 @@ export default function ClientsPage() {
                           onClick={() => router.push(`/clients/${client.id}`)}
                           className={`standup-row ${client.isPinned ? 'highlighted' : ''}`}
                           style={{ position: 'relative', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
-                          {isAdmin && (
-                            <td 
-                              style={{ ...colStyles.checkbox }}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedClientIds.includes(client.id)}
-                                onChange={() => {
-                                  setSelectedClientIds(prev => 
-                                    prev.includes(client.id) 
-                                      ? prev.filter(id => id !== client.id) 
-                                      : [...prev, client.id]
-                                  );
-                                }}
-                                style={{ cursor: 'pointer', accentColor: 'var(--olive)', width: 14, height: 14 }}
-                              />
-                            </td>
-                          )}
                           <td style={{ position: 'relative', padding: '10px 18px', verticalAlign: 'middle', ...colStyles.client }}>
                             <span style={{ position: 'absolute', top: 0, left: 0, width: 2, height: '100%', background: 'var(--olive)', transform: 'scaleY(0)', transformOrigin: 'top', transition: 'transform 0.1s' }} className="row-stripe" />
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -918,9 +872,9 @@ export default function ClientsPage() {
                                 </button>
                               )}
                               <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{initials}</div>
-                              <div style={{ minWidth: 0, flex: 1 }}>
-                                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13.5, whiteSpace: 'normal', wordBreak: 'break-word' }}>{client.brandName || client.fullName}</div>
-                                <div style={{ fontSize: 11.5, color: 'var(--soft)', whiteSpace: 'normal', wordBreak: 'break-word' }}>{client.fullName} · joined {new Date(client.dateJoined).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
+                              <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{client.brandName || client.fullName}</div>
+                                <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{client.fullName} · joined {new Date(client.dateJoined).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
                               </div>
                             </div>
                           </td>
@@ -931,7 +885,7 @@ export default function ClientsPage() {
                             </span>
                           </td>
                           <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.team }}>
-                            <span style={{ fontSize: 11.5, color: 'var(--ink-2)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 12, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                               <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--olive-light)', flexShrink: 0 }} />
                               {client.currentStep?.owningTeamName}
                             </span>
@@ -948,7 +902,7 @@ export default function ClientsPage() {
                             </span>
                           </td>
                           <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.duration }}>
-                            <span style={{ fontSize: 12.5, color: 'var(--ink-2)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                               <Clock size={12} style={{ color: 'var(--muted)' }} />
                               {client.status === 'completed'
                                 ? `${durationDays} days (Completed)`
@@ -996,7 +950,6 @@ export default function ClientsPage() {
                     })}
                   </tbody>
                 </table>
-              </div>
             </div>
           )}
         </SectionCard>

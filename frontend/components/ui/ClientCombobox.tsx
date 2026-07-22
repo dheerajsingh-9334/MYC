@@ -9,12 +9,13 @@ export interface ClientOption {
 }
 
 export function ClientCombobox({
-  value, onChange, options, placeholder = 'All clients', disabled,
+  value, onChange, options, placeholder = 'All clients', searchPlaceholder, disabled,
 }: {
   value: string;                          // selected client id, or '' for all
   onChange: (id: string) => void;
   options: ClientOption[];
   placeholder?: string;
+  searchPlaceholder?: string;
   disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -93,7 +94,7 @@ export function ClientCombobox({
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search client…"
+              placeholder={searchPlaceholder || `Search ${placeholder.toLowerCase().replace('all ', '')}…`}
               style={{
                 width: '100%', padding: '7px 10px 7px 30px',
                 border: '1px solid var(--border)', borderRadius: 5,
@@ -112,11 +113,11 @@ export function ClientCombobox({
               }}
               onMouseEnter={(e) => { if (value) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
               onMouseLeave={(e) => { if (value) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-              <span style={{ fontWeight: !value ? 600 : 400 }}>All clients</span>
+              <span style={{ fontWeight: !value ? 600 : 400 }}>{placeholder}</span>
               {!value && <Check size={12} style={{ color: 'var(--olive)' }} />}
             </div>
             {filtered.length === 0 ? (
-              <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>No clients match.</div>
+              <div style={{ padding: 16, textAlign: 'center', color: 'var(--muted)', fontSize: 12 }}>No matching results.</div>
             ) : filtered.map((o) => (
               <div key={o.id}
                 onClick={() => { onChange(o.id); setOpen(false); setQuery(''); }}

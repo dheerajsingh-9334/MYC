@@ -28,9 +28,10 @@ import {
   X
 } from 'lucide-react';
 import { format } from 'date-fns';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { USE_MOCK } from '@/lib/mockData';
 import ActionDropdown from '@/components/ui/ActionDropdown';
+import { ClientCombobox } from '@/components/ui/ClientCombobox';
 
 const TEAMS = ['Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 'Account Manager', 'Content Team'];
 const AUTO_REFRESH_MS = 30_000;
@@ -67,7 +68,18 @@ export default function StandupPageContent() {
   const [localClientPinned, setLocalClientPinned] = useState<Record<string, boolean>>({});
   const [ignoredItems, setIgnoredItems] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const [showHoverFilters, setShowHoverFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setShowFilters(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [user, setUser] = useState<any>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -221,6 +233,10 @@ export default function StandupPageContent() {
     return Array.from(set).sort();
   }, [items]);
 
+  const clientOptions = useMemo(() => {
+    return uniqueClients.map(c => ({ id: c, label: c }));
+  }, [uniqueClients]);
+
   const handleHighlight = async (id: string) => {
     const currentItem = items.find((it: any) => it.id === id);
     const currentStatus = localHighlighted[id] !== undefined 
@@ -348,7 +364,7 @@ export default function StandupPageContent() {
   return (
     <AppLayout>
       <Topbar title="Standup Brief" subtitle="Daily team alignment and risk evaluation" />
-      <div style={{ padding: '16px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 16, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box' }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box' }}>
 
         {/* Overhead Summary Bar */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
@@ -553,18 +569,15 @@ export default function StandupPageContent() {
                 <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
 
                 {/* Filters dropdown */}
-                <div
-                  onMouseEnter={() => setShowHoverFilters(true)}
-                  onMouseLeave={() => setShowHoverFilters(false)}
-                  style={{ position: 'relative' }}
-                >
+                <div ref={filterRef} style={{ position: 'relative' }}>
                   <button
+                    onClick={() => setShowFilters(prev => !prev)}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 5,
                       padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
                       fontSize: 11.5, fontWeight: 600,
-                      background: (alertTypeFilter || teamFilter || clientFilter) ? 'var(--olive-50)' : 'var(--surface)',
-                      color: (alertTypeFilter || teamFilter || clientFilter) ? 'var(--olive-dark)' : 'var(--ink-2)',
+                      background: (alertTypeFilter || teamFilter || clientFilter || showFilters) ? 'var(--olive-50)' : 'var(--surface)',
+                      color: (alertTypeFilter || teamFilter || clientFilter || showFilters) ? 'var(--olive-dark)' : 'var(--ink-2)',
                       cursor: 'pointer', whiteSpace: 'nowrap',
                     }}
                   >
@@ -574,9 +587,9 @@ export default function StandupPageContent() {
                         {[alertTypeFilter, teamFilter, clientFilter].filter(Boolean).length}
                       </span>
                     )}
-                    <ChevronDown size={11} style={{ opacity: 0.6 }} />
+                    <ChevronDown size={11} style={{ opacity: 0.6, transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
                   </button>
-                  {showHoverFilters && (
+                  {showFilters && (
                     <div style={{
                       position: 'absolute', top: '100%', right: 0, marginTop: 6,
                       width: 260, background: 'var(--surface)', border: '1px solid var(--border)',
@@ -585,33 +598,33 @@ export default function StandupPageContent() {
                     }}>
                       <div>
                         <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Alert Type</label>
-                        <select value={alertTypeFilter} onChange={e => setAlertTypeFilter(e.target.value)}
-                          style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', width: '100%' }}>
-                          <option value="">All Alerts</option>
-                          <option value="overdue">Overdue</option>
-                          <option value="blocked">Blocked</option>
-                          <option value="due_today">Due Today</option>
-                        </select>
+                        <ClientCombobox
+                          value={alertTypeFilter}
+                          onChange={setAlertTypeFilter}
+                          placeholder="All Alerts"
+                          options={[
+                            { id: 'overdue', label: 'Overdue' },
+                            { id: 'blocked', label: 'Blocked' },
+                            { id: 'due_today', label: 'Due Today' },
+                          ]}
+                        />
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Team</label>
                         {user?.role !== 'team_leader' ? (
-                          <select value={teamFilter} onChange={e => setTeamFilter(e.target.value)}
-                            style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', width: '100%' }}>
-                            <option value="">All Teams</option>
-                            {TEAMS.map(team => <option key={team} value={team}>{team}</option>)}
-                          </select>
+                          <ClientCombobox
+                            value={teamFilter}
+                            onChange={setTeamFilter}
+                            placeholder="All Teams"
+                            options={TEAMS.map(team => ({ id: team, label: team }))}
+                          />
                         ) : (
                           <div style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '7px 10px', borderRadius: 'var(--radius-sm)' }}>{user.teamName}</div>
                         )}
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Client</label>
-                        <select value={clientFilter} onChange={e => setClientFilter(e.target.value)}
-                          style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface)', color: 'var(--ink)', outline: 'none', width: '100%' }}>
-                          <option value="">All Clients</option>
-                          {uniqueClients.map(c => <option key={c} value={c}>{c}</option>)}
-                        </select>
+                        <ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="All Clients" />
                       </div>
                       {(alertTypeFilter || teamFilter || clientFilter) && (
                         <button onClick={() => { setAlertTypeFilter(''); setTeamFilter(''); setClientFilter(''); }}
@@ -625,40 +638,38 @@ export default function StandupPageContent() {
               </div>
             </div>
 
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-              <div style={{ overflowY: 'auto', overflowX: 'auto', flex: 1 }}>
+            <SectionCard style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }} padding={0}>
+              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', margin: '16px 20px 20px', background: 'var(--surface)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                   <thead>
-                    <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '35%' }}>TASK & DETAILS</th>
-                      <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '20%' }}>
+                    <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '35%' }}>TASK & DETAILS</th>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '20%' }}>
                         {isPerClient ? 'ASSIGNEE' : 'CLIENT NAME'}
                       </th>
-                      <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '25%' }}>CURRENT STEP & TIMING</th>
-                      <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '10%' }}>ALERT TYPE</th>
-                      <th style={{ padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center', width: '10%' }}>ACTIONS</th>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '25%' }}>CURRENT STEP & TIMING</th>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '10%' }}>ALERT TYPE</th>
+                      <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center', width: '10%' }}>ACTIONS</th>
                     </tr>
                   </thead>
-                  <tbody>
                     {Object.entries(groupedItems).map(([groupKey, groupItems]) => {
                       const firstItem = groupItems[0];
                       const clientId = firstItem?.clientId;
                       const clientPinned = firstItem?.clientPinned;
                       const isOpen = expandedGroups[groupKey] ?? false;
                       return (
-                        <React.Fragment key={groupKey}>
+                        <tbody key={groupKey}>
                           {/* Folder-style Group Header — matches /team page style */}
-                           <tr
+                          <tr
                             onClick={() => setExpandedGroups(prev => ({ ...prev, [groupKey]: !(prev[groupKey] ?? false) }))}
                             style={{
                               background: 'var(--surface-2)',
                               cursor: 'pointer', userSelect: 'none',
-                              borderBottom: '1px solid var(--border)',
                             }}
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                           >
-                            <td colSpan={5} style={{ padding: '10px 16px', verticalAlign: 'middle' }}>
+                            <td colSpan={5} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <span style={{
                                   display: 'inline-block', fontSize: 9,
@@ -787,13 +798,12 @@ export default function StandupPageContent() {
                               </tr>
                             );
                           })}
-                        </React.Fragment>
+                        </tbody>
                       );
                     })}
-                  </tbody>
                 </table>
               </div>
-            </div>
+            </SectionCard>
           </div>
         )}
       </div>

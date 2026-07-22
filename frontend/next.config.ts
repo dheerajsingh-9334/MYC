@@ -7,7 +7,7 @@ const PROD_API_HOSTS: string[] = [
 ];
 
 module.exports = {
-  allowedDevOrigins: ['192.168.1.40'],
+  allowedDevOrigins: ['192.168.1.40', '192.168.1.43'],
 }
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -45,7 +45,8 @@ const nextConfig: NextConfig = {
     "*.ngrok.app",
     "*.trycloudflare.com",
     "localhost:3000",
-    "[IP_ADDRESS]"
+    "[IP_ADDRESS]",
+    "192.168.1.43"
   ],  
 };
 

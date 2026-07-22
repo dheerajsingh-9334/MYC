@@ -62,18 +62,18 @@ export default function WeekAtAGlance({ hideStepAdvances = false, hideDueIn7d = 
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 24, marginBottom: 24 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
         <div>
           <h2 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)', margin: 0 }}>Our week at a glance</h2>
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>Overview of client metrics & active distribution</span>
         </div>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12.5, fontWeight: 600, color: 'var(--olive)', background: 'var(--olive-50)', padding: '5px 12px', borderRadius: 999 }}>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12.5, fontWeight: 600, color: 'var(--olive)', background: 'var(--olive-50)', padding: '5px 12px', borderRadius: 999, flexShrink: 0 }}>
           {dateRangeString}
         </div>
       </div>
 
       {/* KPI Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
         {/* Card 1: Joined This Week */}
         <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ width: 42, height: 42, borderRadius: '50%', background: 'rgba(74, 102, 70, 0.1)', color: 'var(--olive)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -140,26 +140,28 @@ export default function WeekAtAGlance({ hideStepAdvances = false, hideDueIn7d = 
             const pct = Math.max(2, Math.round(((step.clientCount || 0) / totalClients) * 100));
 
             return (
-              <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                 {/* Step Number Pill */}
                 <div style={{
                   width: 32, height: 24, borderRadius: 6, border: '1px solid var(--olive)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: 'var(--olive)'
+                  fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: 'var(--olive)',
+                  flexShrink: 0,
                 }}>
                   {stepNumStr}
                 </div>
 
                 {/* Step Name Pill */}
                 <div style={{
-                  minWidth: 110, padding: '4px 10px', borderRadius: 6, background: 'var(--olive)',
-                  fontSize: 12, fontWeight: 600, color: '#fff', textAlign: 'center'
+                  minWidth: 80, maxWidth: 130, padding: '4px 10px', borderRadius: 6, background: 'var(--olive)',
+                  fontSize: 12, fontWeight: 600, color: '#fff', textAlign: 'center',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0,
                 }}>
                   {step.name}
                 </div>
 
                 {/* Relative Load progress bar */}
-                <div style={{ flex: 1, height: 16, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, overflow: 'hidden', position: 'relative' }}>
+                <div style={{ flex: 1, height: 16, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 999, overflow: 'hidden', position: 'relative', minWidth: 40 }}>
                   <div style={{
                     width: `${pct}%`, height: '100%',
                     background: 'linear-gradient(90deg, var(--olive), var(--olive-light))',
@@ -168,7 +170,7 @@ export default function WeekAtAGlance({ hideStepAdvances = false, hideDueIn7d = 
                 </div>
 
                 {/* Client count label */}
-                <div style={{ minWidth: 20, textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontSize: 12.5, fontWeight: 700, color: step.clientCount > 0 ? 'var(--olive)' : 'var(--muted)' }}>
+                <div style={{ minWidth: 18, textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontSize: 12.5, fontWeight: 700, color: step.clientCount > 0 ? 'var(--olive)' : 'var(--muted)', flexShrink: 0 }}>
                   {step.clientCount}
                 </div>
               </div>

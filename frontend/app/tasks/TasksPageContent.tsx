@@ -697,11 +697,51 @@ export default function TasksPage() {
               {showFilters && (
                 <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 260, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 999, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Task Visibility</label><div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}><button onClick={() => setTasksScope('all')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: tasksScope === 'all' ? 'var(--olive)' : 'transparent', color: tasksScope === 'all' ? '#fff' : 'var(--ink-2)' }}>All Tasks</button><button onClick={() => setTasksScope('mine')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: tasksScope === 'mine' ? 'var(--olive)' : 'transparent', color: tasksScope === 'mine' ? '#fff' : 'var(--ink-2)' }}>My Tasks</button></div></div>
-                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Status</label><select value={chipFilter} onChange={(e) => setChipFilter(e.target.value as ChipKind)} style={{ ...selectStyle, width: '100%' }}>{chips.map(c => (<option key={c.key} value={c.key}>{c.label} ({c.count})</option>))}</select></div>
-                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Team</label><select value={teamFilter} onChange={(e) => setTeamFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All teams</option>{teamOptions.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
-                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Client</label><ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="All clients" /></div>
-                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Assignee</label><select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All assignees</option>{assigneeOptions.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></div>
-                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Priority</label><select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} style={{ ...selectStyle, width: '100%' }}><option value="">All priorities</option><option value="high">High priority</option><option value="medium">Medium priority</option><option value="low">Low priority</option></select></div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)' }}>Status</div>
+                    <ClientCombobox
+                      value={chipFilter}
+                      onChange={(val) => setChipFilter(val as ChipKind)}
+                      placeholder="All Statuses"
+                      searchPlaceholder="Search statuses…"
+                      options={chips.map(c => ({ id: c.key, label: `${c.label} (${c.count})` }))}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)' }}>Team</div>
+                    <ClientCombobox
+                      value={teamFilter}
+                      onChange={setTeamFilter}
+                      placeholder="All Teams"
+                      options={teamOptions.map(t => ({ id: t, label: t }))}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)' }}>Client</div>
+                    <ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="All Clients" />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)' }}>Assignee</div>
+                    <ClientCombobox
+                      value={assigneeFilter}
+                      onChange={setAssigneeFilter}
+                      placeholder="All Assignees"
+                      options={assigneeOptions.map(a => ({ id: a.id, label: a.name }))}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)' }}>Priority</div>
+                    <ClientCombobox
+                      value={priorityFilter}
+                      onChange={setPriorityFilter}
+                      placeholder="All Priorities"
+                      options={[
+                        { id: 'high', label: 'High Priority' },
+                        { id: 'medium', label: 'Medium Priority' },
+                        { id: 'low', label: 'Low Priority' }
+                      ]}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -734,9 +774,8 @@ export default function TasksPage() {
                       <Th align="center" width="15%">Actions</Th>
                     </tr>
                   </thead>
-                  <tbody>
                     {filtered.length === 0 ? (
-                      <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks match your filters.</td></tr>
+                      <tbody><tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks match your filters.</td></tr></tbody>
                     ) : scrollableGroups.map((group) => {
                       const client = group.client;
                       const clientTasks = group.tasks;
@@ -760,12 +799,11 @@ export default function TasksPage() {
                       };
 
                       return (
-                        <Fragment key={client.id}>
+                        <tbody key={client.id}>
                           <tr
                             onClick={() => toggleClientExpand(client.id)}
                             style={{
                               background: 'var(--surface-2)',
-                              borderBottom: '1px solid var(--border)',
                               cursor: 'pointer',
                               userSelect: 'none',
                               transition: 'background 0.15s'
@@ -773,7 +811,7 @@ export default function TasksPage() {
                             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                           >
-                            <td colSpan={5} style={{ padding: '10px 18px', fontWeight: 600 }}>
+                            <td colSpan={5} style={{ position: 'sticky', top: 40, zIndex: 9, background: 'inherit', padding: '10px 18px', fontWeight: 600, borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                 <span style={{ 
                                   display: 'inline-block',
@@ -847,10 +885,9 @@ export default function TasksPage() {
                               }}
                             />
                           ))}
-                        </Fragment>
+                        </tbody>
                       );
                     })}
-                  </tbody>
                 </table>
               </div>
             </>

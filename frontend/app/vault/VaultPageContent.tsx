@@ -287,7 +287,7 @@ export default function VaultPage() {
   return (
     <AppLayout>
       <Topbar title="Vault" subtitle={`${vault.totalDocs} item${vault.totalDocs !== 1 ? 's' : ''} across all clients — Proof of work organised by client → step`} />
-      <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box' }}>
         {/* Toolbar — count left, controls right */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
@@ -334,8 +334,8 @@ export default function VaultPage() {
         </div>
 
         {/* Tree */}
-        <SectionCard padding={0}>
-          <div style={{ maxHeight: 'calc(100vh - 200px)', minHeight: 500, overflowY: 'auto', overflowX: 'auto' }}>
+        <SectionCard style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }} padding={0}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', margin: '16px 20px 20px', background: 'var(--surface)' }}>
             {isLoading ? (
               <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
                 <thead>
@@ -367,19 +367,18 @@ export default function VaultPage() {
                     <th style={{ ...thStyleBase, width: '10%', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
-                <tbody>
                   {filteredFolders.map((client: DocNode) => {
                     const clientOpen = expandedClients.has(client.id) || !!search.trim();
                     return (
-                      <Fragment key={client.id}>
+                      <tbody key={client.id}>
                         {/* Client row */}
                         <tr onClick={() => toggleClient(client.id)}
                           className="standup-row"
-                          style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                          style={{ background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s' }}
                           onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                         >
-                          <td colSpan={5} style={{ padding: '10px 18px', fontWeight: 600, color: 'var(--ink)' }}>
+                          <td colSpan={5} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 18px', fontWeight: 600, color: 'var(--ink)', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <span style={{ 
                                 display: 'inline-block',
@@ -498,10 +497,9 @@ export default function VaultPage() {
                             </Fragment>
                           );
                         })}
-                      </Fragment>
+                      </tbody>
                     );
                   })}
-                </tbody>
               </table>
             )}
           </div>
