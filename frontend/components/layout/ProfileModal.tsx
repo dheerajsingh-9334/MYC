@@ -146,7 +146,7 @@ export default function ProfileModal({ open, onClose, onUpdateSuccess }: Profile
           }}
         >
           <div>
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>
+            <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>
               Profile Settings
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 4 }}>

@@ -1,5 +1,6 @@
 'use client';
-import { useState, useMemo } from 'react';
+import ActionDropdown from "@/components/ui/ActionDropdown";
+import { useState, useMemo, useEffect } from 'react';
 import { restrictNumericKeyDown } from '@/lib/validation';
 
 import AppLayout from '@/components/layout/AppLayout';
@@ -259,7 +260,7 @@ export default function StepConfigPage() {
               background: 'var(--surface-2)'
             }}>
               <Settings size={44} style={{ color: 'var(--olive)', strokeWidth: 1.2, marginBottom: 16 }} />
-              <h3 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)', margin: '0 0 8px 0' }}>
+              <h3 style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 24, color: 'var(--ink)', margin: '0 0 8px 0' }}>
                 No Client Selected
               </h3>
               <p style={{ fontSize: 13.5, maxWidth: 300, margin: 0, color: 'var(--soft)' }}>
@@ -275,17 +276,34 @@ export default function StepConfigPage() {
 
 // ── SEPARATE OPTIMIZED PANEL COMPONENT (isolates typing re-renders) ──
 export type ManageStepsPanelProps = {
-  clientId: string;
+  clientId?: string;
+  serviceId?: string;
   clientName: string;
   teamsList: string[];
+  focusStepId?: string;
+  hideHeader?: boolean;
   onClearSelection: () => void;
 };
 
-export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelection }: ManageStepsPanelProps) {
+export function ManageStepsPanel({ clientId, serviceId, clientName, teamsList, focusStepId, hideHeader, onClearSelection }: ManageStepsPanelProps) {
   const qc = useQueryClient();
 
   // Inline Deletion Confirmation State
   const [stepIdToDeleteConfirmation, setStepIdToDeleteConfirmation] = useState<string | null>(null);
+  const [deletingServiceId, setDeletingServiceId] = useState<string | null>(null);
+
+  const deleteServiceMutation = useMutation({
+    mutationFn: (serviceId: string) => apiFetch(`/api/clients/${clientId}/services/${serviceId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['steps', clientId] });
+      qc.invalidateQueries({ queryKey: ['client', clientId] });
+      setDeletingServiceId(null);
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to remove service');
+      setDeletingServiceId(null);
+    }
+  });
 
   // Inline Editing State within popup
   const [inlineEditingStepId, setInlineEditingStepId] = useState<string | null>(null);
@@ -293,12 +311,13 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
     name: string;
     owningTeamName: string;
     slaDays: number;
+    stepNumber: number | string;
     taskTemplates: Template[];
-  }>({ name: '', owningTeamName: '', slaDays: 3, taskTemplates: [] });
+  }>({ name: '', owningTeamName: '', slaDays: 3, stepNumber: '', taskTemplates: [] });
   const [inlineEditError, setInlineEditError] = useState('');
 
   // Inline Adding State within popup
-  const [inlineAddingStep, setInlineAddingStep] = useState(false);
+  const [inlineAddingStep, setInlineAddingStep] = useState<string | false>(false);
   const [inlineAddForm, setInlineAddForm] = useState({
     name: '',
     owningTeamName: teamsList[0] || '',
@@ -307,22 +326,54 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
   });
   const [inlineAddError, setInlineAddError] = useState('');
 
-  // Fetch client steps
+  // Fetch client or service steps
   const { data: clientSteps = [], isLoading: loadingSteps } = useQuery({
-    queryKey: ['steps', clientId],
-    queryFn: () => apiFetch(`/api/steps?clientId=${clientId}`),
+    queryKey: ['steps', clientId || serviceId],
+    queryFn: () => apiFetch(`/api/steps?${clientId ? `clientId=${clientId}` : `serviceId=${serviceId}`}`),
     retry: false,
   });
+
+  const groupedSteps = useMemo(() => {
+    const groups: Record<string, { serviceId: string; serviceName: string; steps: any[] }> = {};
+    clientSteps.forEach((s: any) => {
+      const sId = s.serviceId || 'default';
+      const sName = s.service?.name || (sId === 'default' ? 'General Pipeline' : s.service?.name);
+      if (!groups[sId]) groups[sId] = { serviceId: sId, serviceName: sName, steps: [] };
+      groups[sId].steps.push(s);
+    });
+    if (Object.keys(groups).length === 0) {
+      groups['default'] = { serviceId: 'default', serviceName: 'General Pipeline', steps: [] };
+    }
+    return Object.values(groups);
+  }, [clientSteps]);
+
+  // Automatically start editing if focusStepId is provided and we aren't already editing it
+  useEffect(() => {
+    if (focusStepId && clientSteps.length > 0 && inlineEditingStepId !== focusStepId) {
+      const stepToEdit = clientSteps.find((s: any) => s.id === focusStepId);
+      if (stepToEdit) {
+        setInlineEditingStepId(stepToEdit.id);
+        setInlineEditForm({
+          name: stepToEdit.name,
+          owningTeamName: stepToEdit.owningTeamName,
+          slaDays: stepToEdit.slaDays,
+          stepNumber: stepToEdit.stepNumber,
+          taskTemplates: stepToEdit.taskTemplates || [],
+        });
+        setInlineEditError('');
+      }
+    }
+  }, [focusStepId, clientSteps, inlineEditingStepId]);
 
   // Mutations
   const addStepMutation = useMutation({
     mutationFn: (data: typeof inlineAddForm) =>
       apiFetch('/api/steps', {
         method: 'POST',
-        body: JSON.stringify({ ...data, clientId }),
+        body: JSON.stringify({ ...data, clientId: clientId || undefined, serviceId: (inlineAddingStep && inlineAddingStep !== 'default') ? inlineAddingStep : (serviceId || undefined) }),
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['steps', clientId] });
+      qc.invalidateQueries({ queryKey: ['steps', clientId || serviceId] });
       qc.invalidateQueries({ queryKey: ['clients'] });
       setInlineAddingStep(false);
       setInlineAddForm({ name: '', owningTeamName: teamsList[0] || '', slaDays: 3, stepNumber: '' });
@@ -335,10 +386,10 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
     mutationFn: (data: any) =>
       apiFetch(`/api/steps/${inlineEditingStepId}`, {
         method: 'PATCH',
-        body: JSON.stringify({ ...data, clientId }),
+        body: JSON.stringify({ ...data, clientId: clientId || undefined, serviceId: serviceId || undefined }),
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['steps', clientId] });
+      qc.invalidateQueries({ queryKey: ['steps', clientId || serviceId] });
       qc.invalidateQueries({ queryKey: ['clients'] });
       setInlineEditingStepId(null);
       setInlineEditError('');
@@ -348,11 +399,11 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
 
   const deleteStepMutation = useMutation({
     mutationFn: (stepId: string) =>
-      apiFetch(`/api/steps/${stepId}?clientId=${clientId}`, {
+      apiFetch(`/api/steps/${stepId}?${clientId ? `clientId=${clientId}` : `serviceId=${serviceId}`}`, {
         method: 'DELETE',
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['steps', clientId] });
+      qc.invalidateQueries({ queryKey: ['steps', clientId || serviceId] });
       qc.invalidateQueries({ queryKey: ['clients'] });
     },
     onError: (err: any) => alert(err.message || 'Failed to delete step'),
@@ -364,6 +415,7 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
       name: s.name,
       owningTeamName: s.owningTeamName,
       slaDays: s.slaDays,
+      stepNumber: s.stepNumber,
       taskTemplates: s.taskTemplates ? [...s.taskTemplates] : [],
     });
     setInlineEditError('');
@@ -380,86 +432,61 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
       }}
     >
       {/* Panel Header */}
-      <div
-        style={{
-          padding: '20px 24px 16px',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'var(--surface)',
-          flexShrink: 0,
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--olive)' }}>
-            Manage Pipeline Steps
-          </div>
-          <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 26, color: 'var(--ink)', marginTop: 4, fontWeight: 600 }}>
-            {clientName}
-          </div>
-        </div>
-        <button
-          onClick={onClearSelection}
+      {!hideHeader && (
+        <div
           style={{
-            display: 'inline-flex',
+            padding: '20px 24px 16px',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
             alignItems: 'center',
-            gap: 4,
-            padding: '6px 12px',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-            fontSize: 12,
+            justifyContent: 'space-between',
             background: 'var(--surface)',
-            color: 'var(--ink-2)',
-            cursor: 'pointer',
-            fontWeight: 500,
+            flexShrink: 0,
           }}
         >
-          Clear Selection
-        </button>
-      </div>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--olive)' }}>
+              Manage Pipeline Steps
+            </div>
+            <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 26, color: 'var(--ink)', marginTop: 4, fontWeight: 600 }}>
+              {clientName}
+            </div>
+          </div>
+          <button
+            onClick={onClearSelection}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '6px 12px',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              fontSize: 12,
+              background: 'var(--surface)',
+              color: 'var(--ink-2)',
+              cursor: 'pointer',
+              fontWeight: 500,
+            }}
+          >
+            Clear Selection
+          </button>
+        </div>
+      )}
 
       {/* Panel Scrollable Content */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
         
-        {/* Header and Add Button */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-2)' }}>
-            Configure Pipeline Steps ({clientSteps.length})
-          </span>
-          {!inlineAddingStep && (
-            <button
-              onClick={() => {
-                setInlineAddForm({
-                  name: '',
-                  owningTeamName: teamsList[0] || '',
-                  slaDays: 3,
-                  stepNumber: String(clientSteps.length + 1),
-                });
-                setInlineAddingStep(true);
-                setInlineAddError('');
-              }}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '6px 12px',
-                background: 'var(--olive)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: 12.5,
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              <Plus size={14} /> Add Step
-            </button>
-          )}
-        </div>
+        {/* Header */}
+        {!hideHeader && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink-2)' }}>
+              Configure Pipeline Steps ({clientSteps.length})
+            </span>
+          </div>
+        )}
 
         {/* Inline Adding Step Panel */}
-        {inlineAddingStep && (
+        {inlineAddingStep && false && ( /* Hidden global add form, moved to groups */
           <div
             style={{
               border: '1px dashed var(--olive)',
@@ -469,7 +496,7 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
               marginBottom: 16,
             }}
           >
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 18, color: 'var(--ink)', marginBottom: 12 }}>
+            <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 18, color: 'var(--ink)', marginBottom: 12 }}>
               Add New Step
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 12 }}>
@@ -664,22 +691,91 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
               </div>
             ))}
           </div>
-        ) : clientSteps.length === 0 ? (
-          <div
-            style={{
-              textAlign: 'center',
-              padding: 30,
-              color: 'var(--muted)',
-              fontSize: 13,
-              border: '1px dashed var(--border)',
-              borderRadius: 8,
-            }}
-          >
-            No steps configured.
-          </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {clientSteps.map((s: any) => {
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            {groupedSteps.map(group => (
+              <div key={group.serviceId} style={{ display: 'flex', flexDirection: 'column', gap: 12, background: 'var(--surface)', border: '1px solid var(--border)', padding: 16, borderRadius: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border)', paddingBottom: 12, marginBottom: 8 }}>
+                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{group.serviceName}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {!inlineAddingStep && !focusStepId && (
+                      <button
+                        onClick={() => {
+                          setInlineAddForm({ name: '', owningTeamName: teamsList[0] || '', slaDays: 3, stepNumber: String(group.steps.length + 1) });
+                          setInlineAddingStep(group.serviceId);
+                          setInlineAddError('');
+                        }}
+                        style={{ padding: '6px 12px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+                      >
+                        <Plus size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> Add Step
+                      </button>
+                    )}
+                    {clientId && group.serviceId !== 'default' && groupedSteps.length > 1 && (
+                      deletingServiceId === group.serviceId ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
+                          <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>Remove {group.serviceName}?</span>
+                          <button onClick={() => deleteServiceMutation.mutate(group.serviceId)} disabled={deleteServiceMutation.isPending} style={{ padding: '4px 10px', background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 4, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                            {deleteServiceMutation.isPending ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><BtnSpinner size={11} /> Removing...</span> : 'Yes'}
+                          </button>
+                          <button onClick={() => setDeletingServiceId(null)} style={{ padding: '4px 10px', background: 'var(--surface)', color: 'var(--ink-2)', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12, cursor: 'pointer', fontWeight: 500 }}>
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <ActionDropdown
+                          align="right"
+                          actions={[
+                            {
+                              label: 'Remove Service',
+                              icon: <Trash2 size={13} />,
+                              onClick: () => setDeletingServiceId(group.serviceId),
+                            }
+                          ]}
+                        />
+                      )
+                    )}
+                  </div>
+                </div>
+                
+                {inlineAddingStep === group.serviceId && (
+                  <div style={{ border: '1px dashed var(--olive)', borderRadius: 8, padding: 16, background: 'var(--surface-2)', marginBottom: 16 }}>
+                    <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 16, color: 'var(--ink)', marginBottom: 12 }}>Add New Step</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 12 }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 4 }}>Step Name *</label>
+                        <input value={inlineAddForm.name} onChange={(e) => setInlineAddForm(f => ({ ...f, name: e.target.value }))} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 4 }}>SLA (days)</label>
+                        <input type="number" min={1} value={inlineAddForm.slaDays} onKeyDown={restrictNumericKeyDown} onChange={(e) => setInlineAddForm(f => ({ ...f, slaDays: parseInt(e.target.value.replace(/[^0-9]/g, '')) || 1 }))} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)' }} />
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 12 }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 4 }}>Owning Team *</label>
+                        <select value={inlineAddForm.owningTeamName} onChange={(e) => setInlineAddForm(f => ({ ...f, owningTeamName: e.target.value }))} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)' }}>
+                          <option value="">Select team...</option>
+                          {teamsList.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 4 }}>Step Number</label>
+                        <input type="number" min={1} value={inlineAddForm.stepNumber} onKeyDown={restrictNumericKeyDown} onChange={(e) => setInlineAddForm(f => ({ ...f, stepNumber: e.target.value.replace(/[^0-9]/g, '') }))} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)' }} />
+                      </div>
+                    </div>
+                    {inlineAddError && <div style={{ padding: '8px 12px', background: 'var(--red-bg)', color: 'var(--red)', borderRadius: 6, fontSize: 12.5, marginBottom: 12 }}>{inlineAddError}</div>}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                      <button onClick={() => setInlineAddingStep(false)} style={{ padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 4, background: 'var(--surface)', cursor: 'pointer' }}>Cancel</button>
+                      <button onClick={() => { setInlineAddError(''); addStepMutation.mutate(inlineAddForm); }} disabled={addStepMutation.isPending || !inlineAddForm.name || !inlineAddForm.owningTeamName} style={{ padding: '6px 14px', border: 'none', borderRadius: 4, background: 'var(--olive)', color: '#fff', cursor: 'pointer' }}>{addStepMutation.isPending ? 'Adding...' : 'Add'}</button>
+                    </div>
+                  </div>
+                )}
+                
+                {group.steps.length === 0 ? (
+                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No steps configured for this service.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {(focusStepId ? group.steps.filter((s: any) => s.id === focusStepId) : group.steps).map((s: any) => {
               const isEditingThisStep = s.id === inlineEditingStepId;
 
               if (isEditingThisStep) {
@@ -688,13 +784,13 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                   <div
                     key={s.id}
                     style={{
-                      border: '1.5px solid var(--olive)',
-                      borderRadius: 8,
-                      padding: 16,
+                      border: focusStepId ? 'none' : '1.5px solid var(--olive)',
+                      borderRadius: focusStepId ? 0 : 8,
+                      padding: focusStepId ? 0 : 16,
                       background: 'var(--surface)',
                     }}
                   >
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 12, marginBottom: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.6fr 0.6fr', gap: 12, marginBottom: 12 }}>
                       <div>
                         <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 4 }}>
                           Step Name *
@@ -738,6 +834,33 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                             background: 'var(--surface)',
                             color: 'var(--ink)',
                             outline: 'none',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 4 }}>
+                          Step Number
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={inlineEditForm.stepNumber}
+                          onKeyDown={restrictNumericKeyDown}
+                          onChange={(e) => {
+                            const cleanVal = e.target.value.replace(/[^0-9]/g, '');
+                            setInlineEditForm((f) => ({ ...f, stepNumber: cleanVal }));
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '8px 10px',
+                            border: '1px solid var(--border)',
+                            borderRadius: 6,
+                            fontSize: 13,
+                            background: 'var(--surface)',
+                            color: 'var(--ink)',
+                            outline: 'none',
+                            boxSizing: 'border-box',
                           }}
                         />
                       </div>
@@ -827,6 +950,8 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                                   fontSize: 12,
                                   background: 'var(--surface)',
                                   color: 'var(--ink)',
+                                  outline: 'none',
+                                  boxSizing: 'border-box',
                                 }}
                               />
                               <select
@@ -843,6 +968,8 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                                   fontSize: 12,
                                   background: 'var(--surface)',
                                   color: 'var(--ink)',
+                                  outline: 'none',
+                                  boxSizing: 'border-box',
                                 }}
                               >
                                 <option value="normal">Normal</option>
@@ -877,6 +1004,8 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                                   fontSize: 12,
                                   background: 'var(--surface)',
                                   color: 'var(--ink)',
+                                  outline: 'none',
+                                  boxSizing: 'border-box',
                                 }}
                               />
                               <div>
@@ -901,6 +1030,8 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                                     fontSize: 12,
                                     background: 'var(--surface)',
                                     color: 'var(--ink)',
+                                    outline: 'none',
+                                    boxSizing: 'border-box',
                                   }}
                                 />
                               </div>
@@ -990,7 +1121,7 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <span
                         style={{
-                          fontFamily: 'JetBrains Mono, monospace',
+                          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
                           fontSize: 11,
                           fontWeight: 700,
                           color: 'var(--olive)',
@@ -1100,6 +1231,10 @@ export function ManageStepsPanel({ clientId, clientName, teamsList, onClearSelec
                 </div>
               );
             })}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>

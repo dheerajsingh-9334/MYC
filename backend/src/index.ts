@@ -20,6 +20,8 @@ import vaultRoutes from './routes/vault.routes';
 import teamsRoutes from './routes/teams.routes';
 import reportsRoutes from './routes/reports.routes';
 import problemsRoutes from './routes/problems.routes';
+import servicesRoutes from './routes/services.routes';
+import notesRoutes from './routes/notes.routes';
 import { startCronJobs } from './services/cron.service';
 
 const app = express();
@@ -50,6 +52,8 @@ app.use('/api/vault', vaultRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/reports', reportsRoutes);
 app.use('/api/problems', problemsRoutes);
+app.use('/api/services', servicesRoutes);
+app.use('/api/notes', notesRoutes);
 
 // Health check — also reports DB connection status
 app.get('/api/health', async (_req, res) => {

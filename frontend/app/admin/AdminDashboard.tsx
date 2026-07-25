@@ -93,7 +93,9 @@ export default function AdminDashboard() {
   const [exportFormat, setExportFormat] = useState('csv');
 
   // Admin Tasks State
-  const [adminTaskTab, setAdminTaskTab] = useState<'active' | 'completed' | 'rejected' | 'problems'>('active');
+  const [adminTaskTab, setAdminTaskTab] = useState<'all' | 'active' | 'completed' | 'rejected' | 'problems'>('active');
+  const [chartYearFilter, setChartYearFilter] = useState<string>('all');
+  const [chartMonthFilter, setChartMonthFilter] = useState<string>('all');
   const [adminTaskSearch, setAdminTaskSearch] = useState('');
   const [adminTaskScope, setAdminTaskScope] = useState<'my' | 'all'>('all');
   const [adminTaskPriority, setAdminTaskPriority] = useState<'' | 'high' | 'normal'>('');
@@ -109,12 +111,12 @@ export default function AdminDashboard() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  const [adminTaskLimit, setAdminTaskLimit] = useState(20);
+  const [adminTaskLimit, setAdminTaskLimit] = useState(7);
   const [clientRiskLimit, setClientRiskLimit] = useState(20);
   const [bannerProblemsLimit, setBannerProblemsLimit] = useState(5);
 
   useEffect(() => {
-    setAdminTaskLimit(20);
+    setAdminTaskLimit(7);
   }, [adminTaskTab, adminTaskSearch, adminTaskScope, adminTaskPriority]);
 
   const handleBannerProblemsScroll = (e: React.UIEvent<HTMLElement>) => {
@@ -396,7 +398,7 @@ export default function AdminDashboard() {
     let infoLink = "/standup";
     if (pendingExtensions.length > 0) {
       infoMsg = `${pendingExtensions.length} task extension request${pendingExtensions.length > 1 ? 's' : ''} awaiting approval.`;
-      infoLink = `/standup`; 
+      infoLink = `/standup`;
     }
 
     return {
@@ -448,6 +450,7 @@ export default function AdminDashboard() {
     });
 
     return {
+      all: filteredTasks,
       active: filteredTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled'),
       completed: filteredTasks.filter((t: any) => t.status === 'complete'),
       rejected: filteredTasks.filter((t: any) => t.status === 'rejected' || t.status === 'cancelled'),
@@ -467,7 +470,7 @@ export default function AdminDashboard() {
   const filteredAdminProblems = useMemo(() => {
     const term = adminTaskSearch.trim().toLowerCase();
     if (!term) return problemsList;
-    return problemsList.filter((p: any) => 
+    return problemsList.filter((p: any) =>
       p.title.toLowerCase().includes(term) ||
       (p.description && p.description.toLowerCase().includes(term)) ||
       (p.user?.fullName && p.user.fullName.toLowerCase().includes(term)) ||
@@ -502,71 +505,116 @@ export default function AdminDashboard() {
     }
   };
 
+  useEffect(() => {
+    const mainEl = document.getElementById('app-main-scroll');
+    if (!mainEl) return;
+    const handleWindowScroll = (e: Event) => {
+      if (window.innerWidth > 768) return;
+      const target = e.currentTarget as HTMLElement;
+      if (target.scrollTop + target.clientHeight >= target.scrollHeight - 100) {
+        setAdminTaskLimit(prev => prev + 10);
+        setClientRiskLimit(prev => prev + 10);
+      }
+    };
+    mainEl.addEventListener('scroll', handleWindowScroll);
+    return () => mainEl.removeEventListener('scroll', handleWindowScroll);
+  }, []);
+
+  const yearOptions = useMemo(() => {
+    const years = Array.from(new Set(allClients.map((c: any) => new Date(c.dateJoined || c.createdAt || c.addedAt || new Date()).getFullYear()))).sort().reverse();
+    return [{ id: 'all', label: 'All Years' }, ...years.slice(0, 4).map(y => ({ id: y.toString(), label: y.toString() }))];
+  }, [allClients]);
+
+  const monthOptions = [
+    { id: 'all', label: 'All Months' },
+    ...['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((m, i) => ({ id: i.toString(), label: m }))
+  ];
+
   const allTimeJoinData = useMemo(() => {
-    if (allTasks.length === 100) {
-      return {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr'],
-        data: [10, 20, 30, 40],
-        clientsByMonth: { 'Jan': [], 'Feb': [], 'Mar': [], 'Apr': [] }
-      };
+    if (allTasks.length === 100 && allClients.length === 0) {
+      return { labels: ['Jan', 'Feb', 'Mar', 'Apr'], data: [10, 20, 30, 40], clientsByMonth: {} };
     }
-    const sorted = [...allClients].map((c: any) => {
+    
+    let sorted = [...allClients].map((c: any) => {
       const date = new Date(c.dateJoined || c.createdAt || c.addedAt || new Date());
       return { ...c, parsedDate: date };
     }).sort((a: any, b: any) => a.parsedDate.getTime() - b.parsedDate.getTime());
 
-    if (sorted.length === 0) {
-      return { labels: ['Start', 'Now'], data: [0, 0], clientsByMonth: {} as Record<string, string[]> };
+    if (chartYearFilter !== 'all') {
+      sorted = sorted.filter(c => c.parsedDate.getFullYear().toString() === chartYearFilter);
+    }
+    if (chartMonthFilter !== 'all') {
+      sorted = sorted.filter(c => c.parsedDate.getMonth().toString() === chartMonthFilter);
     }
 
-    const monthlyCounts: { [key: string]: number } = {};
+    const counts: { [key: string]: number } = {};
     const clientsByMonth: { [key: string]: string[] } = {};
+
     sorted.forEach(c => {
-      const label = format(c.parsedDate, 'MMM yy');
-      monthlyCounts[label] = (monthlyCounts[label] || 0) + 1;
+      let label = '';
+      if (chartYearFilter === 'all' && chartMonthFilter === 'all') {
+        label = format(c.parsedDate, 'MMM yy');
+      } else if (chartYearFilter !== 'all' && chartMonthFilter === 'all') {
+        label = format(c.parsedDate, 'MMM');
+      } else {
+        const d = c.parsedDate.getDate();
+        if (d <= 7) label = 'Week 1';
+        else if (d <= 14) label = 'Week 2';
+        else if (d <= 21) label = 'Week 3';
+        else if (d <= 28) label = 'Week 4';
+        else label = 'Week 5';
+      }
+      counts[label] = (counts[label] || 0) + 1;
       if (!clientsByMonth[label]) clientsByMonth[label] = [];
       clientsByMonth[label].push(c.brandName || c.fullName || 'Unknown');
     });
 
-    const labels = Object.keys(monthlyCounts);
-    const counts = Object.values(monthlyCounts);
-    
-    let cumulative = 0;
-    const cumulativeCounts = counts.map(count => {
-      cumulative += count;
-      return cumulative;
-    });
+    const labels: string[] = [];
+    const data: number[] = [];
 
-    if (labels.length === 1) {
-      return {
-        labels: ['Prev', labels[0]],
-        data: [0, cumulativeCounts[0]],
-        clientsByMonth: { 'Prev': [], [labels[0]]: clientsByMonth[labels[0]] }
-      };
+    if (chartYearFilter === 'all' && chartMonthFilter === 'all') {
+      const uniqueLabels = Array.from(new Set(sorted.map(c => format(c.parsedDate, 'MMM yy'))));
+      if (uniqueLabels.length === 0) uniqueLabels.push(format(new Date(), 'MMM yy'));
+      uniqueLabels.forEach(l => {
+        labels.push(l);
+        data.push(counts[l] || 0);
+      });
+    } else if (chartYearFilter !== 'all' && chartMonthFilter === 'all') {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      months.forEach(m => {
+        labels.push(m);
+        data.push(counts[m] || 0);
+      });
+    } else {
+      const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
+      weeks.forEach(w => {
+        labels.push(w);
+        data.push(counts[w] || 0);
+      });
     }
 
-    return { labels, data: cumulativeCounts, clientsByMonth };
-  }, [allClients]);
+    return { labels, data, clientsByMonth };
+  }, [allClients, chartYearFilter, chartMonthFilter]);
 
   const launchedLineChartData = useMemo(() => {
     const launchedClients = allClients.filter((c: any) => c.currentStep?.stepNumber === 9 || c.currentStep?.isFinal);
     if (launchedClients.length === 0) {
       return { labels: ['Start', 'Now'], data: [0, 0] };
     }
-    
+
     const timestamps = launchedClients.map((c: any) => new Date(c.updatedAt || c.createdAt || new Date()).getTime());
     const minTime = Math.min(...timestamps);
     const maxTime = new Date().getTime();
-    
-    const range = Math.max(1000 * 60 * 60 * 24, maxTime - minTime); 
+
+    const range = Math.max(1000 * 60 * 60 * 24, maxTime - minTime);
     const step = range / 6;
     timestamps.sort((a: any, b: any) => a - b);
-    
+
     const data = [0, 0, 0, 0, 0, 0, 0];
     const labels = ['', '', '', '', '', '', ''];
     let cumulative = 0;
     let tIdx = 0;
-    
+
     for (let i = 0; i < 7; i++) {
       const bucketEnd = i === 6 ? maxTime : minTime + step * i;
       while (tIdx < timestamps.length && timestamps[tIdx] <= bucketEnd) {
@@ -576,7 +624,7 @@ export default function AdminDashboard() {
       data[i] = cumulative;
       labels[i] = new Date(bucketEnd).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
     }
-    
+
     return { labels, data };
   }, [allClients]);
 
@@ -596,7 +644,7 @@ export default function AdminDashboard() {
       <AppLayout>
         <Topbar
           title="Admin Dashboard"
-          subtitle="Org-wide view · Tasks, teams, performance"
+        // subtitle="Org-wide view · Tasks, teams, performance"
         />
         <DashboardSkeleton />
       </AppLayout>
@@ -607,37 +655,37 @@ export default function AdminDashboard() {
     <AppLayout>
       <Topbar
         title="Admin Dashboard"
-        subtitle="Org-wide view · Tasks, teams, performance"
-        // renderActions={() => (
-        //   <button
-        //     onClick={() => setShowDeleteImportModal(true)}
-        //     style={{
-        //       display: 'inline-flex',
-        //       alignItems: 'center',
-        //       justifyContent: 'center',
-        //       gap: 6,
-        //       height: 32,
-        //       padding: '0 12px',
-        //       borderRadius: 'var(--radius-sm)',
-        //       background: 'rgba(220, 38, 38, 0.08)',
-        //       border: '1px solid rgba(220, 38, 38, 0.2)',
-        //       color: 'var(--red)',
-        //       fontSize: 12.5,
-        //       fontWeight: 600,
-        //       cursor: 'pointer',
-        //       transition: 'all 0.15s',
-        //     }}
-        //     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
-        //     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
-        //   >
-        //     <TriangleAlert size={13} />
-        //     Purge CSV Datad
-        //   </button>
-        // )}
+      // subtitle="Org-wide view · Tasks, teams, performance"
+      // renderActions={() => (
+      //   <button
+      //     onClick={() => setShowDeleteImportModal(true)}
+      //     style={{
+      //       display: 'inline-flex',
+      //       alignItems: 'center',
+      //       justifyContent: 'center',
+      //       gap: 6,
+      //       height: 32,
+      //       padding: '0 12px',
+      //       borderRadius: 'var(--radius-sm)',
+      //       background: 'rgba(220, 38, 38, 0.08)',
+      //       border: '1px solid rgba(220, 38, 38, 0.2)',
+      //       color: 'var(--red)',
+      //       fontSize: 12.5,
+      //       fontWeight: 600,
+      //       cursor: 'pointer',
+      //       transition: 'all 0.15s',
+      //     }}
+      //     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.12)'; }}
+      //     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(220, 38, 38, 0.08)'; }}
+      //   >
+      //     <TriangleAlert size={13} />
+      //     Purge CSV Datad
+      //   </button>
+      // )}
       />
 
-      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box', minHeight: 0 }}>
-        
+      <div className="dashboard-mobile-scroll" style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 20, boxSizing: 'border-box', minHeight: 0 }}>
+
         {/* Row 2: 5 Stat Cards */}
         <div className="grid-responsive-5">
           {[
@@ -732,10 +780,11 @@ export default function AdminDashboard() {
             marginBottom: 20,
             position: 'relative',
             overflow: 'hidden',
+            flexShrink: 0,
           }}>
             {/* Red accent bar on the left */}
             <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'var(--red)' }} />
-            
+
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{
@@ -768,7 +817,7 @@ export default function AdminDashboard() {
                 {problemsList.filter((p: any) => p.status === 'open').length} Action Needed
               </span>
             </div>
-            
+
             <div
               onScroll={handleBannerProblemsScroll}
               style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 420, overflowY: 'auto', paddingRight: 2 }}
@@ -777,93 +826,93 @@ export default function AdminDashboard() {
                 .filter((p: any) => p.status === 'open')
                 .slice(0, bannerProblemsLimit)
                 .map((problem: any) => (
-                <div key={problem.id} style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  padding: '14px 18px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  gap: 16,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                  transition: 'all 0.2s',
-                  flexShrink: 0,
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'rgba(239, 68, 68, 0.3)';
-                  (e.currentTarget as HTMLElement).style.boxShadow = '0 3px 8px rgba(239, 68, 68, 0.05)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
-                  (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
-                }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{problem.title}</span>
-                      <span style={{ fontSize: 11, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--border)' }} />
-                        Raised by {problem.user?.fullName} ({problem.user?.teamName || 'Unassigned'})
-                      </span>
-                      {problem.client && (
-                        <span 
-                          onClick={() => router.push(`/clients/${problem.client.id}`)}
-                          style={{
-                            fontSize: 10.5,
-                            fontWeight: 600,
-                            color: 'var(--olive-dark)',
-                            background: 'var(--olive-50)',
-                            padding: '2px 8px',
-                            borderRadius: 6,
-                            cursor: 'pointer',
-                            transition: 'background 0.15s',
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-100)'}
-                          onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'}
-                        >
-                          Client: {problem.client.brandName || problem.client.fullName}
-                        </span>
-                      )}
-                    </div>
-                    {problem.description && (
-                      <p style={{ fontSize: 12.5, color: 'var(--ink-2)', marginTop: 6, marginBottom: 0, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
-                        {problem.description}
-                      </p>
-                    )}
-                    <span style={{ fontSize: 10.5, color: 'var(--soft)', display: 'block', marginTop: 8 }}>
-                      Raised on {new Date(problem.createdAt).toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => resolveProblemMutation.mutate(problem.id)}
-                    disabled={resolveProblemMutation.isPending}
-                    style={{
-                      padding: '8px 16px',
-                      background: 'var(--green)',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: 8,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      flexShrink: 0,
-                      boxShadow: '0 2px 4px rgba(22, 163, 74, 0.15)',
+                  <div key={problem.id} style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    padding: '14px 18px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 16,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                    transition: 'all 0.2s',
+                    flexShrink: 0,
+                  }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderColor = 'rgba(239, 68, 68, 0.3)';
+                      (e.currentTarget as HTMLElement).style.boxShadow = '0 3px 8px rgba(239, 68, 68, 0.05)';
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
-                  >
-                    {resolveProblemMutation.isPending ? (
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <LoadingSpinner size={12} color="#fff" />
-                        <span>Resolving...</span>
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)';
+                      (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 3px rgba(0,0,0,0.02)';
+                    }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{problem.title}</span>
+                        <span style={{ fontSize: 11, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--border)' }} />
+                          Raised by {problem.user?.fullName} ({problem.user?.teamName || 'Unassigned'})
+                        </span>
+                        {problem.client && (
+                          <span
+                            onClick={() => router.push(`/clients/${problem.client.id}`)}
+                            style={{
+                              fontSize: 10.5,
+                              fontWeight: 600,
+                              color: 'var(--olive-dark)',
+                              background: 'var(--olive-50)',
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              cursor: 'pointer',
+                              transition: 'background 0.15s',
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-100)'}
+                            onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'}
+                          >
+                            Client: {problem.client.brandName || problem.client.fullName}
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      'Mark Resolved'
-                    )}
-                  </button>
-                </div>
-              ))}
+                      {problem.description && (
+                        <p style={{ fontSize: 12.5, color: 'var(--ink-2)', marginTop: 6, marginBottom: 0, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
+                          {problem.description}
+                        </p>
+                      )}
+                      <span style={{ fontSize: 10.5, color: 'var(--soft)', display: 'block', marginTop: 8 }}>
+                        Raised on {new Date(problem.createdAt).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => resolveProblemMutation.mutate(problem.id)}
+                      disabled={resolveProblemMutation.isPending}
+                      style={{
+                        padding: '8px 16px',
+                        background: 'var(--green)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        flexShrink: 0,
+                        boxShadow: '0 2px 4px rgba(22, 163, 74, 0.15)',
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = '0.9'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.transform = 'none'; }}
+                    >
+                      {resolveProblemMutation.isPending ? (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <LoadingSpinner size={12} color="#fff" />
+                          <span>Resolving...</span>
+                        </div>
+                      ) : (
+                        'Mark Resolved'
+                      )}
+                    </button>
+                  </div>
+                ))}
               {problemsList.filter((p: any) => p.status === 'open').length > bannerProblemsLimit && (
                 <div style={{ textAlign: 'center', paddingTop: 4, fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>
                   Scroll down to load more · {problemsList.filter((p: any) => p.status === 'open').length - bannerProblemsLimit} more remaining
@@ -874,17 +923,17 @@ export default function AdminDashboard() {
         )}
 
         {/* Row 3: Split Screen (My Tasks | Client Analysis & Graph) */}
-        <div className="grid-responsive-2" style={{ alignItems: 'stretch', flex: 1, minHeight: 0 }}>
-          
+        <div className="grid-responsive-2" style={{ alignItems: 'stretch', flex: 1, minHeight: 700 }}>
+
           {/* Left Column: My Tasks */}
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-            <SectionCard 
-              title={adminTaskScope === 'all' ? 'All Tasks' : 'My Tasks'}
-              subtitle={adminTaskScope === 'all' ? `${groupedAdminTasks.active.length} active · ${groupedAdminTasks.completed.length} completed across all clients` : 'Overdue, due today, and upcoming'}
-              padding="0" 
-              style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', paddingRight: 4, flex: 1, minHeight: 100 }}>
+            <SectionCard
+              title={adminTaskScope === 'all' ? `All Tasks (${visibleAdminTasks.length})` : `My Tasks (${visibleAdminTasks.length})`}
+              subtitle={adminTaskScope === 'all' ? `${groupedAdminTasks?.active?.length || 0} active · ${groupedAdminTasks?.completed?.length || 0} completed across all clients` : 'Overdue, due today, and upcoming'}
+              padding="0"
+              style={{ display: 'flex', flexDirection: 'column', maxHeight: 700, flexShrink: 0, overflow: 'hidden' }}
               action={
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 8 }}>
                   {/* Segmented Control for Scope */}
                   <div style={{ display: 'inline-flex', background: 'var(--surface-2)', padding: 2, borderRadius: 6, border: '1px solid var(--border)' }}>
                     <button
@@ -951,6 +1000,8 @@ export default function AdminDashboard() {
                         fontWeight: 600,
                         cursor: 'pointer',
                         whiteSpace: 'nowrap',
+                        width: 105,
+                        justifyContent: 'center',
                       }}
                     >
                       <Filter size={13} /> Filters
@@ -988,9 +1039,10 @@ export default function AdminDashboard() {
                             placeholder="All Active"
                             searchPlaceholder="Search statuses…"
                             options={[
-                              { id: 'active', label: `All Active (${groupedAdminTasks.active.length})` },
-                              { id: 'completed', label: `Completed (${groupedAdminTasks.completed.length})` },
-                              { id: 'rejected', label: `Rejected (${groupedAdminTasks.rejected.length})` },
+                              { id: 'all', label: `All Tasks (${groupedAdminTasks?.all?.length || 0})` },
+                              { id: 'active', label: `All Active (${groupedAdminTasks?.active?.length || 0})` },
+                              { id: 'completed', label: `Completed (${groupedAdminTasks?.completed?.length || 0})` },
+                              { id: 'rejected', label: `Rejected (${groupedAdminTasks?.rejected?.length || 0})` },
                               { id: 'problems', label: `Problems (${problemsList.filter((p: any) => p.status === 'open').length})` }
                             ]}
                           />
@@ -1000,9 +1052,10 @@ export default function AdminDashboard() {
                           <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Priority</div>
                           <ClientCombobox
                             value={adminTaskPriority}
-                            onChange={setAdminTaskPriority}
+                            onChange={(val) => setAdminTaskPriority((val || '') as any)}
                             placeholder="All Priorities"
                             options={[
+                              { id: '', label: 'All Priorities' },
                               { id: 'high', label: 'High Only' },
                               { id: 'normal', label: 'Normal Only' },
                             ]}
@@ -1035,6 +1088,7 @@ export default function AdminDashboard() {
                   ) : (
                     <ul
                       onScroll={handleAdminScroll}
+                      className="custom-scrollbar"
                       style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', flex: 1, minHeight: 0, overflowY: 'auto' }}
                     >
                       {scrollableAdminProblems.map((problem: any, idx: number) => {
@@ -1119,8 +1173,9 @@ export default function AdminDashboard() {
                 ) : visibleAdminTasks.length === 0 ? (
                   <div style={{ padding: '30px', textAlign: 'center', color: 'var(--muted)' }}>No matching tasks found.</div>
                 ) : (
-                  <ul 
+                  <ul
                     onScroll={handleAdminScroll}
+                    className="custom-scrollbar"
                     style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', flex: 1, minHeight: 0, overflowY: 'auto' }}
                   >
                     {scrollableAdminTasks.map((t: any, idx: number) => {
@@ -1130,7 +1185,7 @@ export default function AdminDashboard() {
                       const todayStart = startOfDay(new Date());
                       const isOverdue = differenceInCalendarDays(startOfDay(new Date(t.dueDate)), todayStart) < 0;
                       const daysDiff = differenceInCalendarDays(startOfDay(new Date(t.dueDate)), todayStart);
-                      
+
                       return (
                         <li key={t.id} onClick={() => t.client?.id && router.push(`/clients/${t.client.id}`)} style={{ position: 'relative', display: 'grid', gridTemplateColumns: '3px 1fr auto', gap: 14, padding: '12px 20px', borderBottom: idx === scrollableAdminTasks.length - 1 ? 'none' : '1px solid var(--surface-2)', cursor: 'pointer', background: isAlerted ? 'rgba(220, 38, 38, 0.05)' : 'transparent' }}>
                           <div style={{ background: stripe, borderRadius: 3 }} />
@@ -1147,8 +1202,8 @@ export default function AdminDashboard() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {adminTaskTab === 'active' && (
                               isOverdue ? <span style={badgeStyle('var(--red-bg)', 'var(--red)', '')}>+{Math.abs(daysDiff)}d</span>
-                              : daysDiff === 0 ? <span style={badgeStyle('var(--amber-bg)', 'var(--amber)', '')}>TODAY</span>
-                              : <span style={badgeStyle('var(--olive-50)', 'var(--olive-dark)', '')}>in {daysDiff}d</span>
+                                : daysDiff === 0 ? <span style={badgeStyle('var(--amber-bg)', 'var(--amber)', '')}>TODAY</span>
+                                  : <span style={badgeStyle('var(--olive-50)', 'var(--olive-dark)', '')}>in {daysDiff}d</span>
                             )}
                             <span style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--ink-2)', fontSize: 11.5, fontWeight: 500 }}>
                               {t.status === 'in_progress' ? 'In Progress' : t.status === 'complete' ? 'Completed' : t.status === 'pending' ? 'Pending' : t.status}
@@ -1160,56 +1215,86 @@ export default function AdminDashboard() {
                   </ul>
                 )}
               </div>
+              {/* {adminTaskTab !== 'problems' && visibleAdminTasks.length > adminTaskLimit && (
+                // <div style={{ textAlign: 'center', paddingTop: 4, paddingBottom: 16, fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>
+                //   Scroll down to load more · {visibleAdminTasks.length - adminTaskLimit} more remaining
+                // </div>
+              )} */}
             </SectionCard>
           </div>
 
           {/* Right Column: Client Analysis with Graph */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, height: '100%', minHeight: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto', paddingRight: 4, flex: 1, minHeight: 0 }}>
 
             {/* Client Joins Over Time Chart */}
-            <div style={{ position: 'relative', width: '100%', padding: '16px 20px', background: 'var(--surface)', borderRadius: 'var(--radius)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--ink)' }}>Client Growth Over Time</div>
-                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{allTasks.length === 100 ? "Cumulative client onboarding (all-time)->40" : "Cumulative client onboarding (all-time)"}</div>
-              </div>
+            <SectionCard
+              title="Client Joins"
+              subtitle="Monthly client onboarding"
+              padding="16px 20px"
+              style={{ flexShrink: 0 }}
+              action={
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {/* Segmented Control for Year */}
+                  <div style={{ display: 'inline-flex', background: 'var(--surface-2)', padding: 2, borderRadius: 6, border: '1px solid var(--border)' }}>
+                    {yearOptions.map((y) => (
+                      <button
+                        key={y.id}
+                        onClick={() => setChartYearFilter(y.id)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 4,
+                          border: 'none',
+                          background: chartYearFilter === y.id ? 'var(--surface)' : 'transparent',
+                          color: chartYearFilter === y.id ? 'var(--ink)' : 'var(--muted)',
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          boxShadow: chartYearFilter === y.id ? 'var(--shadow-sm)' : 'none',
+                          transition: 'all 0.12s',
+                        }}
+                      >
+                        {y.label === 'All Years' ? 'All Time' : y.label}
+                      </button>
+                    ))}
+                  </div>
+                  {chartYearFilter !== 'all' && (
+                    <div style={{ width: 110 }}>
+                      <ClientCombobox
+                        value={chartMonthFilter}
+                        onChange={(v) => setChartMonthFilter(v || 'all')}
+                        options={monthOptions}
+                        placeholder="All Months"
+                      />
+                    </div>
+                  )}
+                </div>
+              }
+            >
               <div style={{ width: '100%', height: 180, position: 'relative' }}>
                 {(() => {
                   const { labels, data, clientsByMonth } = allTimeJoinData;
                   const maxVal = Math.max(...data, 10);
                   const minVal = 0;
-                  const range = maxVal - minVal;
-                  
+                  const range = maxVal;
+
                   const width = 500;
                   const height = 180;
                   const padding = 35;
-                  
+
                   const chartWidth = width - padding * 2;
                   const chartHeight = height - padding * 2;
-                  
+
                   const points = data.map((val, idx) => {
-                    const x = padding + (idx / Math.max(1, data.length - 1)) * chartWidth;
-                    const y = padding + chartHeight - ((val - minVal) / range) * chartHeight;
-                    return { x, y, val, label: labels[idx] };
+                    const barWidth = Math.max(4, (chartWidth / data.length) - 4);
+                    const x = padding + (idx / data.length) * chartWidth + (chartWidth / data.length - barWidth) / 2;
+                    const barHeight = range > 0 ? (val / maxVal) * chartHeight : 0;
+                    const y = padding + chartHeight - barHeight;
+                    return { x, y, val, label: labels[idx], barWidth, barHeight };
                   });
-                  
-                  const pathD = points.length > 0 
-                    ? `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')
-                    : '';
-                    
-                  const areaD = points.length > 0
-                    ? `${pathD} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`
-                    : '';
 
                   return (
                     <>
                       <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
-                        <defs>
-                          <linearGradient id="adminChartGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--olive)" stopOpacity="0.25" />
-                            <stop offset="100%" stopColor="var(--olive)" stopOpacity="0.00" />
-                          </linearGradient>
-                        </defs>
-                        
                         {/* Grid Lines */}
                         {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
                           const y = padding + chartHeight * pct;
@@ -1221,37 +1306,17 @@ export default function AdminDashboard() {
                             </g>
                           );
                         })}
-                        
-                        {/* Area Path */}
-                        {areaD && <path d={areaD} fill="url(#adminChartGrad)" />}
-                        
-                        {/* Line Path */}
-                        {pathD && <path d={pathD} fill="none" stroke="var(--olive)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
-                        
-                        {/* Data Points */}
+
+                        {/* Bars */}
                         {points.map((p, idx) => (
-                          <g key={idx} style={{ cursor: 'pointer' }}
-                            onMouseEnter={() => setGrowthTooltip({ x: p.x, y: p.y, label: p.label, val: p.val })}
+                          <rect key={idx} x={p.x} y={p.y} width={p.barWidth} height={p.barHeight} rx={4}
+                            fill={growthTooltip?.label === p.label ? '#0077A3' : '#0096C7'}
+                            style={{ transition: 'fill 0.15s, opacity 0.15s', cursor: 'pointer' }}
+                            onMouseEnter={() => setGrowthTooltip({ x: p.x + p.barWidth/2, y: p.y, label: p.label, val: p.val })}
                             onMouseLeave={() => setGrowthTooltip(null)}
-                          >
-                            <circle cx={p.x} cy={p.y} r={growthTooltip?.label === p.label ? 6 : 4}
-                              fill={growthTooltip?.label === p.label ? 'var(--olive)' : 'var(--surface)'}
-                              stroke="var(--olive)" strokeWidth="2"
-                              style={{ transition: 'r 0.15s, fill 0.15s' }}
-                            />
-                          </g>
+                          />
                         ))}
-                        
-                        {/* X Axis Labels */}
-                        {points.map((p, idx) => {
-                          const step = Math.ceil(points.length / 6);
-                          if (idx % step !== 0 && idx !== points.length - 1) return null;
-                          return (
-                            <text key={idx} x={p.x} y={height - padding + 16} textAnchor="middle" fontSize="10" fill="var(--muted)" fontWeight="600">
-                              {p.label}
-                            </text>
-                          );
-                        })}
+
                       </svg>
 
                       {/* Hover Tooltip */}
@@ -1289,14 +1354,14 @@ export default function AdminDashboard() {
                             {names.length === 0 ? (
                               <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', fontStyle: 'italic' }}>None</div>
                             ) : (
-                              <ul style={{ 
-                                margin: 0, 
-                                paddingLeft: '16px', 
-                                listStyleType: 'disc', 
-                                display: 'flex', 
-                                flexDirection: 'column', 
-                                gap: '4px', 
-                                maxHeight: '110px', 
+                              <ul style={{
+                                margin: 0,
+                                paddingLeft: '16px',
+                                listStyleType: 'disc',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px',
+                                maxHeight: '110px',
                                 overflowY: 'auto',
                                 fontSize: '11.5px',
                                 lineHeight: '1.4',
@@ -1317,15 +1382,15 @@ export default function AdminDashboard() {
                   );
                 })()}
               </div>
-            </div>
+            </SectionCard>
 
             {/* Client Risk Analysis */}
-            <SectionCard title={allTasks.length === 100 ? "Client Risk Analysis-> 60" : "Client Risk Analysis"} subtitle="Sorted by overdue duration" padding="0" style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+            <SectionCard title={`Client Risk Analysis (${sortedClientsForRisk.length})`} subtitle="Sorted by overdue duration" padding="0" style={{ display: 'flex', flexDirection: 'column', maxHeight: 700, flexShrink: 0, overflow: 'hidden' }}>
               <div style={{ padding: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                 {sortedClientsForRisk.length === 0 ? (
                   <div style={{ padding: '30px', textAlign: 'center', color: 'var(--muted)' }}>No active clients.</div>
                 ) : (
-                  <ul onScroll={handleClientRiskScroll} style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                  <ul onScroll={handleClientRiskScroll} className="custom-scrollbar" style={{ listStyle: 'none', padding: 0, margin: '16px 20px 20px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface-2)', flex: 1, minHeight: 0, overflowY: 'auto' }}>
                     {scrollableClientRisk.map((client: any, idx: number) => {
                       const sc = getClientStatusStyles(client);
                       const stripe = sc.color;
@@ -1350,6 +1415,11 @@ export default function AdminDashboard() {
                   </ul>
                 )}
               </div>
+              {/* {sortedClientsForRisk.length > clientRiskLimit && (
+                <div style={{ textAlign: 'center', paddingTop: 4, paddingBottom: 16, fontSize: 11.5, color: 'var(--muted)', fontWeight: 500 }}>
+                  Scroll down to load more · {sortedClientsForRisk.length - clientRiskLimit} more remaining
+                </div>
+              )} */}
             </SectionCard>
           </div>
         </div>
@@ -1359,7 +1429,7 @@ export default function AdminDashboard() {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
             onClick={e => { if (e.target === e.currentTarget) setShowExportModal(false); }}>
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 700, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' }}>
-              
+
               {/* Modal header */}
               <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                 <div>
@@ -1373,7 +1443,7 @@ export default function AdminDashboard() {
 
               {/* Modal body */}
               <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }}>
-                
+
                 {/* Select export type */}
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 8 }}>Select Report Type</label>
@@ -1443,7 +1513,7 @@ export default function AdminDashboard() {
                 {exportType !== 'backup' && (
                   <div style={{ borderTop: '1px solid var(--border)', paddingTop: 18, marginTop: 18 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Filter Options</div>
-                    
+
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
                         <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Start Date (Due Date/Created At)</label>
@@ -1560,52 +1630,56 @@ export default function AdminDashboard() {
                   style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
                   Cancel
                 </button>
-                <button onClick={() => { setExportFormat('csv'); setTimeout(() => {
-                  const params = new URLSearchParams();
-                  params.set('format', 'csv');
-                  params.set('type', exportType);
-                  if (expStartDate) params.set('startDate', expStartDate);
-                  if (expEndDate) params.set('endDate', expEndDate);
-                  if (expStepId) params.set('stepId', expStepId);
-                  if (expStatus) params.set('status', expStatus);
-                  if (expTeam) params.set('team', expTeam);
-                  if (expAssignedToId) params.set('assignedToId', expAssignedToId);
-                  if (expClientId) params.set('clientId', expClientId);
-                  if (expPriority) params.set('priority', expPriority);
-                  if (expCompleted !== 'all') params.set('completed', expCompleted);
-                  if (expIncludeArchived) params.set('includeArchived', 'true');
-                  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
-                  if (token) params.set('token', token);
-                  const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = `${exportType}_export_${Date.now()}.csv`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }, 50); }}
+                <button onClick={() => {
+                  setExportFormat('csv'); setTimeout(() => {
+                    const params = new URLSearchParams();
+                    params.set('format', 'csv');
+                    params.set('type', exportType);
+                    if (expStartDate) params.set('startDate', expStartDate);
+                    if (expEndDate) params.set('endDate', expEndDate);
+                    if (expStepId) params.set('stepId', expStepId);
+                    if (expStatus) params.set('status', expStatus);
+                    if (expTeam) params.set('team', expTeam);
+                    if (expAssignedToId) params.set('assignedToId', expAssignedToId);
+                    if (expClientId) params.set('clientId', expClientId);
+                    if (expPriority) params.set('priority', expPriority);
+                    if (expCompleted !== 'all') params.set('completed', expCompleted);
+                    if (expIncludeArchived) params.set('includeArchived', 'true');
+                    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+                    if (token) params.set('token', token);
+                    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${exportType}_export_${Date.now()}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }, 50);
+                }}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
                   <Download size={14} /> Download CSV
                 </button>
-                <button onClick={() => { setExportFormat('pdf'); setTimeout(() => {
-                  const params = new URLSearchParams();
-                  params.set('format', 'pdf');
-                  params.set('type', exportType);
-                  if (expStartDate) params.set('startDate', expStartDate);
-                  if (expEndDate) params.set('endDate', expEndDate);
-                  if (expStepId) params.set('stepId', expStepId);
-                  if (expStatus) params.set('status', expStatus);
-                  if (expTeam) params.set('team', expTeam);
-                  if (expAssignedToId) params.set('assignedToId', expAssignedToId);
-                  if (expClientId) params.set('clientId', expClientId);
-                  if (expPriority) params.set('priority', expPriority);
-                  if (expCompleted !== 'all') params.set('completed', expCompleted);
-                  if (expIncludeArchived) params.set('includeArchived', 'true');
-                  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
-                  if (token) params.set('token', token);
-                  const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
-                  window.open(url, '_blank');
-                }, 50); }}
+                <button onClick={() => {
+                  setExportFormat('pdf'); setTimeout(() => {
+                    const params = new URLSearchParams();
+                    params.set('format', 'pdf');
+                    params.set('type', exportType);
+                    if (expStartDate) params.set('startDate', expStartDate);
+                    if (expEndDate) params.set('endDate', expEndDate);
+                    if (expStepId) params.set('stepId', expStepId);
+                    if (expStatus) params.set('status', expStatus);
+                    if (expTeam) params.set('team', expTeam);
+                    if (expAssignedToId) params.set('assignedToId', expAssignedToId);
+                    if (expClientId) params.set('clientId', expClientId);
+                    if (expPriority) params.set('priority', expPriority);
+                    if (expCompleted !== 'all') params.set('completed', expCompleted);
+                    if (expIncludeArchived) params.set('includeArchived', 'true');
+                    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+                    if (token) params.set('token', token);
+                    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
+                    window.open(url, '_blank');
+                  }, 50);
+                }}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
                   <Download size={14} /> Print PDF Report
                 </button>

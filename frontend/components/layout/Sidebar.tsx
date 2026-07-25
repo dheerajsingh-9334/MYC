@@ -5,7 +5,7 @@ import { clearTokens, getUser } from '@/lib/api';
 import {
   LayoutDashboard, Sun, CheckSquare, Users, Settings,
   TrendingUp, LogOut, GitBranch, Shield, UserCheck,
-  FolderLock, Activity, BarChart3, Bell, X,
+  FolderLock, Activity, BarChart3, Bell, X, Layers, StickyNote,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { USE_MOCK } from '@/lib/mockData';
@@ -21,23 +21,25 @@ const MOCK_USER = { fullName: 'Ambesh Kumar', role: 'admin', teamName: null };
  */
 const navItems = [
   // Workspace section
-  { label: 'Dashboard',       icon: LayoutDashboard,  href: '/dashboard',       section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
-  { label: 'Standup Brief',   icon: Sun,              href: '/standup',         section: 'workspace', roles: ['admin'] },
-  { label: 'Tasks',           icon: CheckSquare,      href: '/tasks',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
-  { label: 'Clients',         icon: GitBranch,        href: '/clients',         section: 'workspace', roles: ['admin'] },
-  { label: 'Vault',           icon: FolderLock,       href: '/vault',           section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
-  { label: 'Workload',        icon: Activity,         href: '/workload',        section: 'workspace', roles: ['admin', 'team_leader'] },
+  { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
+  { label: 'Standup Brief', icon: Sun, href: '/standup', section: 'workspace', roles: ['admin'] },
+  { label: 'Tasks', icon: CheckSquare, href: '/tasks', section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
+  { label: 'Clients', icon: GitBranch, href: '/clients', section: 'workspace', roles: ['admin'] },
+  { label: 'Vault', icon: FolderLock, href: '/vault', section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
+  { label: 'Workload', icon: Activity, href: '/workload', section: 'workspace', roles: ['admin', 'team_leader'] },
+  { label: 'Notes', icon: StickyNote, href: '/notes', section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   // Manage section
-  { label: 'Reports',         icon: BarChart3,        href: '/reports',         section: 'manage',    roles: ['admin', 'team_leader'] },
-  { label: 'Team',            icon: Users,            href: '/team',            section: 'manage',    roles: ['admin', 'team_leader'] },
+  // { label: 'Reports', icon: BarChart3, href: '/reports', section: 'manage', roles: ['admin', 'team_leader'] },
+  { label: 'Services', icon: Layers, href: '/services', section: 'manage', roles: ['admin'] },
+  { label: 'Team', icon: Users, href: '/team', section: 'manage', roles: ['admin', 'team_leader'] },
   // { label: 'Performance',     icon: TrendingUp,       href: '/performance',     section: 'manage',    roles: ['admin'] },
 
 ];
 
 const ROLE_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-  admin:       { label: 'Admin',       color: 'var(--olive)',   bg: 'var(--olive-50)' },
-  team_leader: { label: 'Team Leader', color: '#2860A1',       bg: '#EBF3FB' },
-  team_member: { label: 'Team',        color: 'var(--muted)',   bg: 'var(--surface-2)' },
+  admin: { label: 'Admin', color: 'var(--olive)', bg: 'var(--olive-50)' },
+  team_leader: { label: 'Team Leader', color: '#2860A1', bg: '#EBF3FB' },
+  team_member: { label: 'Team', color: 'var(--muted)', bg: 'var(--surface-2)' },
 };
 
 export default function Sidebar() {
@@ -124,9 +126,9 @@ export default function Sidebar() {
         justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, background: 'var(--olive)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: 'Instrument Serif, serif', letterSpacing: '0.5px' }}>M</div>
-          <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 19, color: 'var(--ink)', letterSpacing: '0.3px' }}>
-            My<span style={{ color: 'var(--olive)', fontStyle: 'italic' }}>C</span>Ops
+          <div style={{ width: 36, height: 36, background: 'var(--olive)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', letterSpacing: '0.5px' }}>M</div>
+          <div style={{ fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 19, color: 'var(--ink)', letterSpacing: '0.3px' }}>
+            MYC OS
           </div>
         </div>
         <button
@@ -207,7 +209,7 @@ export default function Sidebar() {
               width: 32, height: 32, borderRadius: '50%',
               background: role === 'admin' ? 'linear-gradient(135deg, var(--olive), var(--olive-light))'
                 : role === 'team_leader' ? 'linear-gradient(135deg, #2860A1, #5B9BD5)'
-                : 'var(--surface-2)',
+                  : 'var(--surface-2)',
               color: '#fff', display: user?.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
               fontWeight: 700, fontSize: 12, border: role === 'team_member' ? '1.5px solid var(--border)' : 'none',
             }}>

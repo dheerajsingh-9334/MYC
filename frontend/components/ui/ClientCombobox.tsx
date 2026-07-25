@@ -20,7 +20,9 @@ export function ClientCombobox({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  const [rect, setRect] = useState<DOMRect | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selected = options.find((o) => o.id === value);
@@ -34,14 +36,21 @@ export function ClientCombobox({
     );
   }, [options, query]);
 
-  // Close on outside click
+  // Close on outside click or scroll
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onScroll = () => {
+      setOpen(false);
+    };
     if (open) {
       document.addEventListener('mousedown', onClick);
-      return () => document.removeEventListener('mousedown', onClick);
+      window.addEventListener('scroll', onScroll, true);
+      return () => {
+        document.removeEventListener('mousedown', onClick);
+        window.removeEventListener('scroll', onScroll, true);
+      };
     }
   }, [open]);
 
@@ -55,9 +64,18 @@ export function ClientCombobox({
   }, [open]);
 
   return (
-    <div ref={ref} style={{ position: 'relative', minWidth: 200 }}>
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
       {/* Trigger */}
-      <button type="button" disabled={disabled} onClick={() => setOpen((o) => !o)}
+      <button 
+        ref={triggerRef}
+        type="button" 
+        disabled={disabled} 
+        onClick={(e) => {
+          if (!open) {
+            setRect(e.currentTarget.getBoundingClientRect());
+          }
+          setOpen((o) => !o);
+        }}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
           padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
@@ -81,9 +99,16 @@ export function ClientCombobox({
       </button>
 
       {/* Popover */}
-      {open && (
+      {open && rect && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 60,
+          position: 'fixed',
+          ...(window.innerHeight - rect.bottom < 280
+            ? { bottom: window.innerHeight - rect.top + 4 }
+            : { top: rect.bottom + 4 }),
+          ...(rect.right > window.innerWidth - 220
+            ? { right: window.innerWidth - rect.right, width: Math.max(220, rect.width) }
+            : { left: rect.left, width: Math.max(220, rect.width) }),
+          zIndex: 99999,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
           boxShadow: 'var(--shadow-lg)', overflow: 'hidden',
         }}>

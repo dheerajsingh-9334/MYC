@@ -64,10 +64,10 @@ export default function WeekAtAGlance({ hideStepAdvances = false, hideDueIn7d = 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 16 }}>
         <div>
-          <h2 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)', margin: 0 }}>Our week at a glance</h2>
+          <h2 style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 24, color: 'var(--ink)', margin: 0 }}>Our week at a glance</h2>
           <span style={{ fontSize: 13, color: 'var(--muted)' }}>Overview of client metrics & active distribution</span>
         </div>
-        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12.5, fontWeight: 600, color: 'var(--olive)', background: 'var(--olive-50)', padding: '5px 12px', borderRadius: 999, flexShrink: 0 }}>
+        <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 12.5, fontWeight: 600, color: 'var(--olive)', background: 'var(--olive-50)', padding: '5px 12px', borderRadius: 999, flexShrink: 0 }}>
           {dateRangeString}
         </div>
       </div>
@@ -145,7 +145,7 @@ export default function WeekAtAGlance({ hideStepAdvances = false, hideDueIn7d = 
                 <div style={{
                   width: 32, height: 24, borderRadius: 6, border: '1px solid var(--olive)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: 'var(--olive)',
+                  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 11, fontWeight: 700, color: 'var(--olive)',
                   flexShrink: 0,
                 }}>
                   {stepNumStr}
@@ -170,7 +170,7 @@ export default function WeekAtAGlance({ hideStepAdvances = false, hideDueIn7d = 
                 </div>
 
                 {/* Client count label */}
-                <div style={{ minWidth: 18, textAlign: 'right', fontFamily: 'JetBrains Mono, monospace', fontSize: 12.5, fontWeight: 700, color: step.clientCount > 0 ? 'var(--olive)' : 'var(--muted)', flexShrink: 0 }}>
+                <div style={{ minWidth: 18, textAlign: 'right', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 12.5, fontWeight: 700, color: step.clientCount > 0 ? 'var(--olive)' : 'var(--muted)', flexShrink: 0 }}>
                   {step.clientCount}
                 </div>
               </div>

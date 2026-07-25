@@ -32,12 +32,12 @@ export async function sendInvitationEmail(to: string, inviteLink: string, orgNam
   const text = `Hello,\n\nYou have been invited to join ${orgName} on MyC Ops.\n\nClick the link below to accept the invitation and set up your account:\n${inviteLink}\n\nThis link will expire in 7 days.\n\nBest regards,\nThe MyC Team`;
   
   const html = `
-    <div style="background-color: #FAFAF7; padding: 40px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color: #FAFAF7; padding: 40px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; ">
       <div style="max-width: 540px; margin: 0 auto; background-color: #FFFFFF; border: 1px solid #E5E4DC; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); overflow: hidden;">
         
         <!-- Header Banner (Olive) -->
         <div style="background-color: #556B2F; padding: 32px 24px; text-align: center;">
-          <h1 style="font-family: 'Instrument Serif', Georgia, serif; font-size: 32px; font-style: italic; color: #FFFFFF; margin: 0; font-weight: normal; letter-spacing: 0.5px;">MyC Operations</h1>
+          <h1 style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; font-size: 32px; font-style: italic; color: #FFFFFF; margin: 0; font-weight: normal; letter-spacing: 0.5px;">MyC Operations</h1>
         </div>
 
         <!-- Content Area -->
@@ -101,12 +101,12 @@ export async function sendPasswordChangedEmail(to: string, fullName: string): Pr
   const text = `Hello ${fullName},\n\nThis is a confirmation that the password for your MyC Ops account has been successfully changed.\n\nIf you did not initiate this change, please contact an administrator immediately.\n\nBest regards,\nThe MyC Team`;
   
   const html = `
-    <div style="background-color: #FAFAF7; padding: 40px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color: #FAFAF7; padding: 40px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; ">
       <div style="max-width: 540px; margin: 0 auto; background-color: #FFFFFF; border: 1px solid #E5E4DC; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); overflow: hidden;">
         
         <!-- Header Banner (Olive) -->
         <div style="background-color: #556B2F; padding: 32px 24px; text-align: center;">
-          <h1 style="font-family: 'Instrument Serif', Georgia, serif; font-size: 32px; font-style: italic; color: #FFFFFF; margin: 0; font-weight: normal; letter-spacing: 0.5px;">MyC Operations</h1>
+          <h1 style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; font-size: 32px; font-style: italic; color: #FFFFFF; margin: 0; font-weight: normal; letter-spacing: 0.5px;">MyC Operations</h1>
         </div>
 
         <!-- Content Area -->
@@ -166,12 +166,12 @@ export async function sendPushNotificationEmail(to: string, fullName: string, me
   const text = `Hello ${fullName},\n\nYou have received a new announcement:\n\n"${message}"\n\nBest regards,\nThe MyC Team`;
   
   const html = `
-    <div style="background-color: #FAFAF7; padding: 40px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color: #FAFAF7; padding: 40px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; ">
       <div style="max-width: 540px; margin: 0 auto; background-color: #FFFFFF; border: 1px solid #E5E4DC; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); overflow: hidden;">
         
         <!-- Header Banner (Olive) -->
         <div style="background-color: #556B2F; padding: 32px 24px; text-align: center;">
-          <h1 style="font-family: 'Instrument Serif', Georgia, serif; font-size: 32px; font-style: italic; color: #FFFFFF; margin: 0; font-weight: normal; letter-spacing: 0.5px;">MyC Operations</h1>
+          <h1 style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; font-size: 32px; font-style: italic; color: #FFFFFF; margin: 0; font-weight: normal; letter-spacing: 0.5px;">MyC Operations</h1>
         </div>
 
         <!-- Content Area -->
@@ -231,11 +231,11 @@ export async function sendHighlightEmail(to: string, fullName: string, taskTitle
   const text = `Hello ${fullName},\n\nA task has been highlighted on the Standup Board that requires your attention:\n\nTask: ${taskTitle}\nClient: ${clientName}\n\nAs the ${roleType === 'leader' ? 'Team Leader' : 'assigned Team Member'}, please review this item immediately.\n\nBest regards,\nThe MyC Team`;
   
   const html = `
-    <div style="background-color: #FAFAF7; padding: 40px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <div style="background-color: #FAFAF7; padding: 40px 20px; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; ">
       <div style="max-width: 540px; margin: 0 auto; background-color: #FFFFFF; border: 1px solid #E5E4DC; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); overflow: hidden;">
         
         <div style="background-color: #D97706; padding: 32px 24px; text-align: center;">
-          <h1 style="font-family: 'Instrument Serif', Georgia, serif; font-size: 32px; font-style: italic; color: #FFFFFF; margin: 0; font-weight: normal; letter-spacing: 0.5px;">Task Highlighted</h1>
+          <h1 style="font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; font-size: 32px; font-style: italic; color: #FFFFFF; margin: 0; font-weight: normal; letter-spacing: 0.5px;">Task Highlighted</h1>
         </div>
 
         <div style="padding: 32px 32px 24px 32px; color: #1A1A1A;">

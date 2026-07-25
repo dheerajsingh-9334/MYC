@@ -16,6 +16,9 @@ const TYPE_ICONS: Record<string, string> = {
   client_status_changed: '🔄',
   notif_alert:           '🚨',
   highlight_broadcast:   '⭐',
+  note_mention:          '👋',
+  note_created:          '📝',
+  note_updated:          '✏️',
 };
 
 const TYPE_BG: Record<string, string> = {
@@ -28,6 +31,9 @@ const TYPE_BG: Record<string, string> = {
   client_status_changed: 'var(--surface-2)',
   notif_alert:           'var(--red-bg)',
   highlight_broadcast:   'var(--amber-bg)',
+  note_mention:          'var(--olive-bg, var(--surface-2))',
+  note_created:          'var(--blue-bg, var(--surface-2))',
+  note_updated:          'var(--surface-2)',
 };
 
 export default function NotificationBell() {

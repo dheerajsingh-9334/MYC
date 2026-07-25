@@ -25,6 +25,8 @@ model Organisation {
   teamInvites         TeamInvite[]
   users               User[]
   problems            Problem[]
+  services            Service[]
+  notes               Note[]
 }
 
 model OnboardingInvite {
@@ -106,6 +108,9 @@ model User {
   organisation    Organisation         @relation(fields: [organisationId], references: [id])
   viewPreferences UserViewPreference[]
   problems        Problem[]
+  createdNotes    Note[]               @relation("NoteCreator")
+  updatedNotes    Note[]               @relation("NoteUpdater")
+  noteMentions    NoteUserMention[]
 }
 
 model Step {
@@ -118,13 +123,16 @@ model Step {
   description    String?
   isActive       Boolean            @default(true)
   clientId       String?
+  serviceId      String?
   clients        Client[]           @relation("CurrentStep")
   client         Client?            @relation("ClientSteps", fields: [clientId], references: [id], onDelete: Cascade)
   organisation   Organisation       @relation(fields: [organisationId], references: [id])
+  service        Service?           @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   historyFrom    StepHistory[]      @relation("FromStep")
   historyTo      StepHistory[]      @relation("ToStep")
   taskTemplates  StepTaskTemplate[]
   tasks          Task[]
+  clientServices ClientService[]
 }
 
 model StepTaskTemplate {
@@ -154,13 +162,17 @@ model Client {
   createdAt      DateTime      @default(now())
   createdById    String
   isPinned       Boolean       @default(false)
+  serviceId      String?
   currentStep    Step          @relation("CurrentStep", fields: [currentStepId], references: [id])
   organisation   Organisation  @relation(fields: [organisationId], references: [id])
+  service        Service?      @relation(fields: [serviceId], references: [id])
   documents      Document[]
   steps          Step[]        @relation("ClientSteps")
   stepHistory    StepHistory[]
   tasks          Task[]
   problems       Problem[]
+  noteMentions   NoteClientMention[]
+  clientServices ClientService[]
 }
 
 model Task {
@@ -289,6 +301,7 @@ model Team {
   name           String
   createdAt      DateTime     @default(now())
   organisation   Organisation @relation(fields: [organisationId], references: [id])
+  notes          Note[]
 
   @@unique([organisationId, name])
 }
@@ -345,6 +358,9 @@ enum NotificationType {
   admin_broadcast
   highlight_broadcast
   notif_alert
+  note_mention
+  note_created
+  note_updated
 }
 
 enum DraftKind {
@@ -371,4 +387,79 @@ model Problem {
   client         Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+}
+
+model Service {
+  id             String   @id @default(uuid())
+  organisationId String
+  name           String
+  description    String?
+  createdAt      DateTime @default(now())
+  
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  steps          Step[]
+  clients        Client[]
+  clientServices ClientService[]
+}
+
+model Note {
+  id             String       @id @default(uuid())
+  organisationId String
+  title          String
+  content        String
+  createdById    String
+  updatedById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  teamId         String?      
+  isPersonal     Boolean      @default(false)
+
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdBy      User         @relation("NoteCreator", fields: [createdById], references: [id])
+  updatedBy      User?        @relation("NoteUpdater", fields: [updatedById], references: [id])
+  team           Team?        @relation(fields: [teamId], references: [id])
+
+  clientMentions NoteClientMention[]
+  userMentions   NoteUserMention[]
+}
+
+model NoteClientMention {
+  id        String   @id @default(uuid())
+  noteId    String
+  clientId  String
+  createdAt DateTime @default(now())
+
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, clientId])
+}
+
+model NoteUserMention {
+  id        String   @id @default(uuid())
+  noteId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, userId])
+}
+
+model ClientService {
+  id             String       @id @default(uuid())
+  clientId       String
+  serviceId      String
+  currentStepId  String
+  stepEnteredAt  DateTime     @default(now())
+  status         ClientStatus @default(active)
+  createdAt      DateTime     @default(now())
+
+  client         Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  service        Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  currentStep    Step         @relation(fields: [currentStepId], references: [id])
+
+  @@unique([clientId, serviceId])
 }

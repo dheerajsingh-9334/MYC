@@ -65,7 +65,7 @@ export default function SectionCard({
             )}
           </div>
           {action && (
-            <div style={{ flexShrink: 0, maxWidth: '100%', overflow: 'hidden' }}>
+            <div style={{ flexShrink: 0, maxWidth: '100%' }}>
               {action}
             </div>
           )}

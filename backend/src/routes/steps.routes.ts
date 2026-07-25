@@ -80,16 +80,22 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     if (clientId) {
       steps = await prisma.step.findMany({
         where: { organisationId: req.user.orgId, clientId: clientId as string, isActive: true },
-        include: { taskTemplates: { orderBy: { sortOrder: 'asc' } } },
+        include: { taskTemplates: { orderBy: { sortOrder: 'asc' } }, service: true },
+        orderBy: { stepNumber: 'asc' },
+      });
+    } else if (req.query.serviceId) {
+      steps = await prisma.step.findMany({
+        where: { organisationId: req.user.orgId, serviceId: req.query.serviceId as string, clientId: null, isActive: true },
+        include: { taskTemplates: { orderBy: { sortOrder: 'asc' } }, service: true },
         orderBy: { stepNumber: 'asc' },
       });
     }
 
-    // Fall back to default global steps if no client-specific steps are configured
-    if (steps.length === 0) {
+    // Fall back to default global steps if no client-specific steps and no serviceId are configured
+    if (steps.length === 0 && !req.query.serviceId) {
       steps = await prisma.step.findMany({
         where: { organisationId: req.user.orgId, clientId: null, isActive: true },
-        include: { taskTemplates: { orderBy: { sortOrder: 'asc' } } },
+        include: { taskTemplates: { orderBy: { sortOrder: 'asc' } }, service: true },
         orderBy: { stepNumber: 'asc' },
       });
     }
@@ -269,7 +275,7 @@ router.delete('/:id/templates/:templateId', requireAuth, requireRole('admin'), a
 // POST /api/steps - Create a new step
 router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const { name, owningTeamName, slaDays, description, stepNumber, clientId } = req.body;
+    const { name, owningTeamName, slaDays, description, stepNumber, clientId, serviceId } = req.body;
     if (slaDays !== undefined && !validateSlaDays(slaDays)) {
       res.status(400).json({ error: 'SLA days must be a positive integer.' });
       return;
@@ -290,7 +296,12 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
     const newStep = await prisma.$transaction(async (tx) => {
       // Get all active steps
       const activeSteps = await tx.step.findMany({
-        where: { organisationId: orgId, clientId: clientId || null, isActive: true },
+        where: { 
+          organisationId: orgId, 
+          clientId: clientId || null, 
+          ...(clientId ? {} : { serviceId: serviceId || null }),
+          isActive: true 
+        },
         orderBy: { stepNumber: 'asc' },
       });
 
@@ -317,6 +328,7 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
         data: {
           organisationId: orgId,
           clientId: clientId || null,
+          serviceId: clientId ? null : (serviceId || null),
           stepNumber: finalStepNumber,
           name,
           owningTeamName,
@@ -338,7 +350,7 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
 // DELETE /api/steps/:id - Delete (deactivate) a step and renumber remaining steps
 router.delete('/:id', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const { clientId } = req.query;
+    const { clientId, serviceId } = req.query;
     let stepId = req.params.id;
 
     const step = await prisma.step.findFirst({
@@ -350,6 +362,7 @@ router.delete('/:id', requireAuth, requireRole('admin'), async (req: Request, re
     }
 
     let finalClientId = step.clientId;
+    let finalServiceId = step.serviceId;
 
     // If this is a global step but a clientId was passed, clone the pipeline first
     if (step.clientId === null && clientId) {
@@ -371,7 +384,12 @@ router.delete('/:id', requireAuth, requireRole('admin'), async (req: Request, re
 
     // Also reorder the remaining steps so their stepNumber is contiguous
     const remainingSteps = await prisma.step.findMany({
-      where: { organisationId: req.user.orgId, clientId: finalClientId, isActive: true },
+      where: { 
+        organisationId: req.user.orgId, 
+        clientId: finalClientId, 
+        ...(finalClientId ? {} : { serviceId: finalServiceId }),
+        isActive: true 
+      },
       orderBy: { stepNumber: 'asc' },
     });
 

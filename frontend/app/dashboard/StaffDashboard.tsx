@@ -1,5 +1,5 @@
 'use client';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
@@ -7,6 +7,7 @@ import SectionCard from '@/components/ui/SectionCard';
 import { apiFetch, getUser } from '@/lib/api';
 import { USE_MOCK, MOCK_TASKS, MOCK_TEAM, MOCK_CLIENTS } from '@/lib/mockData';
 import { useRouter } from 'next/navigation';
+import { ClientCombobox } from '@/components/ui/ClientCombobox';
 import {
   ListChecks,
   CircleCheck,
@@ -550,7 +551,7 @@ export default function StaffDashboard() {
   const tabs: { key: TabKey; label: string; count: number; icon: any; accent: string; bg: string }[] = useMemo(() => {
     const list: { key: TabKey; label: string; count: number; icon: any; accent: string; bg: string }[] = [
       { key: 'all',       label: 'All Tasks',  count: grouped.all.length,       icon: ListChecks, accent: 'var(--ink-2)', bg: 'var(--surface-2)' },
-      { key: 'active',    label: 'My Tasks',   count: grouped.active.length,    icon: ListChecks, accent: 'var(--olive)', bg: 'var(--olive-50)' },
+      { key: 'active',    label: 'Active Tasks',count: grouped.active.length,   icon: ListChecks, accent: 'var(--olive)', bg: 'var(--olive-50)' },
       { key: 'completed', label: 'Completed',  count: grouped.completed.length, icon: CircleCheck, accent: 'var(--green)', bg: 'var(--green-bg)' },
       { key: 'rejected',  label: 'Rejected',   count: grouped.rejected.length,  icon: XCircle,     accent: 'var(--rejected)', bg: 'var(--rejected-bg)' },
     ];
@@ -593,6 +594,17 @@ export default function StaffDashboard() {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [staffTaskPriority, setStaffTaskPriority] = useState<'all' | 'high' | 'normal'>('all');
   const [taskLimit, setTaskLimit] = useState(20);
+  
+  const filterRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setShowFilterMenu(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => { setTaskLimit(20); }, [tab, taskSearch]);
 
@@ -793,12 +805,69 @@ export default function StaffDashboard() {
           {/* Left 70% Column */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             <SectionCard
-              title="My Tasks"
+              title={activeTab.label}
               subtitle="Overdue, due today, and upcoming"
               style={{ height: '100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}
               padding={0}
               action={
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 8 }}>
+                  {/* Segmented Control for Quick Filters */}
+                  <div style={{ display: 'inline-flex', background: 'var(--surface-2)', padding: 2, borderRadius: 6, border: '1px solid var(--border)' }}>
+                    <button
+                      onClick={() => setTab('all')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 4,
+                        border: 'none',
+                        background: tab === 'all' ? 'var(--surface)' : 'transparent',
+                        color: tab === 'all' ? 'var(--ink)' : 'var(--muted)',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: tab === 'all' ? 'var(--shadow-sm)' : 'none',
+                        transition: 'all 0.12s',
+                      }}
+                    >
+                      All Tasks
+                    </button>
+                    <button
+                      onClick={() => setTab('active')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 4,
+                        border: 'none',
+                        background: tab === 'active' ? 'var(--surface)' : 'transparent',
+                        color: tab === 'active' ? 'var(--ink)' : 'var(--muted)',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: tab === 'active' ? 'var(--shadow-sm)' : 'none',
+                        transition: 'all 0.12s',
+                      }}
+                    >
+                      Active Tasks
+                    </button>
+                    {user?.role === 'team_leader' && (
+                      <button
+                        onClick={() => setTab('team_tasks')}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 4,
+                          border: 'none',
+                          background: tab === 'team_tasks' ? 'var(--surface)' : 'transparent',
+                          color: tab === 'team_tasks' ? 'var(--ink)' : 'var(--muted)',
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          boxShadow: tab === 'team_tasks' ? 'var(--shadow-sm)' : 'none',
+                          transition: 'all 0.12s',
+                        }}
+                      >
+                        Team Tasks
+                      </button>
+                    )}
+                  </div>
+
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 130 }}>
                     <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--muted)' }} />
                     <input
@@ -810,41 +879,65 @@ export default function StaffDashboard() {
                     />
                   </div>
 
-                  {/* Hover Filter Button */}
-                  <div
-                    style={{ position: 'relative' }}
-                    onMouseEnter={() => setShowFilterMenu(true)}
-                    onMouseLeave={() => setShowFilterMenu(false)}
-                  >
+                  {/* Filter Button */}
+                  <div ref={filterRef} style={{ position: 'relative' }}>
                     <button
+                      onClick={() => setShowFilterMenu(prev => !prev)}
                       style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        height: 28, padding: '0 10px', borderRadius: 6,
-                        border: '1px solid var(--border)', background: 'var(--surface)',
-                        color: 'var(--ink-2)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '5px 10px',
+                        borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border)',
+                        background: (tab !== 'active' || staffTaskPriority !== 'all' || showFilterMenu) ? 'var(--olive-50)' : 'var(--surface)',
+                        color: (tab !== 'active' || staffTaskPriority !== 'all' || showFilterMenu) ? 'var(--olive-dark)' : 'var(--ink-2)',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        width: 105,
+                        justifyContent: 'center',
                       }}
                     >
-                      <Filter size={12} />
-                      Filter
+                      <Filter size={13} /> Filters
+                      {(tab !== 'active' || staffTaskPriority !== 'all') && (
+                        <span style={{ background: 'var(--olive)', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700, padding: '1px 5px', marginLeft: 2 }}>
+                          {[tab !== 'active', staffTaskPriority !== 'all'].filter(Boolean).length}
+                        </span>
+                      )}
+                      <ChevronDown size={11} style={{ opacity: 0.6, transform: showFilterMenu ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
                     </button>
                     {showFilterMenu && (
                       <div style={{
                         position: 'absolute', top: '100%', right: 0, zIndex: 100,
-                        marginTop: 4, width: 200, padding: 12,
+                        marginTop: 4, width: 220, padding: 12,
                         background: 'var(--surface)', border: '1px solid var(--border)',
                         borderRadius: 8, boxShadow: 'var(--shadow-lg)',
                         display: 'flex', flexDirection: 'column', gap: 12,
                       }}>
                         <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Status</div>
+                          <ClientCombobox
+                            value={tab}
+                            onChange={(val) => setTab((val || 'active') as any)}
+                            placeholder="Active Tasks"
+                            searchPlaceholder="Search statuses…"
+                            options={tabs.map(t => ({ id: t.key, label: `${t.label} (${t.count})` }))}
+                          />
+                        </div>
+                        <div>
                           <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Priority</div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {(['all', 'high', 'normal'] as const).map(p => (
-                              <label key={p} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--ink)', cursor: 'pointer' }}>
-                                <input type="radio" checked={staffTaskPriority === p} onChange={() => setStaffTaskPriority(p)} style={{ cursor: 'pointer' }} />
-                                {p === 'all' ? 'All Priorities' : p === 'high' ? 'High Only' : 'Normal Only'}
-                              </label>
-                            ))}
-                          </div>
+                          <ClientCombobox
+                            value={staffTaskPriority === 'all' ? '' : staffTaskPriority}
+                            onChange={(val) => setStaffTaskPriority((val || 'all') as any)}
+                            placeholder="All Priorities"
+                            options={[
+                              { id: '', label: 'All Priorities' },
+                              { id: 'high', label: 'High Only' },
+                              { id: 'normal', label: 'Normal Only' },
+                            ]}
+                          />
                         </div>
                       </div>
                     )}
@@ -856,37 +949,7 @@ export default function StaffDashboard() {
                 </div>
               }
             >
-              {/* Filter Tabs sub-row */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '12px 20px 10px', borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
-                {tabs.map((t) => {
-                  const isActive = t.key === tab;
-                  return (
-                    <button
-                      key={t.key}
-                      onClick={() => setTab(t.key)}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        padding: '5px 10px', borderRadius: 999,
-                        border: `1px solid ${isActive ? t.accent : 'var(--border)'}`,
-                        background: isActive ? t.accent : 'var(--surface)',
-                        color: isActive ? '#fff' : 'var(--ink-2)',
-                        fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      <t.icon size={13} />
-                      {t.label}
-                      <span style={{
-                        background: isActive ? 'rgba(255,255,255,0.25)' : t.bg,
-                        color: isActive ? '#fff' : t.accent,
-                        fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 999,
-                      }}>
-                        {t.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
+              {/* Filter Tabs removed to match Admin Dashboard */}
               {tab === 'problems' ? (
                 filteredProblems.length === 0 ? (
                   <EmptyState

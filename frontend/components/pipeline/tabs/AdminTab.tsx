@@ -58,7 +58,7 @@ export default function AdminTab({ stats, standup, clients }: { stats: any; stan
             ].map(r => (
               <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
                 <span style={{ color: 'var(--ink-2)' }}>{r.label}</span>
-                <span style={{ fontFamily: 'Instrument Serif, serif', fontSize: 18, color: r.color, fontStyle: 'italic' }}>{r.value}</span>
+                <span style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 18, color: r.color, fontStyle: 'italic' }}>{r.value}</span>
               </div>
             ))}
           </Card>
@@ -85,7 +85,7 @@ export default function AdminTab({ stats, standup, clients }: { stats: any; stan
             { label: 'Due today', count: dueToday.length, bg: 'var(--amber-bg)', color: 'var(--amber)' },
           ].map(s => (
             <div key={s.label} style={{ textAlign: 'center', padding: '14px', background: s.bg, borderRadius: 'var(--radius-sm)' }}>
-              <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, color: s.color }}>{s.count}</div>
+              <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, color: s.color }}>{s.count}</div>
               <div style={{ fontSize: 12, color: s.color, fontWeight: 500, marginTop: 4 }}>{s.label}</div>
             </div>
           ))}

@@ -166,6 +166,12 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
       where: { id: req.params.id, organisationId: orgId },
       include: {
         currentStep: true,
+        clientServices: {
+          include: {
+            service: { include: { steps: { orderBy: { stepNumber: 'asc' } } } },
+            currentStep: true,
+          }
+        },
         tasks: {
           include: { assignedTo: true, documents: true },
           orderBy: { dueDate: 'asc' },
@@ -220,7 +226,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
 // POST /api/clients
 router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const { fullName, brandName, email, whatsappNumber, notes } = req.body;
+    const { fullName, brandName, email, whatsappNumber, notes, serviceId } = req.body;
     if (!fullName) { res.status(400).json({ error: 'fullName is required' }); return; }
     if (whatsappNumber && !validatePhone(whatsappNumber)) {
       res.status(400).json({ error: 'Invalid WhatsApp number format. Must be 7-15 digits.' });
@@ -247,11 +253,12 @@ router.post('/', requireAuth, requireRole('admin'), async (req: Request, res: Re
         dateJoined: new Date(),
         createdById: req.user.userId,
         status: 'active',
+        serviceId: serviceId || null,
       },
     });
 
     // Initialize client-specific steps and advance to step 1
-    await initializeClientPipeline(client.id, req.user.orgId, req.user.userId, 1);
+    await initializeClientPipeline(client.id, req.user.orgId, req.user.userId, 1, serviceId);
 
     // Notify organization that client was added
     try {
@@ -320,6 +327,53 @@ router.put('/:id', requireAuth, requireRole('admin'), async (req: Request, res: 
   }
 });
 
+// POST /api/clients/:id/services
+router.post('/:id/services', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { serviceId } = req.body;
+    if (!serviceId) { res.status(400).json({ error: 'serviceId is required' }); return; }
+
+    const client = await prisma.client.findFirst({
+      where: { id: req.params.id, organisationId: req.user.orgId },
+    });
+    if (!client) { res.status(404).json({ error: 'Client not found' }); return; }
+
+    const service = await prisma.service.findFirst({
+      where: { id: serviceId, organisationId: req.user.orgId },
+    });
+    if (!service) { res.status(404).json({ error: 'Service not found' }); return; }
+
+    // Check if already assigned
+    const existing = await prisma.clientService.findUnique({
+      where: { clientId_serviceId: { clientId: client.id, serviceId } }
+    });
+    if (existing) {
+      res.status(400).json({ error: 'Client already has this service assigned' });
+      return;
+    }
+
+    // Initialize pipeline for this specific service
+    await initializeClientPipeline(client.id, req.user.orgId, req.user.userId, 1, serviceId);
+
+    const fresh = await prisma.client.findUnique({
+      where: { id: client.id },
+      include: {
+        clientServices: {
+          include: {
+            service: { include: { steps: { orderBy: { stepNumber: 'asc' } } } },
+            currentStep: true,
+          }
+        }
+      }
+    });
+
+    res.status(201).json(fresh);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // POST /api/clients/:id/unblock
 router.post('/:id/unblock', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
   try {
@@ -340,6 +394,78 @@ router.post('/:id/unblock', requireAuth, requireRole('admin'), async (req: Reque
     });
 
     res.json({ message: 'Client tasks unblocked successfully' });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE /api/clients/:id/services/:serviceId
+router.delete('/:id/services/:serviceId', requireAuth, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { id, serviceId } = req.params;
+
+    const client = await prisma.client.findFirst({
+      where: { id, organisationId: req.user.orgId },
+    });
+    if (!client) { res.status(404).json({ error: 'Client not found' }); return; }
+
+    const existing = await prisma.clientService.findUnique({
+      where: { clientId_serviceId: { clientId: id, serviceId } }
+    });
+    if (!existing) {
+      res.status(404).json({ error: 'Service not assigned to this client' });
+      return;
+    }
+
+    // Delete associated Tasks first
+    await prisma.task.deleteMany({
+      where: {
+        clientId: id,
+        step: {
+          serviceId: serviceId
+        }
+      }
+    });
+
+    // Delete associated TaskTemplates for these steps
+    await prisma.stepTaskTemplate.deleteMany({
+      where: {
+        step: {
+          clientId: id,
+          serviceId: serviceId
+        }
+      }
+    });
+
+    // Delete associated StepHistory records
+    const stepsToDelete = await prisma.step.findMany({
+      where: { clientId: id, serviceId },
+      select: { id: true }
+    });
+    const stepIds = stepsToDelete.map(s => s.id);
+
+    if (stepIds.length > 0) {
+      await prisma.stepHistory.deleteMany({
+        where: {
+          OR: [
+            { fromStepId: { in: stepIds } },
+            { toStepId: { in: stepIds } }
+          ]
+        }
+      });
+    }
+
+    // Delete the client service assignment first (avoids currentStepId foreign key error)
+    await prisma.clientService.delete({
+      where: { clientId_serviceId: { clientId: id, serviceId } }
+    });
+
+    // Delete associated client steps for this service
+    await prisma.step.deleteMany({
+      where: { clientId: id, serviceId }
+    });
+
+    res.status(200).json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal server error' });

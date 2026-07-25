@@ -63,7 +63,7 @@ export default function StandupPageContent() {
   const [alertTypeFilter, setAlertTypeFilter] = useState('');
   const [teamFilter, setTeamFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
-  
+
   const [localHighlighted, setLocalHighlighted] = useState<Record<string, boolean>>({});
   const [localClientPinned, setLocalClientPinned] = useState<Record<string, boolean>>({});
   const [ignoredItems, setIgnoredItems] = useState<Set<string>>(new Set());
@@ -194,7 +194,7 @@ export default function StandupPageContent() {
     });
   }, [liveData]);
 
-  const filteredItems = useMemo(() => {
+  const baseFilteredItems = useMemo(() => {
     return items.filter((item: any) => {
       const searchMatch =
         !search ||
@@ -203,14 +203,19 @@ export default function StandupPageContent() {
         (item.stepLabel && item.stepLabel.toLowerCase().includes(search.toLowerCase())) ||
         item.detailText.toLowerCase().includes(search.toLowerCase());
 
-      const alertTypeMatch = !alertTypeFilter || item.alertType === alertTypeFilter;
       const teamMatch = !teamFilter || item.assigneeTeam === teamFilter;
       const clientMatch = !clientFilter || item.clientName === clientFilter;
       const notIgnored = !ignoredItems.has(item.id);
 
-      return searchMatch && alertTypeMatch && teamMatch && clientMatch && notIgnored;
+      return searchMatch && teamMatch && clientMatch && notIgnored;
     });
-  }, [items, search, alertTypeFilter, teamFilter, clientFilter, ignoredItems]);
+  }, [items, search, teamFilter, clientFilter, ignoredItems]);
+
+  const filteredItems = useMemo(() => {
+    return baseFilteredItems.filter((item: any) => {
+      return !alertTypeFilter || item.alertType === alertTypeFilter;
+    });
+  }, [baseFilteredItems, alertTypeFilter]);
 
   const isPerClient = user?.role === 'admin';
 
@@ -239,10 +244,10 @@ export default function StandupPageContent() {
 
   const handleHighlight = async (id: string) => {
     const currentItem = items.find((it: any) => it.id === id);
-    const currentStatus = localHighlighted[id] !== undefined 
-      ? localHighlighted[id] 
+    const currentStatus = localHighlighted[id] !== undefined
+      ? localHighlighted[id]
       : (currentItem?.isAlerted || currentItem?.isPinned || false);
-    
+
     const nextStatus = !currentStatus;
     setLocalHighlighted(prev => ({
       ...prev,
@@ -277,7 +282,7 @@ export default function StandupPageContent() {
         }
         localStorage.setItem('pinned_tasks', JSON.stringify(updated));
         window.dispatchEvent(new Event('pinned-updated'));
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -318,7 +323,7 @@ export default function StandupPageContent() {
         }
         localStorage.setItem('pinned_clients', JSON.stringify(updated));
         window.dispatchEvent(new Event('pinned-updated'));
-      } catch (e) {}
+      } catch (e) { }
     }
   };
 
@@ -329,14 +334,14 @@ export default function StandupPageContent() {
     localStorage.setItem('standup_ignored', JSON.stringify(Array.from(next)));
   };
 
-  // Stats for summary bar
+  // Stats for summary bar — derived from base filtered items, ignoring alertTypeFilter
   const stats = useMemo(() => {
-    const total = filteredItems.length;
-    const overdue = filteredItems.filter((i: any) => i.alertType === 'overdue').length;
-    const blocked = filteredItems.filter((i: any) => i.alertType === 'blocked').length;
-    const dueToday = filteredItems.filter((i: any) => i.alertType === 'due_today').length;
+    const total = baseFilteredItems.length;
+    const overdue = baseFilteredItems.filter((i: any) => i.alertType === 'overdue').length;
+    const blocked = baseFilteredItems.filter((i: any) => i.alertType === 'blocked').length;
+    const dueToday = baseFilteredItems.filter((i: any) => i.alertType === 'due_today').length;
     return { total, overdue, blocked, dueToday };
-  }, [filteredItems]);
+  }, [baseFilteredItems]);
 
   const isLoading = liveLoading && items.length === 0;
 
@@ -363,13 +368,14 @@ export default function StandupPageContent() {
 
   return (
     <AppLayout>
-      <Topbar title="Standup Brief" subtitle="Daily team alignment and risk evaluation" />
-      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box' }}>
+      <Topbar title="Standup Brief"
+      />
+      <div className="dashboard-mobile-scroll" style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0, boxSizing: 'border-box' }}>
 
         {/* Overhead Summary Bar */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-          
-          <div 
+
+          <div
             onClick={() => setAlertTypeFilter('')}
             onMouseEnter={e => {
               e.currentTarget.style.borderTopColor = 'var(--olive)';
@@ -399,7 +405,7 @@ export default function StandupPageContent() {
             </div>
           </div>
 
-          <div 
+          <div
             onClick={() => setAlertTypeFilter('overdue')}
             onMouseEnter={e => {
               e.currentTarget.style.borderTopColor = 'var(--red)';
@@ -429,7 +435,7 @@ export default function StandupPageContent() {
             </div>
           </div>
 
-          <div 
+          <div
             onClick={() => setAlertTypeFilter('blocked')}
             onMouseEnter={e => {
               e.currentTarget.style.borderTopColor = '#6B3FA0';
@@ -459,7 +465,7 @@ export default function StandupPageContent() {
             </div>
           </div>
 
-          <div 
+          <div
             onClick={() => setAlertTypeFilter('due_today')}
             onMouseEnter={e => {
               e.currentTarget.style.borderTopColor = 'var(--amber)';
@@ -497,7 +503,7 @@ export default function StandupPageContent() {
         ) : filteredItems.length === 0 ? (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 48, textAlign: 'center' }}>
             <Sparkles size={36} style={{ color: 'var(--olive)', margin: '0 auto 16px', display: 'block' }} />
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 24, color: 'var(--ink)', marginBottom: 8 }}>No items match standup criteria!</div>
+            <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 24, color: 'var(--ink)', marginBottom: 8 }}>No items match standup criteria!</div>
             <div style={{ fontSize: 14, color: 'var(--muted)' }}>All clear or try adjusting your filters.</div>
           </div>
         ) : (
@@ -652,155 +658,155 @@ export default function StandupPageContent() {
                       <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', textAlign: 'center', width: '10%' }}>ACTIONS</th>
                     </tr>
                   </thead>
-                    {Object.entries(groupedItems).map(([groupKey, groupItems]) => {
-                      const firstItem = groupItems[0];
-                      const clientId = firstItem?.clientId;
-                      const clientPinned = firstItem?.clientPinned;
-                      const isOpen = expandedGroups[groupKey] ?? false;
-                      return (
-                        <tbody key={groupKey}>
-                          {/* Folder-style Group Header — matches /team page style */}
-                          <tr
-                            onClick={() => setExpandedGroups(prev => ({ ...prev, [groupKey]: !(prev[groupKey] ?? false) }))}
-                            style={{
-                              background: 'var(--surface-2)',
-                              cursor: 'pointer', userSelect: 'none',
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                          >
-                            <td colSpan={5} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <span style={{
-                                  display: 'inline-block', fontSize: 9,
-                                  transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
-                                  transition: 'transform 0.2s', color: 'var(--muted)', flexShrink: 0,
-                                }}>▶</span>
-                                {/* Pin icon */}
-                                {isPerClient && clientId && (() => {
-                                  const isClientPinned = localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned;
-                                  return (
-                                    <button
-                                      onClick={(e) => { e.stopPropagation(); handlePinClient(clientId, isClientPinned); }}
-                                      style={{ border: 'none', background: 'none', padding: 2, cursor: 'pointer', color: isClientPinned ? 'var(--olive)' : 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.15s', flexShrink: 0 }}
-                                      title={isClientPinned ? 'Unpin client' : 'Pin client'}
-                                    >
-                                      <Pin size={14} style={{ fill: isClientPinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
-                                    </button>
-                                  );
-                                })()}
-                                <span style={{
-                                  fontSize: 13.5, fontWeight: 700, color: 'var(--olive-dark)',
-                                  background: 'var(--olive-50)', padding: '3px 10px', borderRadius: 6,
-                                  border: '1px solid var(--olive-100)', letterSpacing: '0.2px',
-                                }}>
-                                  {groupKey}
-                                </span>
-                                <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
-                                  · {groupItems.length} {groupItems.length !== 1 ? 'alerts' : 'alert'}
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
+                  {Object.entries(groupedItems).map(([groupKey, groupItems]) => {
+                    const firstItem = groupItems[0];
+                    const clientId = firstItem?.clientId;
+                    const clientPinned = firstItem?.clientPinned;
+                    const isOpen = expandedGroups[groupKey] ?? false;
+                    return (
+                      <tbody key={groupKey}>
+                        {/* Folder-style Group Header — matches /team page style */}
+                        <tr
+                          onClick={() => setExpandedGroups(prev => ({ ...prev, [groupKey]: !(prev[groupKey] ?? false) }))}
+                          style={{
+                            background: 'var(--surface-2)',
+                            cursor: 'pointer', userSelect: 'none',
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                        >
+                          <td colSpan={5} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <span style={{
+                                display: 'inline-block', fontSize: 9,
+                                transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                                transition: 'transform 0.2s', color: 'var(--muted)', flexShrink: 0,
+                              }}>▶</span>
+                              {/* Pin icon */}
+                              {isPerClient && clientId && (() => {
+                                const isClientPinned = localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned;
+                                return (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handlePinClient(clientId, isClientPinned); }}
+                                    style={{ border: 'none', background: 'none', padding: 2, cursor: 'pointer', color: isClientPinned ? 'var(--olive)' : 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.15s', flexShrink: 0 }}
+                                    title={isClientPinned ? 'Unpin client' : 'Pin client'}
+                                  >
+                                    <Pin size={14} style={{ fill: isClientPinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+                                  </button>
+                                );
+                              })()}
+                              <span style={{
+                                fontSize: 13.5, fontWeight: 700, color: 'var(--olive-dark)',
+                                background: 'var(--olive-50)', padding: '3px 10px', borderRadius: 6,
+                                border: '1px solid var(--olive-100)', letterSpacing: '0.2px',
+                              }}>
+                                {groupKey}
+                              </span>
+                              <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                                · {groupItems.length} {groupItems.length !== 1 ? 'alerts' : 'alert'}
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
 
-                          {/* Task Rows — indented like /team page */}
-                          {isOpen && groupItems.map((item: any, itemIdx: number) => {
-                            const s = TYPE_STYLES[item.alertType] || TYPE_STYLES.due_today;
-                            const { Icon } = s;
-                            const isHighlighted = localHighlighted[item.id] !== undefined ? localHighlighted[item.id] : (item.isAlerted || item.isPinned || false);
-                            return (
-                              <tr
-                                key={item.id}
-                                onClick={() => item.clientId && router.push(`/clients/${item.clientId}`)}
-                                className={`standup-row ${isHighlighted ? 'highlighted' : ''}`}
-                                style={{
-                                  cursor: 'pointer',
-                                  borderBottom: itemIdx === groupItems.length - 1 ? '2px solid var(--border)' : '1px solid var(--surface-2)',
-                                  background: isHighlighted ? 'rgba(107,63,160,0.04)' : 'var(--surface)',
-                                }}
-                              >
-                                <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'top', width: '35%', position: 'relative' }}>
-                                  {/* Tree connector line */}
-                                  <div style={{
-                                    position: 'absolute',
-                                    left: 20,
-                                    top: 0,
-                                    bottom: itemIdx === groupItems.length - 1 ? '50%' : 0,
-                                    width: 1,
-                                    background: 'var(--border)',
-                                  }} />
-                                  <div style={{
-                                    position: 'absolute',
-                                    left: 20,
-                                    top: '50%',
-                                    width: 12,
-                                    height: 1,
-                                    background: 'var(--border)',
-                                  }} />
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                                    <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.title}</div>
+                        {/* Task Rows — indented like /team page */}
+                        {isOpen && groupItems.map((item: any, itemIdx: number) => {
+                          const s = TYPE_STYLES[item.alertType] || TYPE_STYLES.due_today;
+                          const { Icon } = s;
+                          const isHighlighted = localHighlighted[item.id] !== undefined ? localHighlighted[item.id] : (item.isAlerted || item.isPinned || false);
+                          return (
+                            <tr
+                              key={item.id}
+                              onClick={() => item.clientId && router.push(`/clients/${item.clientId}`)}
+                              className={`standup-row ${isHighlighted ? 'highlighted' : ''}`}
+                              style={{
+                                cursor: 'pointer',
+                                borderBottom: itemIdx === groupItems.length - 1 ? '2px solid var(--border)' : '1px solid var(--surface-2)',
+                                background: isHighlighted ? 'rgba(107,63,160,0.04)' : 'var(--surface)',
+                              }}
+                            >
+                              <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'top', width: '35%', position: 'relative' }}>
+                                {/* Tree connector line */}
+                                <div style={{
+                                  position: 'absolute',
+                                  left: 20,
+                                  top: 0,
+                                  bottom: itemIdx === groupItems.length - 1 ? '50%' : 0,
+                                  width: 1,
+                                  background: 'var(--border)',
+                                }} />
+                                <div style={{
+                                  position: 'absolute',
+                                  left: 20,
+                                  top: '50%',
+                                  width: 12,
+                                  height: 1,
+                                  background: 'var(--border)',
+                                }} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                                  <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{item.title}</div>
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.4 }}>{item.detail}</div>
+                              </td>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'top', width: '20%' }}>
+                                {isPerClient ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{item.assignee}</div>
+                                    {item.assigneeTeam && (
+                                      <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{item.assigneeTeam}</div>
+                                    )}
                                   </div>
-                                  <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.4 }}>{item.detail}</div>
-                                </td>
-                                <td style={{ padding: '10px 18px', verticalAlign: 'top', width: '20%' }}>
-                                  {isPerClient ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                      <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{item.assignee}</div>
-                                      {item.assigneeTeam && (
-                                        <div style={{ fontSize: 10.5, color: 'var(--muted)' }}>{item.assigneeTeam}</div>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{item.clientName}</div>
-                                  )}
-                                </td>
-                                <td style={{ padding: '10px 18px', verticalAlign: 'top', fontSize: 12, width: '25%' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                    <div><strong style={{ color: 'var(--muted)' }}>Step:</strong> <span style={{ color: 'var(--ink)' }}>{item.stepLabel || '—'}</span></div>
-                                    <div><strong style={{ color: 'var(--muted)' }}>Assigned:</strong> <span style={{ color: 'var(--ink)' }}>{item.createdAt ? format(new Date(item.createdAt), 'd MMM yyyy') : '—'}</span></div>
-                                    <div><strong style={{ color: 'var(--muted)' }}>Due Date:</strong> <span style={{ color: 'var(--ink)' }}>{item.dueDate ? format(new Date(item.dueDate), 'd MMM yyyy') : '—'}</span></div>
-                                  </div>
-                                </td>
-                                <td style={{ padding: '10px 18px', verticalAlign: 'top', width: '10%' }}>
-                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 6px', borderRadius: 4, background: s.bg, color: s.color, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
-                                    <Icon size={10} /> {s.label}
-                                  </div>
-                                  <div style={{ marginTop: 4, fontFamily: 'JetBrains Mono, monospace', fontSize: 11, fontWeight: 700, color: s.color }}>
-                                    {s.tag(item)}
-                                  </div>
-                                </td>
-                                <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', width: '10%' }}>
-                                  <div onClick={e => e.stopPropagation()}>
-                                    <ActionDropdown
-                                      align="right"
-                                      actions={[
-                                        {
-                                          label: isHighlighted ? 'Remove Alert' : 'Alert',
-                                          icon: <AlertCircle size={13} />,
-                                          onClick: () => handleHighlight(item.id),
-                                        },
-                                        {
-                                          label: 'Update',
-                                          icon: <Edit2 size={13} />,
-                                          onClick: () => alert('Update functionality coming soon.'),
-                                        },
-                                        {
-                                          label: 'Dismiss',
-                                          icon: <Trash2 size={13} />,
-                                          onClick: () => handleIgnore(item.id),
-                                          danger: true,
-                                        }
-                                      ]}
-                                    />
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      );
-                    })}
+                                ) : (
+                                  <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{item.clientName}</div>
+                                )}
+                              </td>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'top', fontSize: 12, width: '25%' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                  <div><strong style={{ color: 'var(--muted)' }}>Step:</strong> <span style={{ color: 'var(--ink)' }}>{item.stepLabel || '—'}</span></div>
+                                  <div><strong style={{ color: 'var(--muted)' }}>Assigned:</strong> <span style={{ color: 'var(--ink)' }}>{item.createdAt ? format(new Date(item.createdAt), 'd MMM yyyy') : '—'}</span></div>
+                                  <div><strong style={{ color: 'var(--muted)' }}>Due Date:</strong> <span style={{ color: 'var(--ink)' }}>{item.dueDate ? format(new Date(item.dueDate), 'd MMM yyyy') : '—'}</span></div>
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'top', width: '10%' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 6px', borderRadius: 4, background: s.bg, color: s.color, fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
+                                  <Icon size={10} /> {s.label}
+                                </div>
+                                <div style={{ marginTop: 4, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 11, fontWeight: 700, color: s.color }}>
+                                  {s.tag(item)}
+                                </div>
+                              </td>
+                              <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', width: '10%' }}>
+                                <div onClick={e => e.stopPropagation()}>
+                                  <ActionDropdown
+                                    align="right"
+                                    actions={[
+                                      {
+                                        label: isHighlighted ? 'Remove Alert' : 'Alert',
+                                        icon: <AlertCircle size={13} />,
+                                        onClick: () => handleHighlight(item.id),
+                                      },
+                                      {
+                                        label: 'Update',
+                                        icon: <Edit2 size={13} />,
+                                        onClick: () => alert('Update functionality coming soon.'),
+                                      },
+                                      {
+                                        label: 'Dismiss',
+                                        icon: <Trash2 size={13} />,
+                                        onClick: () => handleIgnore(item.id),
+                                        danger: true,
+                                      }
+                                    ]}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    );
+                  })}
                 </table>
               </div>
             </SectionCard>
@@ -851,7 +857,7 @@ const statCardValueContainerStyle: React.CSSProperties = {
 };
 
 const statCardValueStyle: React.CSSProperties = {
-  fontFamily: 'Instrument Serif, serif',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   fontSize: 36,
   lineHeight: 1,
   color: 'var(--ink)',
@@ -863,7 +869,7 @@ const statCardSubtitleStyle: React.CSSProperties = {
 };
 
 const badgeStyle = (bg: string, color: string, label: string): React.CSSProperties => ({
-  fontFamily: 'JetBrains Mono, monospace',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   fontSize: 10,
   fontWeight: 700,
   padding: '2px 8px',

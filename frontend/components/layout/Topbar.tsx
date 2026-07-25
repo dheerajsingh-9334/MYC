@@ -21,9 +21,10 @@ interface TopbarProps {
   renderActions?: () => React.ReactNode;
   search?: string;
   setSearch?: (val: string) => void;
+  leftAction?: React.ReactNode;
 }
 
-export default function Topbar({ title, subtitle, onAddClient, showAddClient, actionLabel, renderActions, search, setSearch }: TopbarProps) {
+export default function Topbar({ title, subtitle, onAddClient, showAddClient, actionLabel, renderActions, search, setSearch, leftAction }: TopbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const qc = useQueryClient();
@@ -328,13 +329,16 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
           <Menu size={18} />
         </button>
 
-        <div style={{ minWidth: 0, flexShrink: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 1 }}>
+          {leftAction}
+          <div style={{ minWidth: 0, flexShrink: 1 }}>
           <h1 style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</h1>
           {subtitle && (
             <p style={{ fontSize: 11, color: 'var(--soft)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {subtitle}
             </p>
           )}
+          </div>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           {/* Search */}
@@ -563,7 +567,7 @@ export default function Topbar({ title, subtitle, onAddClient, showAddClient, ac
             {/* Modal header */}
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Export Clients Report</div>
+                <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Export Clients Report</div>
                 <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>Filter and download detailed reports for clients in CSV or PDF.</div>
               </div>
               <button onClick={() => setShowExportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>

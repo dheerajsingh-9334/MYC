@@ -147,10 +147,10 @@ export default function SystemTab({ steps }: { steps: any[] }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {steps.map((s: any) => (
               <div key={s.id} style={{ display: 'grid', gridTemplateColumns: '32px 2fr 1.5fr 1fr', gap: 12, padding: '9px 14px', background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', fontSize: 13 }}>
-                <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: 'var(--olive)' }}>S{s.stepNumber}</span>
+                <span style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 12, fontWeight: 700, color: 'var(--olive)' }}>S{s.stepNumber}</span>
                 <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{s.name}</span>
                 <span style={{ color: 'var(--muted)' }}>{s.owningTeamName}</span>
-                <span style={{ color: 'var(--muted)', fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5 }}>{s.slaDays}d SLA · {s.taskTemplates?.length || 0} tasks</span>
+                <span style={{ color: 'var(--muted)', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 11.5 }}>{s.slaDays}d SLA · {s.taskTemplates?.length || 0} tasks</span>
               </div>
             ))}
           </div>

@@ -17,9 +17,10 @@ interface ActionDropdownProps {
   actions: DropdownAction[];
   align?: 'left' | 'right';
   direction?: 'up' | 'down';
+  triggerText?: string;
 }
 
-export default function ActionDropdown({ actions, align = 'right', direction = 'down' }: ActionDropdownProps) {
+export default function ActionDropdown({ actions, align = 'right', direction = 'down', triggerText }: ActionDropdownProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
@@ -64,11 +65,12 @@ export default function ActionDropdown({ actions, align = 'right', direction = '
           setOpen((o) => !o);
         }}
         style={{
-          width: 28,
           height: 28,
+          ...(triggerText ? { padding: '0 12px' } : { width: 28 }),
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 6,
           border: '1px solid var(--border)',
           borderRadius: 6,
           background: open ? 'var(--surface-2)' : 'var(--surface)',
@@ -89,6 +91,7 @@ export default function ActionDropdown({ actions, align = 'right', direction = '
         title="Actions"
       >
         <Pencil size={13} />
+        {triggerText && <span style={{ fontSize: 12, fontWeight: 500, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif' }}>{triggerText}</span>}
       </button>
 
       {/* Dropdown Popover via Portal */}

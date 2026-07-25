@@ -227,7 +227,7 @@ export default function CSVImportModal({ open, onClose, onSuccess, endpoint, tit
         {/* Header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
           <div>
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>{title.replace('CSV', 'CSV / Excel')}</div>
+            <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>{title.replace('CSV', 'CSV / Excel')}</div>
             <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Bulk upload clients from a CSV or Excel status sheet.</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
@@ -239,7 +239,7 @@ export default function CSVImportModal({ open, onClose, onSuccess, endpoint, tit
               <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--olive-50)', color: 'var(--olive)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
                 <CheckCircle size={36} />
               </div>
-              <h3 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, margin: 0, color: 'var(--ink)' }}>Import Completed!</h3>
+              <h3 style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, margin: 0, color: 'var(--ink)' }}>Import Completed!</h3>
               <p style={{ fontSize: 14, color: 'var(--muted)', margin: 0, maxWidth: 360 }}>
                 Successfully imported and mapped <strong>{result.imported}</strong> clients into their respective custom pipelines.
               </p>
@@ -250,7 +250,7 @@ export default function CSVImportModal({ open, onClose, onSuccess, endpoint, tit
                   <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', maxHeight: 180, overflowY: 'auto' }}>
                     {result.errors.map((err, idx) => (
                       <div key={idx} style={{ display: 'grid', gridTemplateColumns: '64px 1fr', gap: 8, padding: '8px 12px', borderBottom: idx < result.errors.length - 1 ? '1px solid var(--border)' : 'none', background: 'var(--surface-2)', fontSize: 11.5 }}>
-                        <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, color: 'var(--muted)' }}>Row {err.row}</span>
+                        <span style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontWeight: 600, color: 'var(--muted)' }}>Row {err.row}</span>
                         <span style={{ color: 'var(--ink)' }}>{err.reason}</span>
                       </div>
                     ))}
@@ -268,14 +268,14 @@ export default function CSVImportModal({ open, onClose, onSuccess, endpoint, tit
                   <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 6 }}>Format A — Standard CSV</div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                     {templateColumns.map(col => (
-                      <span key={col} style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, background: 'var(--bg)', border: '1px solid var(--border)', padding: '2px 5px', borderRadius: 3, color: 'var(--ink-2)' }}>{col}</span>
+                      <span key={col} style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 10, background: 'var(--bg)', border: '1px solid var(--border)', padding: '2px 5px', borderRadius: 3, color: 'var(--ink-2)' }}>{col}</span>
                     ))}
                   </div>
                   {templateLabel === 'Clients' && (
                     <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
                       <div style={{ fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Format B — Pipeline Status Sheet (Excel)</div>
-                      <div style={{ color: 'var(--muted)', marginBottom: 6 }}>Auto-maps column statuses to steps. Each row = 1 client. Columns: <span style={{ fontFamily: 'JetBrains Mono' }}>Clients Name, Onboarding, WA Group…WON</span></div>
-                      <div style={{ color: 'var(--olive-dark)', fontWeight: 500 }}>💡 <span style={{ fontFamily: 'JetBrains Mono' }}>Done</span> = complete · <span style={{ fontFamily: 'JetBrains Mono' }}>WIP</span> = in_progress · empty = pending</div>
+                      <div style={{ color: 'var(--muted)', marginBottom: 6 }}>Auto-maps column statuses to steps. Each row = 1 client. Columns: <span style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}>Clients Name, Onboarding, WA Group…WON</span></div>
+                      <div style={{ color: 'var(--olive-dark)', fontWeight: 500 }}>💡 <span style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}>Done</span> = complete · <span style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}>WIP</span> = in_progress · empty = pending</div>
                     </div>
                   )}
                 </div>
@@ -392,7 +392,7 @@ export default function CSVImportModal({ open, onClose, onSuccess, endpoint, tit
                           <tr style={{ background: 'var(--bg)' }}>
                             <td colSpan={3} style={{ borderBottom: '1px solid var(--border)' }} />
                             {activePipelineSteps.flatMap(s => s.cols.map((col, ci) => (
-                              <td key={col} style={{ padding: '4px 6px', fontSize: 10, color: 'var(--muted)', borderBottom: '1px solid var(--border)', borderLeft: ci === 0 ? '1px solid var(--border)' : undefined, whiteSpace: 'nowrap', fontFamily: 'JetBrains Mono, monospace' }}>{col}</td>
+                              <td key={col} style={{ padding: '4px 6px', fontSize: 10, color: 'var(--muted)', borderBottom: '1px solid var(--border)', borderLeft: ci === 0 ? '1px solid var(--border)' : undefined, whiteSpace: 'nowrap', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}>{col}</td>
                             )))}
                           </tr>
                         </thead>

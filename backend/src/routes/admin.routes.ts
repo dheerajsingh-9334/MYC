@@ -477,11 +477,11 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
   <title>Projects Report</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-    body { font-family: 'Outfit', sans-serif; padding: 40px; color: #1a2310; background-color: #fff; margin: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; padding: 40px; color: #1a2310; background-color: #fff; margin: 0; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #5F6F52; padding-bottom: 20px; margin-bottom: 30px; }
     .header h1 { font-size: 28px; font-weight: 700; color: #5F6F52; margin: 0 0 8px 0; }
     .header p { font-size: 14px; color: #666; margin: 0; }
-    .logo-text { font-family: Georgia, serif; font-size: 24px; font-style: italic; color: #5F6F52; }
+    .logo-text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; font-size: 24px; font-style: italic; color: #5F6F52; }
     
     .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }
     .kpi-card { background: #fcfdfb; border: 1px solid #e1e8db; border-radius: 10px; padding: 15px; text-align: center; }
@@ -763,11 +763,11 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
   <title>Clients List Report</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-    body { font-family: 'Outfit', sans-serif; padding: 40px; color: #1a2310; background-color: #fff; margin: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; padding: 40px; color: #1a2310; background-color: #fff; margin: 0; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #5F6F52; padding-bottom: 20px; margin-bottom: 30px; }
     .header h1 { font-size: 28px; font-weight: 700; color: #5F6F52; margin: 0 0 8px 0; }
     .header p { font-size: 14px; color: #666; margin: 0; }
-    .logo-text { font-family: Georgia, serif; font-size: 24px; font-style: italic; color: #5F6F52; }
+    .logo-text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; font-size: 24px; font-style: italic; color: #5F6F52; }
     
     .kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
     .kpi-card { background: #fcfdfb; border: 1px solid #e1e8db; border-radius: 10px; padding: 15px; text-align: center; }
@@ -1009,11 +1009,11 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
   <title>Tasks Report</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-    body { font-family: 'Outfit', sans-serif; padding: 40px; color: #1a2310; background-color: #fff; margin: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; padding: 40px; color: #1a2310; background-color: #fff; margin: 0; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #5F6F52; padding-bottom: 20px; margin-bottom: 30px; }
     .header h1 { font-size: 28px; font-weight: 700; color: #5F6F52; margin: 0 0 8px 0; }
     .header p { font-size: 14px; color: #666; margin: 0; }
-    .logo-text { font-family: Georgia, serif; font-size: 24px; font-style: italic; color: #5F6F52; }
+    .logo-text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; font-size: 24px; font-style: italic; color: #5F6F52; }
     
     .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 25px; }
     .kpi-card { background: #fcfdfb; border: 1px solid #e1e8db; border-radius: 10px; padding: 12px; text-align: center; }
@@ -1194,11 +1194,11 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
   <title>Employees List Report</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-    body { font-family: 'Outfit', sans-serif; padding: 40px; color: #1a2310; background-color: #fff; margin: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; padding: 40px; color: #1a2310; background-color: #fff; margin: 0; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #5F6F52; padding-bottom: 20px; margin-bottom: 30px; }
     .header h1 { font-size: 28px; font-weight: 700; color: #5F6F52; margin: 0 0 8px 0; }
     .header p { font-size: 14px; color: #666; margin: 0; }
-    .logo-text { font-family: Georgia, serif; font-size: 24px; font-style: italic; color: #5F6F52; }
+    .logo-text { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; font-size: 24px; font-style: italic; color: #5F6F52; }
     
     .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }
     .kpi-card { background: #fcfdfb; border: 1px solid #e1e8db; border-radius: 10px; padding: 15px; text-align: center; }
@@ -1502,8 +1502,7 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
     }
     
     body {
-      font-family: 'Outfit', sans-serif;
-      color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; color: var(--ink);
       background-color: #ffffff;
       margin: 0;
       padding: 0;
@@ -1562,8 +1561,7 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
     }
     
     .header-logo {
-      font-family: Georgia, serif;
-      font-size: 26px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; font-size: 26px;
       font-style: italic;
       font-weight: 700;
       letter-spacing: -0.5px;
@@ -2170,7 +2168,7 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
         }
 
         let html = `<html><head><title>Client Report</title><style>
-          body { font-family: sans-serif; padding: 20px; color: #333; }
+          body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; padding: 20px; color: #333; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
           th { background-color: #f5f5f5; }
@@ -2235,7 +2233,7 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
         return;
       } else {
         let html = `<html><head><title>Users Report</title><style>
-          body { font-family: sans-serif; padding: 20px; color: #333; }
+          body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; padding: 20px; color: #333; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
           th { background-color: #f5f5f5; }
@@ -2294,7 +2292,7 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
         return;
       } else {
         let html = `<html><head><title>Team Performance Report</title><style>
-          body { font-family: sans-serif; padding: 20px; color: #333; }
+          body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; padding: 20px; color: #333; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
           th { background-color: #f5f5f5; }
@@ -2373,7 +2371,7 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
         return;
       } else {
         let html = `<html><head><title>Tasks Report</title><style>
-          body { font-family: sans-serif; padding: 20px; color: #333; }
+          body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; padding: 20px; color: #333; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
           th { background-color: #f5f5f5; }
@@ -2417,7 +2415,7 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
         return;
       } else {
         let html = `<html><head><title>Templates Report</title><style>
-          body { font-family: sans-serif; padding: 20px; color: #333; }
+          body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; padding: 20px; color: #333; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
           th { background-color: #f5f5f5; }
@@ -2452,7 +2450,7 @@ router.get('/export', requireAuth, requireRole('admin'), async (req: Request, re
         return;
       } else {
         let html = `<html><head><title>Steps Report</title><style>
-          body { font-family: sans-serif; padding: 20px; color: #333; }
+          body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; padding: 20px; color: #333; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
           th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; }
           th { background-color: #f5f5f5; }

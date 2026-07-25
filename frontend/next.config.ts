@@ -6,9 +6,7 @@ const PROD_API_HOSTS: string[] = [
 
 ];
 
-module.exports = {
-  allowedDevOrigins: ['192.168.1.40', '192.168.1.43'],
-}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
 
@@ -16,16 +14,16 @@ const nextConfig: NextConfig = {
   // so we tell Next it's safe to upgrade any stray http:// image/asset refs.
   ...(process.env.NODE_ENV === 'production' && PROD_API_HOSTS.length
     ? {
-        images: {
-          remotePatterns: PROD_API_HOSTS.map((hostname) => ({
-            protocol: 'https',
-            hostname,
-            pathname: '/uploads/**',
-          })),
-        },
-      }
+      images: {
+        remotePatterns: PROD_API_HOSTS.map((hostname) => ({
+          protocol: 'https',
+          hostname,
+          pathname: '/uploads/**',
+        })),
+      },
+    }
     : {}),
-    experimental: {
+  experimental: {
     proxyClientMaxBodySize: "500mb",
     serverActions: {
       bodySizeLimit: "500mb",
@@ -39,15 +37,18 @@ const nextConfig: NextConfig = {
       ],
     },
   },
-    allowedDevOrigins: [
+  allowedDevOrigins: [
     "*.ngrok-free.app",
     "*.ngrok.io",
     "*.ngrok.app",
     "*.trycloudflare.com",
     "localhost:3000",
     "[IP_ADDRESS]",
-    "192.168.1.43"
-  ],  
+    "192.168.1.43",
+    "192.168.1.45",
+    "192.168.1.13",
+    "`192.168.0.4"
+  ],
 };
 
 export default nextConfig;

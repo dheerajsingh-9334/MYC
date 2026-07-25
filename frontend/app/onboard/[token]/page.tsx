@@ -154,7 +154,7 @@ export default function OnboardFormPage() {
     width: '100%', padding: '10px 12px',
     border: `1px solid ${val ? 'var(--olive)' : '#D0D0C4'}`,
     borderRadius: 8, fontSize: 14.5, color: '#1A1A1A',
-    background: val ? '#FAFDF6' : '#fff', outline: 'none', transition: 'all 0.15s', fontFamily: 'inherit',
+    background: val ? '#FAFDF6' : '#fff', outline: 'none', transition: 'all 0.15s', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   } as React.CSSProperties);
 
   const label = (text: string, req?: boolean) => (
@@ -185,7 +185,7 @@ export default function OnboardFormPage() {
 
   // ── States ──
   if (step === 'loading') return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#FAFAF7', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: '#FAFAF7', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}>
       <PulseStyle />
       {/* Skeleton Header */}
       <div style={{ background: 'linear-gradient(135deg, var(--olive-dark) 0%, var(--olive) 100%)', padding: '20px 24px' }}>
@@ -216,7 +216,7 @@ export default function OnboardFormPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAFAF7', padding: 20 }}>
       <div style={{ textAlign: 'center', maxWidth: 400 }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-        <h1 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>Invalid link</h1>
+        <h1 style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>Invalid link</h1>
         <p style={{ fontSize: 14.5, color: '#6B6B6B', lineHeight: 1.6 }}>This onboarding link is invalid or has expired. Please contact MyC to get a new link.</p>
       </div>
     </div>
@@ -226,7 +226,7 @@ export default function OnboardFormPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAFAF7', padding: 20 }}>
       <div style={{ textAlign: 'center', maxWidth: 400 }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-        <h1 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>Already submitted</h1>
+        <h1 style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>Already submitted</h1>
         <p style={{ fontSize: 14.5, color: '#6B6B6B', lineHeight: 1.6 }}>Your application has already been submitted. Our team will be in touch shortly.</p>
       </div>
     </div>
@@ -236,7 +236,7 @@ export default function OnboardFormPage() {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAFAF7', padding: 20 }}>
       <div style={{ textAlign: 'center', maxWidth: 480, animation: 'fadeIn 0.4s ease' }}>
         <div style={{ width: 72, height: 72, borderRadius: '50%', background: '#E8F5EE', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32, margin: '0 auto 20px' }}>🎉</div>
-        <h1 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 32, color: '#1A1A1A', marginBottom: 12, letterSpacing: '-0.3px' }}>Application submitted!</h1>
+        <h1 style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 32, color: '#1A1A1A', marginBottom: 12, letterSpacing: '-0.3px' }}>Application submitted!</h1>
         <p style={{ fontSize: 15, color: '#6B6B6B', lineHeight: 1.7, marginBottom: 24 }}>
           Thank you, <strong>{form.fullName}</strong>! Our team at MyC will review your application and get back to you within 24-48 hours via WhatsApp and email.
         </p>
@@ -249,13 +249,13 @@ export default function OnboardFormPage() {
 
   // ── Form ──
   return (
-    <div style={{ minHeight: '100vh', background: '#FAFAF7', fontFamily: 'Inter, system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#FAFAF7', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}>
       {/* Header */}
       <div style={{ background: 'linear-gradient(135deg, var(--olive-dark) 0%, var(--olive) 100%)', color: '#fff', padding: '20px 24px' }}>
         <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, background: 'rgba(255,255,255,0.15)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Instrument Serif, serif', fontStyle: 'italic', fontSize: 20, fontWeight: 700 }}>M</div>
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 20 }}>My<span style={{ fontStyle: 'italic' }}>C</span> Onboarding</div>
+            <div style={{ width: 36, height: 36, background: 'rgba(255,255,255,0.15)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontStyle: 'italic', fontSize: 20, fontWeight: 700 }}>M</div>
+            <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 20 }}>My<span style={{ fontStyle: 'italic' }}>C</span> Onboarding</div>
           </div>
           <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>~8 minutes to complete</div>
         </div>
@@ -319,7 +319,7 @@ export default function OnboardFormPage() {
         {section === 0 && (
           <div style={{ animation: 'fadeIn 0.2s ease' }}>
             <div style={{ marginBottom: 28 }}>
-              <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>About you</div>
+              <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>About you</div>
               <div style={{ fontSize: 14, color: '#6B6B6B', lineHeight: 1.6 }}>Let's start with the basics. Tell us who you are.</div>
             </div>
             {field('fullName', 'Your full name', 'Priya Sharma', true)}
@@ -334,7 +334,7 @@ export default function OnboardFormPage() {
         {section === 1 && (
           <div style={{ animation: 'fadeIn 0.2s ease' }}>
             <div style={{ marginBottom: 28 }}>
-              <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>Your coaching practice</div>
+              <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>Your coaching practice</div>
               <div style={{ fontSize: 14, color: '#6B6B6B', lineHeight: 1.6 }}>Help us understand your niche, audience, and goals.</div>
             </div>
             {field('niche', 'Your coaching niche', 'e.g. Mindfulness for corporate professionals', true)}
@@ -360,7 +360,7 @@ export default function OnboardFormPage() {
         {section === 2 && (
           <div style={{ animation: 'fadeIn 0.2s ease' }}>
             <div style={{ marginBottom: 28 }}>
-              <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>Event & brand details</div>
+              <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>Event & brand details</div>
               <div style={{ fontSize: 14, color: '#6B6B6B', lineHeight: 1.6 }}>Tell us about the event we'll be launching together.</div>
             </div>
             {field('eventTopic', 'Event topic / title', 'e.g. From Burnout to Balance — 3 Day Workshop', true)}
@@ -391,7 +391,7 @@ export default function OnboardFormPage() {
         {section === 3 && (
           <div style={{ animation: 'fadeIn 0.2s ease' }}>
             <div style={{ marginBottom: 28 }}>
-              <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>Review & submit</div>
+              <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, color: '#1A1A1A', marginBottom: 8 }}>Review & submit</div>
               <div style={{ fontSize: 14, color: '#6B6B6B', lineHeight: 1.6 }}>Almost done! Check your details before submitting.</div>
             </div>
             {[

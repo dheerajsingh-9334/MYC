@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { useFormDraft } from '@/lib/useFormDraft';
 import { X } from 'lucide-react';
@@ -14,19 +14,24 @@ interface Props {
   onSuccess: () => void;
 }
 
-type AddClientData = { fullName: string; brandName: string; email: string; whatsappNumber: string; notes: string };
+type AddClientData = { fullName: string; brandName: string; email: string; whatsappNumber: string; notes: string; serviceId: string };
 
 export default function AddClientModal({ open, onClose, onSuccess }: Props) {
   const draft = useFormDraft<AddClientData>({
     kind: 'add_client',
     contextId: 'new',
-    initialData: { fullName: '', brandName: '', email: '', whatsappNumber: '', notes: '' },
+    initialData: { fullName: '', brandName: '', email: '', whatsappNumber: '', notes: '', serviceId: '' },
   });
   const form = draft.data;
   const setForm = draft.setData;
   const [phoneError, setPhoneError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+
+  const { data: services } = useQuery({
+    queryKey: ['services'],
+    queryFn: () => apiFetch('/api/services'),
+  });
 
   const mutation = useMutation({
     mutationFn: async (data: AddClientData) => {
@@ -68,7 +73,7 @@ export default function AddClientModal({ open, onClose, onSuccess }: Props) {
       }}>
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Add a new client</div>
+            <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Add a new client</div>
             <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>They'll be placed at Step 1 — Onboarding. Intake Team will be notified automatically.</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
@@ -127,10 +132,26 @@ export default function AddClientModal({ open, onClose, onSuccess }: Props) {
             </div>
 
           </div>
+          
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: fieldErrors.serviceId ? 'var(--red)' : 'var(--ink-2)', marginBottom: 5 }}>Service Package *</label>
+            <select
+              value={form.serviceId}
+              onChange={e => { setForm(f => ({ ...f, serviceId: e.target.value })); setFieldErrors(fe => ({ ...fe, serviceId: '' })); }}
+              style={{ width: '100%', padding: '9px 12px', border: `1px solid ${fieldErrors.serviceId ? 'var(--red)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: fieldErrors.serviceId ? 'var(--red-bg)' : 'var(--surface)', outline: 'none' }}
+            >
+              <option value="" disabled>Select a service package...</option>
+              {services?.map((s: any) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+            {fieldErrors.serviceId && <span style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4, display: 'block' }}>⚠ {fieldErrors.serviceId}</span>}
+          </div>
+
           <div style={{ marginBottom: 4 }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Notes</label>
             <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Any relevant context..."
-              style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical', fontFamily: 'inherit' }}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', minHeight: 70, resize: 'vertical', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}
             />
           </div>
           {mutation.isError && (
@@ -148,6 +169,7 @@ export default function AddClientModal({ open, onClose, onSuccess }: Props) {
             onClick={() => {
               const errs: Record<string, string> = {};
               if (!form.fullName.trim()) errs.fullName = 'Coach name is required';
+              if (!form.serviceId) errs.serviceId = 'Please select a service package';
               if (form.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) errs.email = 'Please enter a valid email address';
               if (form.whatsappNumber && !isValidPhone(form.whatsappNumber)) {
                 setPhoneError('Invalid WhatsApp number. Must be 7 to 15 digits.');

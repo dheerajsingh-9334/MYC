@@ -35,7 +35,7 @@ export default function DashboardHeader({
       <div style={{ minWidth: 0 }}>
         <h1
           style={{
-            fontFamily: "Instrument Serif, serif",
+            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
             fontSize: 32,
             color: "var(--ink)",
             letterSpacing: "-0.3px",

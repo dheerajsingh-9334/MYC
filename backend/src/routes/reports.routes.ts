@@ -820,8 +820,7 @@ function renderHtmlReport(res: any, data: any, type: string) {
     }
     
     body {
-      font-family: 'Outfit', sans-serif;
-      color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important; color: var(--ink);
       background-color: #ffffff;
       margin: 0;
       padding: 0;

@@ -8,7 +8,8 @@ import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 const ClientsPageContent = dynamic(() => import('./ClientsPageContent'), {
   loading: () => (
     <AppLayout>
-      <Topbar title="Clients" subtitle="Manage your client portfolio" />
+      <Topbar title="Clients"
+      />
       <TableSkeleton columnsCount={7} rowsCount={8} hasBulkActions={true} withHeader={false} />
     </AppLayout>
   ),

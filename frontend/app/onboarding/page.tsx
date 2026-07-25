@@ -47,7 +47,7 @@ function InviteModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
       onClick={e => { if (e.target === e.currentTarget && !link) onClose(); }}>
       <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 480, boxShadow: 'var(--shadow-lg)', animation: 'modalIn 0.2s ease-out' }}>
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Send onboarding invite</div>
+          <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Send onboarding invite</div>
           <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Client gets a unique link to fill their self-service form (~8 min). No login required.</div>
         </div>
         <div style={{ padding: '20px 24px' }}>
@@ -55,7 +55,7 @@ function InviteModal({ open, onClose, onSuccess }: { open: boolean; onClose: () 
             <div>
               <div style={{ padding: '14px 16px', background: '#E8F5EE', border: '1px solid #B0DCC0', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--green)', marginBottom: 6 }}>✓ Invite link created</div>
-                <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, color: 'var(--ink-2)', wordBreak: 'break-all', lineHeight: 1.6 }}>{link}</div>
+                <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 12, color: 'var(--ink-2)', wordBreak: 'break-all', lineHeight: 1.6 }}>{link}</div>
               </div>
               <button onClick={() => { navigator.clipboard.writeText(link); }}
                 style={{ width: '100%', padding: '9px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: 'pointer', marginBottom: 8 }}>
@@ -237,7 +237,7 @@ function ApplicationRow({ app, onAction }: { app: any; onAction: () => void }) {
               {(showNote === 'reject' || showNote === 'info') && (
                 <div style={{ width: '100%', marginTop: 4 }}>
                   <textarea value={reviewNote} onChange={e => reviewDraft.setData(p => ({ ...p, reviewNote: e.target.value }))} placeholder={showNote === 'reject' ? 'Reason for rejection...' : 'What information do you need?'}
-                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, minHeight: 64, resize: 'vertical', fontFamily: 'inherit', outline: 'none', background: 'var(--surface)' }} />
+                    style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, minHeight: 64, resize: 'vertical', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', outline: 'none', background: 'var(--surface)' }} />
                   <button onClick={() => showNote === 'reject' ? rejectMut.mutate() : infoMut.mutate()}
                     disabled={!reviewNote || rejectMut.isPending || infoMut.isPending}
                     style={{ marginTop: 8, padding: '7px 14px', background: showNote === 'reject' ? 'var(--red)' : 'var(--blue)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: !reviewNote ? 'not-allowed' : 'pointer', opacity: !reviewNote ? 0.6 : 1 }}>
@@ -304,7 +304,7 @@ export default function OnboardingQueuePage() {
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
-            <h1 style={{ fontFamily: 'Instrument Serif, serif', fontSize: 32, color: 'var(--ink)', letterSpacing: '-0.3px', lineHeight: 1.1 }}>Onboarding Queue</h1>
+            <h1 style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 32, color: 'var(--ink)', letterSpacing: '-0.3px', lineHeight: 1.1 }}>Onboarding Queue</h1>
             <div style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 6 }}>
               Review applications, send invite links, and approve clients into the pipeline
             </div>
@@ -323,7 +323,7 @@ export default function OnboardingQueuePage() {
             { label: 'Invites sent (unused)', value: invites.filter((i: any) => !i.usedAt).length, color: 'var(--muted)' },
           ].map(s => (
             <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '16px 18px' }}>
-              <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, color: s.color, lineHeight: 1 }}>{s.value}</div>
+              <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, color: s.color, lineHeight: 1 }}>{s.value}</div>
               <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 6, lineHeight: 1.4 }}>{s.label}</div>
             </div>
           ))}
@@ -346,7 +346,7 @@ export default function OnboardingQueuePage() {
           ) : filtered.length === 0 ? (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 48, textAlign: 'center' }}>
               <div style={{ fontSize: 32, marginBottom: 12 }}>📭</div>
-              <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 20, color: 'var(--ink)', marginBottom: 6 }}>No {filter === 'all' ? '' : filter} applications</div>
+              <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 20, color: 'var(--ink)', marginBottom: 6 }}>No {filter === 'all' ? '' : filter} applications</div>
               <div style={{ fontSize: 13.5, color: 'var(--muted)' }}>
                 {filter === 'pending' ? 'Send invite links to prospective clients to get applications here.' : 'Nothing here yet.'}
               </div>

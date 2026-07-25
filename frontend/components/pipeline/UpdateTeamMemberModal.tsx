@@ -92,7 +92,7 @@ export default function UpdateTeamMemberModal({ open, onClose, onSuccess, member
         {/* Modal header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Update Team Member</div>
+            <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Update Team Member</div>
             <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Edit team member "{member?.fullName}".</div>
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>

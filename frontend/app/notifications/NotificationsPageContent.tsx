@@ -499,7 +499,7 @@ export default function NotificationsPageContent() {
                                   {c.client} · {c.step}
                                 </div>
                               </div>
-                              <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                              <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}>
                                 {c.completedAt ? format(new Date(c.completedAt), 'd MMM, HH:mm') : ''}
                               </span>
                             </div>
@@ -543,7 +543,7 @@ export default function NotificationsPageContent() {
                               <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{n.title || n.message}</div>
                               {n.body && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 16 }}>{n.body}</div>}
                             </div>
-                            <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                            <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}>
                               {n.createdAt ? format(new Date(n.createdAt), 'd MMM, HH:mm') : ''}
                             </span>
                           </div>
@@ -567,7 +567,7 @@ export default function NotificationsPageContent() {
               {/* Modal header */}
               <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                 <div>
-                  <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Export Operational Data & Reports</div>
+                  <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Export Operational Data & Reports</div>
                   <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>Filter and download reports in CSV/PDF or generate a full backup.</div>
                 </div>
                 <button onClick={() => setShowExportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>

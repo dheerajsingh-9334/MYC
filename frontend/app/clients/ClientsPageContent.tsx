@@ -121,7 +121,7 @@ export default function ClientsPage() {
   useEffect(() => {
     try {
       setPinnedClientIds(JSON.parse(localStorage.getItem('pinned_clients') || '[]'));
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const togglePinClient = async (id: string, e: React.MouseEvent) => {
@@ -148,7 +148,7 @@ export default function ClientsPage() {
         qc.invalidateQueries({ queryKey: ['clients'] });
         qc.invalidateQueries({ queryKey: ['standup'] });
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   useEffect(() => {
@@ -356,20 +356,20 @@ export default function ClientsPage() {
   }, [filter, search]);
 
   const statusConfig: Record<string, { bg: string; color: string; dot: string; label: string }> = {
-    on_track:  { bg: 'var(--green-bg)', color: 'var(--green)', dot: 'var(--green)', label: 'On track' },
+    on_track: { bg: 'var(--green-bg)', color: 'var(--green)', dot: 'var(--green)', label: 'On track' },
     due_today: { bg: 'var(--amber-bg)', color: 'var(--amber)', dot: 'var(--amber)', label: 'Due today' },
-    overdue:   { bg: 'var(--red-bg)',   color: 'var(--red)',   dot: 'var(--red)',   label: 'Overdue' },
-    blocked:   { bg: '#F0E8FA', color: '#6B3FA0', dot: '#6B3FA0', label: 'Blocked' },
+    overdue: { bg: 'var(--red-bg)', color: 'var(--red)', dot: 'var(--red)', label: 'Overdue' },
+    blocked: { bg: '#F0E8FA', color: '#6B3FA0', dot: '#6B3FA0', label: 'Blocked' },
   };
 
   const chips = [
-    { key: 'all',       label: 'All',       count: allClients.length },
-    { key: 'active',    label: 'Active',    count: allClients.filter((c: any) => c.status === 'active').length },
+    { key: 'all', label: 'All', count: allClients.length },
+    { key: 'active', label: 'Active', count: allClients.filter((c: any) => c.status === 'active').length },
     { key: 'completed', label: 'Completed', count: allClients.filter((c: any) => c.status === 'completed').length },
-    { key: 'overdue',   label: 'Overdue',   count: allClients.filter((c: any) => c.computedStatus === 'overdue').length },
-    { key: 'blocked',   label: 'Blocked',   count: allClients.filter((c: any) => c.computedStatus === 'blocked').length },
+    { key: 'overdue', label: 'Overdue', count: allClients.filter((c: any) => c.computedStatus === 'overdue').length },
+    { key: 'blocked', label: 'Blocked', count: allClients.filter((c: any) => c.computedStatus === 'blocked').length },
     { key: 'due_today', label: 'Due Today', count: allClients.filter((c: any) => c.computedStatus === 'due_today').length },
-    { key: 'on_track',  label: 'On Track',  count: allClients.filter((c: any) => c.computedStatus === 'on_track').length },
+    { key: 'on_track', label: 'On Track', count: allClients.filter((c: any) => c.computedStatus === 'on_track').length },
   ];
 
   const thStyleBase: React.CSSProperties = { textAlign: 'left', fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)', padding: '10px 18px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' };
@@ -416,7 +416,7 @@ export default function ClientsPage() {
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', animation: 'modalIn 0.2s ease-out' }}>
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Delete Multiple Clients</div>
+                <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Delete Multiple Clients</div>
                 <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>This action cannot be undone.</div>
               </div>
               <button onClick={() => setConfirmBulkDelete(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
@@ -511,7 +511,7 @@ export default function ClientsPage() {
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', animation: 'modalIn 0.2s ease-out' }}>
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Delete Client</div>
+                <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Delete Client</div>
                 <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>This action cannot be undone.</div>
               </div>
               <button onClick={() => setDeletingClient(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
@@ -546,15 +546,15 @@ export default function ClientsPage() {
       )}
       <Topbar
         title="Clients"
-        subtitle={`${allClients.filter((c: any) => c.status === 'active').length} active clients · ${allClients.length} total`}
+      // subtitle={`${allClients.filter((c: any) => c.status === 'active').length} active clients · ${allClients.length} total`}
       />
-      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box', minHeight: 0, height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', boxSizing: 'border-box', minHeight: 0, overflow: 'hidden' }}>
 
         {/* Toolbar — filter pill left, controls right */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-          padding: '8px 14px', marginBottom: 16,
+          padding: '8px 14px', marginBottom: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch'
         }}>
           {/* Left: active filter pill */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
@@ -645,9 +645,9 @@ export default function ClientsPage() {
           padding={0}
         >
           {viewMode === 'grid' ? (
-            <div 
+            <div
               onScroll={handleClientScroll}
-              style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16, padding: 20, background: 'var(--surface-2)', flex: 1, minHeight: 0, overflowY: 'auto' }}
+              style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 320px), 1fr))', gap: 16, padding: 20, background: 'var(--surface-2)', flex: 1, minHeight: 0, overflowY: 'auto' }}
             >
               {(USE_MOCK ? false : isLoading) ? (
                 Array.from({ length: 6 }).map((_, idx) => (
@@ -699,7 +699,7 @@ export default function ClientsPage() {
                         e.currentTarget.style.transform = 'none';
                       }}
                     >
-                       {/* Header: Avatar + Title/Status */}
+                      {/* Header: Avatar + Title/Status */}
                       <div style={{ display: 'flex', alignItems: 'start', justifyContent: 'space-between', gap: 12 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                           {isAdmin && (
@@ -794,7 +794,7 @@ export default function ClientsPage() {
             </div>
           ) : (
             /* Table */
-            <div 
+            <div
               onScroll={handleClientScroll}
               style={{
                 flex: 1,
@@ -806,150 +806,150 @@ export default function ClientsPage() {
                 margin: '16px 20px 20px',
                 background: 'var(--surface)',
               }}
-            >                 
+            >
               <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10 }}>
-                      <th style={{ ...thStyleBase, ...colStyles.client }}>Client</th>
-                      <th style={{ ...thStyleBase, ...colStyles.step }}>Step</th>
-                      <th style={{ ...thStyleBase, ...colStyles.team }}>Team</th>
-                      <th style={{ ...thStyleBase, ...colStyles.status }}>Status</th>
-                      <th style={{ ...thStyleBase, ...colStyles.daysInStep }}>Days in Step</th>
-                      <th style={{ ...thStyleBase, ...colStyles.duration }}>Total Duration</th>
-                      <th style={{ ...thStyleBase, ...colStyles.actions }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(USE_MOCK ? false : isLoading) ? (
-                      <TableRowsSkeleton columnsCount={7} rowsCount={5} hasCheckbox={false} type="clients" />
-                    ) : scrollableClients.length === 0 ? (
-                      <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                          <Sparkles size={28} style={{ color: 'var(--olive)' }} />
-                          <div>{search ? 'No clients match your search.' : 'No clients found.'}</div>
-                        </div>
-                      </td></tr>
-                    ) : scrollableClients.map((client: any) => {
-                      const sc = getClientStatusStyles(client);
-                      const initials = (client.brandName || client.fullName).split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
-                      const stepNum = client.currentStep?.stepNumber;
-                      const stepNumPad = String(stepNum || 0).padStart(2, '0');
-                      const daysInStep = client.daysInStep ?? 0;
-                      const slaDays = client.currentStep?.slaDays ?? 1;
-                      const isOverdue = client.computedStatus === 'overdue';
-                      const dayLabel = getHumanReadableTiming(client);
+                <thead>
+                  <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10 }}>
+                    <th style={{ ...thStyleBase, ...colStyles.client }}>Client</th>
+                    <th style={{ ...thStyleBase, ...colStyles.step }}>Step</th>
+                    <th style={{ ...thStyleBase, ...colStyles.team }}>Team</th>
+                    <th style={{ ...thStyleBase, ...colStyles.status }}>Status</th>
+                    <th style={{ ...thStyleBase, ...colStyles.daysInStep }}>Days in Step</th>
+                    <th style={{ ...thStyleBase, ...colStyles.duration }}>Total Duration</th>
+                    <th style={{ ...thStyleBase, ...colStyles.actions }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(USE_MOCK ? false : isLoading) ? (
+                    <TableRowsSkeleton columnsCount={7} rowsCount={5} hasCheckbox={false} type="clients" />
+                  ) : scrollableClients.length === 0 ? (
+                    <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                        <Sparkles size={28} style={{ color: 'var(--olive)' }} />
+                        <div>{search ? 'No clients match your search.' : 'No clients found.'}</div>
+                      </div>
+                    </td></tr>
+                  ) : scrollableClients.map((client: any) => {
+                    const sc = getClientStatusStyles(client);
+                    const initials = (client.brandName || client.fullName).split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
+                    const stepNum = client.currentStep?.stepNumber;
+                    const stepNumPad = String(stepNum || 0).padStart(2, '0');
+                    const daysInStep = client.daysInStep ?? 0;
+                    const slaDays = client.currentStep?.slaDays ?? 1;
+                    const isOverdue = client.computedStatus === 'overdue';
+                    const dayLabel = getHumanReadableTiming(client);
 
-                      const durationDays = client.completionDurationDays ?? Math.max(1, Math.round((Date.now() - new Date(client.dateJoined).getTime()) / (1000 * 60 * 60 * 24)));
+                    const durationDays = client.completionDurationDays ?? Math.max(1, Math.round((Date.now() - new Date(client.dateJoined).getTime()) / (1000 * 60 * 60 * 24)));
 
-                      return (
-                        <tr key={client.id}
-                          onClick={() => router.push(`/clients/${client.id}`)}
-                          className={`standup-row ${client.isPinned ? 'highlighted' : ''}`}
-                          style={{ position: 'relative', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
-                          <td style={{ position: 'relative', padding: '10px 18px', verticalAlign: 'middle', ...colStyles.client }}>
-                            <span style={{ position: 'absolute', top: 0, left: 0, width: 2, height: '100%', background: 'var(--olive)', transform: 'scaleY(0)', transformOrigin: 'top', transition: 'transform 0.1s' }} className="row-stripe" />
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              {isAdmin && (
-                                <button
-                                  onClick={(e) => togglePinClient(client.id, e)}
-                                  style={{
-                                    border: 'none',
-                                    background: 'none',
-                                    padding: 4,
-                                    cursor: 'pointer',
-                                    color: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    transition: 'color 0.15s',
-                                    flexShrink: 0,
-                                  }}
-                                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--olive)')}
-                                  onMouseLeave={(e) => (e.currentTarget.style.color = pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)')}
-                                  title={pinnedClientIds.includes(client.id) ? "Unpin client" : "Pin client"}
-                                >
-                                  <Pin size={16} style={{ fill: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
-                                </button>
-                              )}
-                              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{initials}</div>
-                              <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
-                                <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{client.brandName || client.fullName}</div>
-                                <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{client.fullName} · joined {new Date(client.dateJoined).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
-                              </div>
+                    return (
+                      <tr key={client.id}
+                        onClick={() => router.push(`/clients/${client.id}`)}
+                        className={`standup-row ${client.isPinned ? 'highlighted' : ''}`}
+                        style={{ position: 'relative', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ position: 'relative', padding: '10px 18px', verticalAlign: 'middle', ...colStyles.client }}>
+                          <span style={{ position: 'absolute', top: 0, left: 0, width: 2, height: '100%', background: 'var(--olive)', transform: 'scaleY(0)', transformOrigin: 'top', transition: 'transform 0.1s' }} className="row-stripe" />
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            {isAdmin && (
+                              <button
+                                onClick={(e) => togglePinClient(client.id, e)}
+                                style={{
+                                  border: 'none',
+                                  background: 'none',
+                                  padding: 4,
+                                  cursor: 'pointer',
+                                  color: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'color 0.15s',
+                                  flexShrink: 0,
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--olive)')}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'var(--muted)')}
+                                title={pinnedClientIds.includes(client.id) ? "Unpin client" : "Pin client"}
+                              >
+                                <Pin size={16} style={{ fill: pinnedClientIds.includes(client.id) ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+                              </button>
+                            )}
+                            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, var(--olive), var(--olive-light))', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12, flexShrink: 0 }}>{initials}</div>
+                            <div style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                              <div style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{client.brandName || client.fullName}</div>
+                              <div style={{ fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{client.fullName} · joined {new Date(client.dateJoined).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
                             </div>
-                          </td>
-                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.step }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'var(--olive-50)', border: '1px solid var(--olive-100)', borderRadius: 6, fontSize: 12, fontWeight: 600, color: 'var(--olive-dark)' }}>
-                              <span style={{ background: 'var(--olive)', color: '#fff', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>{stepNumPad}</span>
-                              {client.currentStep?.name}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.team }}>
-                            <span style={{ fontSize: 12, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--olive-light)', flexShrink: 0 }} />
-                              {client.currentStep?.owningTeamName}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.status }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', borderRadius: 5, fontSize: 11.5, fontWeight: 600, background: sc.bg, color: sc.color }}>
-                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: sc.dot, flexShrink: 0 }} />
-                              {sc.label}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.daysInStep }}>
-                            <span style={{ fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: sc.color, fontWeight: isOverdue ? 600 : 400 }}>
-                              {dayLabel}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.duration }}>
-                            <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              <Clock size={12} style={{ color: 'var(--muted)' }} />
-                              {client.status === 'completed'
-                                ? `${durationDays} days (Completed)`
-                                : `${durationDays} days (Ongoing)`}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.actions }}>
-                            <ActionDropdown
-                              align="right"
-                              actions={[
+                          </div>
+                        </td>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.step }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: 'var(--olive-50)', border: '1px solid var(--olive-100)', borderRadius: 6, fontSize: 12, fontWeight: 600, color: 'var(--olive-dark)' }}>
+                            <span style={{ background: 'var(--olive)', color: '#fff', padding: '1px 6px', borderRadius: 4, fontSize: 10, fontWeight: 700 }}>{stepNumPad}</span>
+                            {client.currentStep?.name}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.team }}>
+                          <span style={{ fontSize: 12, color: 'var(--muted)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--olive-light)', flexShrink: 0 }} />
+                            {client.currentStep?.owningTeamName}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.status }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 9px', borderRadius: 5, fontSize: 11.5, fontWeight: 600, background: sc.bg, color: sc.color }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: sc.dot, flexShrink: 0 }} />
+                            {sc.label}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.daysInStep }}>
+                          <span style={{ fontSize: 12, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', color: sc.color, fontWeight: isOverdue ? 600 : 400 }}>
+                            {dayLabel}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.duration }}>
+                          <span style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <Clock size={12} style={{ color: 'var(--muted)' }} />
+                            {client.status === 'completed'
+                              ? `${durationDays} days (Completed)`
+                              : `${durationDays} days (Ongoing)`}
+                          </span>
+                        </td>
+                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', whiteSpace: 'nowrap', ...colStyles.actions }}>
+                          <ActionDropdown
+                            align="right"
+                            actions={[
+                              {
+                                label: 'View',
+                                icon: <Eye size={13} />,
+                                onClick: () => router.push(`/clients/${client.id}`),
+                              },
+                              ...(isAdmin && client.computedStatus === 'blocked' ? [
                                 {
-                                  label: 'View',
-                                  icon: <Eye size={13} />,
-                                  onClick: () => router.push(`/clients/${client.id}`),
-                                },
-                                ...(isAdmin && client.computedStatus === 'blocked' ? [
-                                  {
-                                    label: 'Unblock',
-                                    icon: <Unlock size={13} />,
-                                    onClick: () => {
-                                      if (confirm(`Are you sure you want to unblock client "${client.brandName || client.fullName}"? This will set all of their blocked tasks to pending.`)) {
-                                        unblockClientMut.mutate(client.id);
-                                      }
+                                  label: 'Unblock',
+                                  icon: <Unlock size={13} />,
+                                  onClick: () => {
+                                    if (confirm(`Are you sure you want to unblock client "${client.brandName || client.fullName}"? This will set all of their blocked tasks to pending.`)) {
+                                      unblockClientMut.mutate(client.id);
                                     }
                                   }
-                                ] : []),
-                                {
-                                  label: 'Update',
-                                  icon: <Edit2 size={13} />,
-                                  onClick: () => setEditingClient(client),
-                                },
-                                {
-                                  label: 'Delete',
-                                  icon: <Trash2 size={13} />,
-                                  onClick: (e?: React.MouseEvent) => {
-                                    setDeletingClient(client);
-                                  },
-                                  danger: true,
                                 }
-                              ]}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                              ] : []),
+                              {
+                                label: 'Update',
+                                icon: <Edit2 size={13} />,
+                                onClick: () => setEditingClient(client),
+                              },
+                              {
+                                label: 'Delete',
+                                icon: <Trash2 size={13} />,
+                                onClick: (e?: React.MouseEvent) => {
+                                  setDeletingClient(client);
+                                },
+                                danger: true,
+                              }
+                            ]}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </SectionCard>
@@ -998,11 +998,11 @@ export default function ClientsPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, padding: 20 }}
           onClick={e => { if (e.target === e.currentTarget) setShowExportModal(false); }}>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 700, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' }}>
-            
+
             {/* Modal header */}
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
               <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Export Clients Report</div>
+                <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Export Clients Report</div>
                 <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>Filter and download detailed reports for clients in CSV or PDF.</div>
               </div>
               <button onClick={() => setShowExportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
@@ -1012,7 +1012,7 @@ export default function ClientsPage() {
 
             {/* Modal body */}
             <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }}>
-              
+
               {/* Select export type */}
               <div style={{ marginBottom: 20 }}>
                 <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 8 }}>Select Export Format</label>
@@ -1046,7 +1046,7 @@ export default function ClientsPage() {
               {/* Filters Section */}
               <div style={{ borderTop: '1px solid var(--border)', paddingTop: 18, marginTop: 18 }}>
                 <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Filter Options</div>
-                
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Onboarded After</label>
@@ -1099,42 +1099,46 @@ export default function ClientsPage() {
                 style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
                 Cancel
               </button>
-              <button onClick={() => { setExportFormat('csv'); setTimeout(() => {
-                const params = new URLSearchParams();
-                params.set('format', 'csv');
-                params.set('type', exportType);
-                if (expStartDate) params.set('startDate', expStartDate);
-                if (expEndDate) params.set('endDate', expEndDate);
-                if (expStepId) params.set('stepId', expStepId);
-                if (expStatus) params.set('status', expStatus);
-                if (expIncludeArchived) params.set('includeArchived', 'true');
-                const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
-                if (token) params.set('token', token);
-                const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = `${exportType}_export_${Date.now()}.csv`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-              }, 50); }}
+              <button onClick={() => {
+                setExportFormat('csv'); setTimeout(() => {
+                  const params = new URLSearchParams();
+                  params.set('format', 'csv');
+                  params.set('type', exportType);
+                  if (expStartDate) params.set('startDate', expStartDate);
+                  if (expEndDate) params.set('endDate', expEndDate);
+                  if (expStepId) params.set('stepId', expStepId);
+                  if (expStatus) params.set('status', expStatus);
+                  if (expIncludeArchived) params.set('includeArchived', 'true');
+                  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+                  if (token) params.set('token', token);
+                  const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `${exportType}_export_${Date.now()}.csv`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }, 50);
+              }}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
                 <Download size={14} /> Download CSV
               </button>
-              <button onClick={() => { setExportFormat('pdf'); setTimeout(() => {
-                const params = new URLSearchParams();
-                params.set('format', 'pdf');
-                params.set('type', exportType);
-                if (expStartDate) params.set('startDate', expStartDate);
-                if (expEndDate) params.set('endDate', expEndDate);
-                if (expStepId) params.set('stepId', expStepId);
-                if (expStatus) params.set('status', expStatus);
-                if (expIncludeArchived) params.set('includeArchived', 'true');
-                const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
-                if (token) params.set('token', token);
-                const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
-                window.open(url, '_blank');
-              }, 50); }}
+              <button onClick={() => {
+                setExportFormat('pdf'); setTimeout(() => {
+                  const params = new URLSearchParams();
+                  params.set('format', 'pdf');
+                  params.set('type', exportType);
+                  if (expStartDate) params.set('startDate', expStartDate);
+                  if (expEndDate) params.set('endDate', expEndDate);
+                  if (expStepId) params.set('stepId', expStepId);
+                  if (expStatus) params.set('status', expStatus);
+                  if (expIncludeArchived) params.set('includeArchived', 'true');
+                  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+                  if (token) params.set('token', token);
+                  const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
+                  window.open(url, '_blank');
+                }, 50);
+              }}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
                 <Download size={14} /> Print PDF Report
               </button>

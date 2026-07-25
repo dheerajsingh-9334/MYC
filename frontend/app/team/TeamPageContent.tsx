@@ -327,9 +327,9 @@ export default function TeamPage() {
           label="Processing request..."
         />
       )}
-      <Topbar 
-        title="Team" 
-        subtitle={`${active.length} active member${active.length !== 1 ? 's' : ''}`} 
+      <Topbar
+        title="Team"
+      // subtitle={`${active.length} active member${active.length !== 1 ? 's' : ''}`} 
       />
       <div style={{ padding: 'var(--page-pad)', flex: 1 }}>
 
@@ -426,21 +426,21 @@ export default function TeamPage() {
             <div style={{ padding: '8px 0' }}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ ...thStyleBase, ...colStyles.member }}>Member</th>
-                    <th style={{ ...thStyleBase, ...colStyles.email }}>Email</th>
-                    <th style={{ ...thStyleBase, ...colStyles.role }}>Role</th>
-                    <th style={{ ...thStyleBase, ...colStyles.active }}>Active</th>
-                    <th style={{ ...thStyleBase, ...colStyles.late }}>Late</th>
-                    <th style={{ ...thStyleBase, ...colStyles.done }}>Done</th>
-                    <th style={{ ...thStyleBase, ...colStyles.avgTime }}>Avg. Time</th>
-                    {isAdmin && <th style={{ ...thStyleBase, ...colStyles.actions }}>Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  <TableRowsSkeleton columnsCount={isAdmin ? 8 : 7} rowsCount={6} hasCheckbox={false} />
-                </tbody>
+                  <thead>
+                    <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ ...thStyleBase, ...colStyles.member }}>Member</th>
+                      <th style={{ ...thStyleBase, ...colStyles.email }}>Email</th>
+                      <th style={{ ...thStyleBase, ...colStyles.role }}>Role</th>
+                      <th style={{ ...thStyleBase, ...colStyles.active }}>Active</th>
+                      <th style={{ ...thStyleBase, ...colStyles.late }}>Late</th>
+                      <th style={{ ...thStyleBase, ...colStyles.done }}>Done</th>
+                      <th style={{ ...thStyleBase, ...colStyles.avgTime }}>Avg. Time</th>
+                      {isAdmin && <th style={{ ...thStyleBase, ...colStyles.actions }}>Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <TableRowsSkeleton columnsCount={isAdmin ? 8 : 7} rowsCount={6} hasCheckbox={false} />
+                  </tbody>
                 </table>
               </div>
             </div>
@@ -450,19 +450,19 @@ export default function TeamPage() {
             <div style={{ padding: '8px 0' }}>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ ...thStyleBase, ...colStyles.member }}>Member</th>
-                    <th style={{ ...thStyleBase, ...colStyles.email }}>Email</th>
-                    <th style={{ ...thStyleBase, ...colStyles.role }}>Role</th>
-                    <th style={{ ...thStyleBase, ...colStyles.active }}>Active</th>
-                    <th style={{ ...thStyleBase, ...colStyles.late }}>Late</th>
-                    <th style={{ ...thStyleBase, ...colStyles.done }}>Done</th>
-                    <th style={{ ...thStyleBase, ...colStyles.avgTime }}>Avg. Time</th>
-                    {isAdmin && <th style={{ ...thStyleBase, ...colStyles.actions }}>Actions</th>}
-                  </tr>
-                </thead>
-                {/* Teams map will use multiple tbodies */}
+                  <thead>
+                    <tr style={{ background: 'var(--surface-2)', textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ ...thStyleBase, ...colStyles.member }}>Member</th>
+                      <th style={{ ...thStyleBase, ...colStyles.email }}>Email</th>
+                      <th style={{ ...thStyleBase, ...colStyles.role }}>Role</th>
+                      <th style={{ ...thStyleBase, ...colStyles.active }}>Active</th>
+                      <th style={{ ...thStyleBase, ...colStyles.late }}>Late</th>
+                      <th style={{ ...thStyleBase, ...colStyles.done }}>Done</th>
+                      <th style={{ ...thStyleBase, ...colStyles.avgTime }}>Avg. Time</th>
+                      {isAdmin && <th style={{ ...thStyleBase, ...colStyles.actions }}>Actions</th>}
+                    </tr>
+                  </thead>
+                  {/* Teams map will use multiple tbodies */}
                   {/* Admins category */}
                   {activeAdmins.length > 0 && (
                     <tbody key="Administrators">
@@ -472,10 +472,10 @@ export default function TeamPage() {
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}>
                         <td colSpan={isAdmin ? 8 : 7} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ 
+                            <span style={{
                               display: 'inline-block',
-                              fontSize: 9, 
-                              transform: (expandedTeams.has('Administrators') || !!search.trim()) ? 'rotate(90deg)' : 'rotate(0deg)', 
+                              fontSize: 9,
+                              transform: (expandedTeams.has('Administrators') || !!search.trim()) ? 'rotate(90deg)' : 'rotate(0deg)',
                               transition: 'transform 0.2s',
                               color: 'var(--muted)',
                               flexShrink: 0
@@ -600,10 +600,10 @@ export default function TeamPage() {
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}>
                           <td colSpan={isAdmin ? 8 : 7} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <span style={{ 
+                              <span style={{
                                 display: 'inline-block',
-                                fontSize: 9, 
-                                transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
+                                fontSize: 9,
+                                transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
                                 transition: 'transform 0.2s',
                                 color: 'var(--muted)',
                                 flexShrink: 0
@@ -762,8 +762,8 @@ export default function TeamPage() {
                       </tbody>
                     );
                   })}
-              </table>
-            </div>
+                </table>
+              </div>
 
               {/* Inactive section (admin only) */}
               {isAdmin && inactive.length > 0 && (
@@ -821,7 +821,7 @@ export default function TeamPage() {
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 480, boxShadow: 'var(--shadow-lg)' }}>
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Invite Team Member</div>
+                <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Invite Team Member</div>
                 <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>
                   {inviteLink ? 'Share this magic link with the member.' : 'Generate a secure signup link for a new member.'}
                 </div>
@@ -905,7 +905,7 @@ export default function TeamPage() {
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 400, boxShadow: 'var(--shadow-lg)' }}>
             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
               <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Create New Team</div>
+                <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Create New Team</div>
                 <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Add a new team to organize your members.</div>
               </div>
               <button onClick={() => setShowCreateTeam(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>

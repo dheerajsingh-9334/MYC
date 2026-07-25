@@ -181,7 +181,7 @@ export default function StatCard({
       {/* Value */}
       <div
         style={{
-          fontFamily: "Instrument Serif, serif",
+          fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
           fontSize: 36,
           color: "var(--ink)",
           lineHeight: 1,

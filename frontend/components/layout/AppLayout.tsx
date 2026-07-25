@@ -5,7 +5,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import { USE_MOCK } from '@/lib/mockData';
 import { apiFetch } from '@/lib/api';
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children, withHeader }: { children: React.ReactNode, withHeader?: boolean }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           }
         }}
       />
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflowY: 'auto' }}>
+      <main id="app-main-scroll" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflowY: 'auto', overflowX: 'hidden' }}>
         {children}
       </main>
     </div>

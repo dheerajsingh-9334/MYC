@@ -254,8 +254,8 @@ export default function AdminDashboard() {
     }
     if (memberSearch.trim()) {
       const q = memberSearch.toLowerCase();
-      ms = ms.filter((m) => 
-        (m.name || '').toLowerCase().includes(q) || 
+      ms = ms.filter((m) =>
+        (m.name || '').toLowerCase().includes(q) ||
         (m.team || '').toLowerCase().includes(q)
       );
     }
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
 
   // Operations Overview tabbed details state and infinite scroll limits
   const [opTab, setOpTab] = useState<'Workload' | 'Team Tasks' | 'Notifications' | 'Pending Requests' | 'Audit Logs'>('Workload');
-  
+
   useEffect(() => {
     if (user && user.role !== 'admin') {
       setOpTab('Team Tasks');
@@ -487,13 +487,13 @@ export default function AdminDashboard() {
     <AppLayout>
       <Topbar
         title="Workload Management"
-        subtitle={`Manage team workload, assignments, and alerts · Org Avg Completion Time: ${data.orgStats.avgCompletionTimeDays || 0} days`}
+      // subtitle={`Manage team workload, assignments, and alerts · Org Avg Completion Time: ${data.orgStats.avgCompletionTimeDays || 0} days`}
       />
-      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box' }}>
+      <div className="dashboard-mobile-scroll" style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, boxSizing: 'border-box' }}>
 
         {/* ── Main Dashboard Body ── */}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', flex: 1, minHeight: 0 }}>
-          
+
           <div style={{ flex: '1 1 100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             <SectionCard
               padding="0"
@@ -541,7 +541,7 @@ export default function AdminDashboard() {
                   background: 'var(--surface-2)',
                 }}
               >
-                
+
                 {/* 1. WORKLOAD TAB */}
                 {opTab === 'Workload' && (
                   <div>
@@ -590,10 +590,10 @@ export default function AdminDashboard() {
                               const pct = (t.activeTasks / max) * 100;
                               const avgTasksPerMember = t.activeTasks / Math.max(t.memberCount, 1);
                               const overloaded = t.overdue > 2 || avgTasksPerMember > 3;
-                              const loadStatus = overloaded 
-                                ? { label: 'High Load', bg: '#FBEEF1', color: 'var(--red)', dot: 'var(--red)' } 
-                                : t.activeTasks > 0 
-                                  ? { label: 'Normal', bg: 'var(--olive-50)', color: 'var(--olive)', dot: 'var(--olive)' } 
+                              const loadStatus = overloaded
+                                ? { label: 'High Load', bg: '#FBEEF1', color: 'var(--red)', dot: 'var(--red)' }
+                                : t.activeTasks > 0
+                                  ? { label: 'Normal', bg: 'var(--olive-50)', color: 'var(--olive)', dot: 'var(--olive)' }
                                   : { label: 'Idle', bg: 'var(--surface-2)', color: 'var(--muted)', dot: 'var(--soft)' };
 
                               return (
@@ -801,12 +801,12 @@ export default function AdminDashboard() {
                                   placeholder="All Assignees"
                                   options={[
                                     { id: 'unassigned', label: 'Unassigned' },
-                                    ...(user?.role === 'admin' 
+                                    ...(user?.role === 'admin'
                                       ? usersList.map((u: any) => ({ id: u.id, label: u.fullName }))
                                       : user ? [
-                                          { id: user.id, label: `${user.fullName} (Lead)` },
-                                          ...usersList.filter((u: any) => u.teamName === user.teamName && u.id !== user.id).map((u: any) => ({ id: u.id, label: u.fullName }))
-                                        ] : [])
+                                        { id: user.id, label: `${user.fullName} (Lead)` },
+                                        ...usersList.filter((u: any) => u.teamName === user.teamName && u.id !== user.id).map((u: any) => ({ id: u.id, label: u.fullName }))
+                                      ] : [])
                                   ]}
                                 />
                               </div>
@@ -860,7 +860,7 @@ export default function AdminDashboard() {
                             const isOpen = !isCollapsed;
                             return (
                               <tbody key={`team-group-${teamName}`}>
-                                <tr 
+                                <tr
                                   onClick={() => {
                                     setCollapsedTeams(prev => ({
                                       ...prev,
@@ -877,189 +877,189 @@ export default function AdminDashboard() {
                                   onMouseLeave={(e) => { e.currentTarget.style.background = isOpen ? 'var(--olive-50)' : 'var(--surface-2)'; }}
                                 >
                                   <td colSpan={5} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: isOpen ? '14px 18px' : '10px 18px', fontWeight: 600, color: isOpen ? 'var(--olive-dark)' : 'var(--ink)', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                          <span style={{ 
-                                            display: 'inline-block',
-                                            fontSize: 9, 
-                                            transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
-                                            transition: 'transform 0.2s',
-                                            color: 'var(--muted)'
-                                          }}>▶</span>
-                                          <span style={{ fontSize: 13.5 }}>{teamName}</span>
-                                          <span style={{ fontSize: 11, color: 'var(--muted)', background: isOpen ? 'var(--surface)' : 'var(--surface-2)', padding: '2px 6px', borderRadius: 4, fontWeight: 500, border: '1px solid var(--border)' }}>
-                                            {tasks.length} task{tasks.length !== 1 ? 's' : ''}
-                                          </span>
-                                        </div>
-                                        <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>
-                                          {isCollapsed ? 'Click to expand' : 'Click to collapse'}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <span style={{
+                                          display: 'inline-block',
+                                          fontSize: 9,
+                                          transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                                          transition: 'transform 0.2s',
+                                          color: 'var(--muted)'
+                                        }}>▶</span>
+                                        <span style={{ fontSize: 13.5 }}>{teamName}</span>
+                                        <span style={{ fontSize: 11, color: 'var(--muted)', background: isOpen ? 'var(--surface)' : 'var(--surface-2)', padding: '2px 6px', borderRadius: 4, fontWeight: 500, border: '1px solid var(--border)' }}>
+                                          {tasks.length} task{tasks.length !== 1 ? 's' : ''}
                                         </span>
                                       </div>
-                                    </td>
-                                  </tr>
-                                  {isOpen && <tr style={{ height: 6, background: 'transparent' }}><td colSpan={5} style={{ padding: 0 }} /></tr>}
-                                  {isOpen && tasks.map((t: any, taskIdx: number) => {
-                                    const done = t.status === 'complete';
-                                    const rej = t.status === 'rejected' || t.status === 'cancelled';
-                                    const overdue = !done && !rej && t.dueDate && isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate));
-                                    const today = !done && !rej && t.dueDate && isToday(new Date(t.dueDate));
-                                    const overdueDays = overdue ? differenceInDays(new Date(), new Date(t.dueDate)) : 0;
-                                    const completedAt = t.completedAt ? format(new Date(t.completedAt), "d MMM, h:mma") : null;
-                                    const whenLabel = done && completedAt
-                                      ? `Done ${completedAt}`
-                                      : overdue
+                                      <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>
+                                        {isCollapsed ? 'Click to expand' : 'Click to collapse'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                                {isOpen && <tr style={{ height: 6, background: 'transparent' }}><td colSpan={5} style={{ padding: 0 }} /></tr>}
+                                {isOpen && tasks.map((t: any, taskIdx: number) => {
+                                  const done = t.status === 'complete';
+                                  const rej = t.status === 'rejected' || t.status === 'cancelled';
+                                  const overdue = !done && !rej && t.dueDate && isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate));
+                                  const today = !done && !rej && t.dueDate && isToday(new Date(t.dueDate));
+                                  const overdueDays = overdue ? differenceInDays(new Date(), new Date(t.dueDate)) : 0;
+                                  const completedAt = t.completedAt ? format(new Date(t.completedAt), "d MMM, h:mma") : null;
+                                  const whenLabel = done && completedAt
+                                    ? `Done ${completedAt}`
+                                    : overdue
                                       ? `Due ${format(new Date(t.dueDate), 'd MMM')} (${overdueDays}d late)`
                                       : t.dueDate
-                                      ? `Due ${format(new Date(t.dueDate), 'd MMM')}`
-                                      : '—';
-                                    const whenColor = done ? 'var(--green)' : rej ? '#B0436A' : overdue ? 'var(--red)' : today ? 'var(--amber)' : 'var(--muted)';
-                                    const isLast = taskIdx === tasks.length - 1;
+                                        ? `Due ${format(new Date(t.dueDate), 'd MMM')}`
+                                        : '—';
+                                  const whenColor = done ? 'var(--green)' : rej ? '#B0436A' : overdue ? 'var(--red)' : today ? 'var(--amber)' : 'var(--muted)';
+                                  const isLast = taskIdx === tasks.length - 1;
 
-                                    const statusColor: Record<string, string> = {
-                                      pending: 'var(--muted)', in_progress: 'var(--olive)', complete: 'var(--green)',
-                                      blocked: '#6B3FA0', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--muted)',
-                                    };
-                                    const statusLabel: Record<string, string> = {
-                                      pending: 'Pending', in_progress: 'In Progress', complete: 'Complete',
-                                      blocked: 'Blocked', extension_requested: 'Extension', rejected: 'Rejected', cancelled: 'Cancelled',
-                                    };
+                                  const statusColor: Record<string, string> = {
+                                    pending: 'var(--muted)', in_progress: 'var(--olive)', complete: 'var(--green)',
+                                    blocked: '#6B3FA0', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--muted)',
+                                  };
+                                  const statusLabel: Record<string, string> = {
+                                    pending: 'Pending', in_progress: 'In Progress', complete: 'Complete',
+                                    blocked: 'Blocked', extension_requested: 'Extension', rejected: 'Rejected', cancelled: 'Cancelled',
+                                  };
 
-                                    return (
-                                      <tr
-                                        key={t.id}
-                                        className={`standup-row ${t.isAlerted || t.isPinned ? 'highlighted' : ''}`}
-                                        style={{
-                                          borderBottom: isLast ? '2px solid var(--border)' : '1px solid var(--surface-2)',
-                                          position: 'relative',
-                                        }}
-                                      >
-                                        <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'middle', width: '35%', position: 'relative' }}>
-                                          {/* Tree connector lines */}
-                                          <div style={{
-                                            position: 'absolute', left: 20, top: 0,
-                                            bottom: isLast ? '50%' : 0,
-                                            width: 1, background: 'var(--border)',
-                                          }} />
-                                          <div style={{
-                                            position: 'absolute', left: 20, top: '50%',
-                                            width: 12, height: 1, background: 'var(--border)',
-                                          }} />
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            {user?.role === 'admin' ? (
-                                              <button
-                                                onClick={(e) => { e.stopPropagation(); pinMut.mutate({ id: t.id, pin: !t.isPinned }); }}
-                                                style={{
-                                                  border: 'none',
-                                                  background: 'none',
-                                                  padding: 4,
-                                                  cursor: 'pointer',
-                                                  color: t.isPinned ? 'var(--olive)' : 'var(--muted)',
-                                                  display: 'flex',
-                                                  alignItems: 'center',
-                                                  justifyContent: 'center',
-                                                  transition: 'color 0.15s',
-                                                }}
-                                                title={t.isPinned ? "Unpin task" : "Pin task"}
-                                              >
-                                                <Pin size={15} style={{ fill: t.isPinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
-                                              </button>
-                                            ) : null}
+                                  return (
+                                    <tr
+                                      key={t.id}
+                                      className={`standup-row ${t.isAlerted || t.isPinned ? 'highlighted' : ''}`}
+                                      style={{
+                                        borderBottom: isLast ? '2px solid var(--border)' : '1px solid var(--surface-2)',
+                                        position: 'relative',
+                                      }}
+                                    >
+                                      <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'middle', width: '35%', position: 'relative' }}>
+                                        {/* Tree connector lines */}
+                                        <div style={{
+                                          position: 'absolute', left: 20, top: 0,
+                                          bottom: isLast ? '50%' : 0,
+                                          width: 1, background: 'var(--border)',
+                                        }} />
+                                        <div style={{
+                                          position: 'absolute', left: 20, top: '50%',
+                                          width: 12, height: 1, background: 'var(--border)',
+                                        }} />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                          {user?.role === 'admin' ? (
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); pinMut.mutate({ id: t.id, pin: !t.isPinned }); }}
+                                              style={{
+                                                border: 'none',
+                                                background: 'none',
+                                                padding: 4,
+                                                cursor: 'pointer',
+                                                color: t.isPinned ? 'var(--olive)' : 'var(--muted)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transition: 'color 0.15s',
+                                              }}
+                                              title={t.isPinned ? "Unpin task" : "Pin task"}
+                                            >
+                                              <Pin size={15} style={{ fill: t.isPinned ? 'var(--olive)' : 'none', transform: 'rotate(45deg)' }} />
+                                            </button>
+                                          ) : null}
 
-                                            {(user?.role === 'admin' || user?.role === 'team_leader') ? (
-                                              <button
-                                                onClick={(e) => { e.stopPropagation(); alertMut.mutate({ id: t.id, alert: !t.isAlerted }); }}
-                                                style={{
-                                                  border: 'none',
-                                                  background: 'none',
-                                                  padding: 4,
-                                                  cursor: 'pointer',
-                                                  color: t.isAlerted ? 'var(--red)' : 'var(--muted)',
-                                                  display: 'flex',
-                                                  alignItems: 'center',
-                                                  justifyContent: 'center',
-                                                  transition: 'color 0.15s',
-                                                }}
-                                                title={t.isAlerted ? "Remove alert" : "Alert task"}
-                                              >
-                                                <AlertCircle size={15} style={{ fill: t.isAlerted ? 'var(--red-bg)' : 'none' }} />
-                                              </button>
-                                            ) : null}
+                                          {(user?.role === 'admin' || user?.role === 'team_leader') ? (
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); alertMut.mutate({ id: t.id, alert: !t.isAlerted }); }}
+                                              style={{
+                                                border: 'none',
+                                                background: 'none',
+                                                padding: 4,
+                                                cursor: 'pointer',
+                                                color: t.isAlerted ? 'var(--red)' : 'var(--muted)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transition: 'color 0.15s',
+                                              }}
+                                              title={t.isAlerted ? "Remove alert" : "Alert task"}
+                                            >
+                                              <AlertCircle size={15} style={{ fill: t.isAlerted ? 'var(--red-bg)' : 'none' }} />
+                                            </button>
+                                          ) : null}
 
-                                            {t.priority === 'high' && <span style={{ width: 4, height: 22, borderRadius: 2, background: 'var(--red)' }} />}
-                                            
-                                            <div style={{ minWidth: 0 }}>
-                                              <div style={{ fontSize: 13, fontWeight: 600, color: done ? 'var(--muted)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none' }}>
-                                                {t.title}
-                                              </div>
-                                              {t.step && (
-                                                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Step {String(t.step.stepNumber).padStart(2, '0')} · {t.step.name}</div>
-                                              )}
+                                          {t.priority === 'high' && <span style={{ width: 4, height: 22, borderRadius: 2, background: 'var(--red)' }} />}
+
+                                          <div style={{ minWidth: 0 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: done ? 'var(--muted)' : 'var(--ink)', textDecoration: done ? 'line-through' : 'none' }}>
+                                              {t.title}
                                             </div>
-                                          </div>
-                                        </td>
-                                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)', width: '15%' }}>
-                                          {t.client?.brandName || t.client?.fullName || '—'}
-                                        </td>
-                                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: whenColor, fontWeight: overdue ? 600 : 400, whiteSpace: 'nowrap', width: '15%' }}>
-                                          {done && <CircleCheck size={11} style={{ display: 'inline', marginRight: 4 }} />}
-                                          {!done && !rej && (overdue ? <TriangleAlert size={11} style={{ display: 'inline', marginRight: 4 }} /> : today ? <Clock size={11} style={{ display: 'inline', marginRight: 4 }} /> : null)}
-                                          {whenLabel}
-                                        </td>
-                                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '15%' }}>
-                                          <span style={{
-                                            display: 'inline-flex', alignItems: 'center', gap: 5,
-                                            padding: '3px 9px', borderRadius: 999,
-                                            fontSize: 11.5, fontWeight: 600,
-                                            background: t.status === 'complete' ? 'var(--green-bg)'
-                                              : t.status === 'blocked' ? '#F0E8FA'
-                                              : t.status === 'rejected' ? '#FBEEF1'
-                                              : t.status === 'extension_requested' ? 'var(--amber-bg)'
-                                              : t.status === 'in_progress' ? 'var(--olive-50)'
-                                              : 'var(--surface-2)',
-                                            color: statusColor[t.status] || 'var(--muted)',
-                                          }}>
-                                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor[t.status] || 'var(--muted)' }} />
-                                            {statusLabel[t.status] || t.status}
-                                          </span>
-                                        </td>
-                                        <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '20%' }}>
-                                          <select
-                                            value={t.assignedToId || t.assignedTo?.id || ''}
-                                            onChange={(e) => assignTaskMut.mutate({ taskId: t.id, assignedToId: e.target.value || null })}
-                                            style={{
-                                              padding: '6px 10px',
-                                              borderRadius: 'var(--radius-sm)',
-                                              border: '1px solid var(--border)',
-                                              background: 'var(--surface)',
-                                              color: 'var(--ink)',
-                                              fontSize: 12.5,
-                                              outline: 'none',
-                                              cursor: 'pointer',
-                                            }}
-                                          >
-                                            <option value="">Unassigned</option>
-                                            {user?.role === 'admin' ? (
-                                              usersList.map((u: any) => (
-                                                <option key={u.id} value={u.id}>{u.fullName} ({u.teamName || 'No Team'})</option>
-                                              ))
-                                            ) : (
-                                              <>
-                                                <option value={user.id}>{user.fullName} (Lead)</option>
-                                                {usersList.filter((u: any) => u.teamName === user.teamName && u.id !== user.id).map((u: any) => (
-                                                  <option key={u.id} value={u.id}>{u.fullName}</option>
-                                                ))}
-                                              </>
+                                            {t.step && (
+                                              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>Step {String(t.step.stepNumber).padStart(2, '0')} · {t.step.name}</div>
                                             )}
-                                          </select>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                  {isOpen && <tr style={{ height: 10, background: 'transparent' }}><td colSpan={5} style={{ padding: 0 }} /></tr>}
-                                </tbody>
-                              );
-                            })
-                          )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--ink-2)', width: '15%' }}>
+                                        {t.client?.brandName || t.client?.fullName || '—'}
+                                      </td>
+                                      <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', color: whenColor, fontWeight: overdue ? 600 : 400, whiteSpace: 'nowrap', width: '15%' }}>
+                                        {done && <CircleCheck size={11} style={{ display: 'inline', marginRight: 4 }} />}
+                                        {!done && !rej && (overdue ? <TriangleAlert size={11} style={{ display: 'inline', marginRight: 4 }} /> : today ? <Clock size={11} style={{ display: 'inline', marginRight: 4 }} /> : null)}
+                                        {whenLabel}
+                                      </td>
+                                      <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '15%' }}>
+                                        <span style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                                          padding: '3px 9px', borderRadius: 999,
+                                          fontSize: 11.5, fontWeight: 600,
+                                          background: t.status === 'complete' ? 'var(--green-bg)'
+                                            : t.status === 'blocked' ? '#F0E8FA'
+                                              : t.status === 'rejected' ? '#FBEEF1'
+                                                : t.status === 'extension_requested' ? 'var(--amber-bg)'
+                                                  : t.status === 'in_progress' ? 'var(--olive-50)'
+                                                    : 'var(--surface-2)',
+                                          color: statusColor[t.status] || 'var(--muted)',
+                                        }}>
+                                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor[t.status] || 'var(--muted)' }} />
+                                          {statusLabel[t.status] || t.status}
+                                        </span>
+                                      </td>
+                                      <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '20%' }}>
+                                        <select
+                                          value={t.assignedToId || t.assignedTo?.id || ''}
+                                          onChange={(e) => assignTaskMut.mutate({ taskId: t.id, assignedToId: e.target.value || null })}
+                                          style={{
+                                            padding: '6px 10px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            border: '1px solid var(--border)',
+                                            background: 'var(--surface)',
+                                            color: 'var(--ink)',
+                                            fontSize: 12.5,
+                                            outline: 'none',
+                                            cursor: 'pointer',
+                                          }}
+                                        >
+                                          <option value="">Unassigned</option>
+                                          {user?.role === 'admin' ? (
+                                            usersList.map((u: any) => (
+                                              <option key={u.id} value={u.id}>{u.fullName} ({u.teamName || 'No Team'})</option>
+                                            ))
+                                          ) : (
+                                            <>
+                                              <option value={user.id}>{user.fullName} (Lead)</option>
+                                              {usersList.filter((u: any) => u.teamName === user.teamName && u.id !== user.id).map((u: any) => (
+                                                <option key={u.id} value={u.id}>{u.fullName}</option>
+                                              ))}
+                                            </>
+                                          )}
+                                        </select>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                                {isOpen && <tr style={{ height: 10, background: 'transparent' }}><td colSpan={5} style={{ padding: 0 }} /></tr>}
+                              </tbody>
+                            );
+                          })
+                        )}
                       </table>
                     </div>
                   </div>
@@ -1182,7 +1182,7 @@ export default function AdminDashboard() {
                               <div style={{ fontSize: 12.5, color: 'var(--ink)', fontWeight: 600 }}>{n.title || n.message}</div>
                               {n.body && <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 16 }}>{n.body}</div>}
                             </div>
-                            <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                            <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}>
                               {n.createdAt ? format(new Date(n.createdAt), 'd MMM, HH:mm') : ''}
                             </span>
                           </div>
@@ -1262,7 +1262,7 @@ export default function AdminDashboard() {
                                   {c.client} · {c.step}
                                 </div>
                               </div>
-                              <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>
+                              <span style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', }}>
                                 {c.completedAt ? format(new Date(c.completedAt), 'd MMM, HH:mm') : ''}
                               </span>
                             </div>
@@ -1283,11 +1283,11 @@ export default function AdminDashboard() {
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
             onClick={e => { if (e.target === e.currentTarget) setShowExportModal(false); }}>
             <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 700, maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: 'var(--shadow-lg)' }}>
-              
+
               {/* Modal header */}
               <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                 <div>
-                  <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Export Operational Data & Reports</div>
+                  <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Export Operational Data & Reports</div>
                   <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>Filter and download reports in CSV/PDF or generate a full backup.</div>
                 </div>
                 <button onClick={() => setShowExportModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
@@ -1297,7 +1297,7 @@ export default function AdminDashboard() {
 
               {/* Modal body */}
               <div style={{ overflowY: 'auto', padding: '20px 24px', flex: 1 }}>
-                
+
                 {/* Select export type */}
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 8 }}>Select Report Type</label>
@@ -1367,7 +1367,7 @@ export default function AdminDashboard() {
                 {exportType !== 'backup' && (
                   <div style={{ borderTop: '1px solid var(--border)', paddingTop: 18, marginTop: 18 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 12 }}>Filter Options</div>
-                    
+
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                       <div>
                         <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: 'var(--ink-2)', marginBottom: 5 }}>Start Date (Due Date/Created At)</label>
@@ -1484,52 +1484,56 @@ export default function AdminDashboard() {
                   style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
                   Cancel
                 </button>
-                <button onClick={() => { setExportFormat('csv'); setTimeout(() => {
-                  const params = new URLSearchParams();
-                  params.set('format', 'csv');
-                  params.set('type', exportType);
-                  if (expStartDate) params.set('startDate', expStartDate);
-                  if (expEndDate) params.set('endDate', expEndDate);
-                  if (expStepId) params.set('stepId', expStepId);
-                  if (expStatus) params.set('status', expStatus);
-                  if (expTeam) params.set('team', expTeam);
-                  if (expAssignedToId) params.set('assignedToId', expAssignedToId);
-                  if (expClientId) params.set('clientId', expClientId);
-                  if (expPriority) params.set('priority', expPriority);
-                  if (expCompleted !== 'all') params.set('completed', expCompleted);
-                  if (expIncludeArchived) params.set('includeArchived', 'true');
-                  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
-                  if (token) params.set('token', token);
-                  const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = `${exportType}_export_${Date.now()}.csv`;
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                }, 50); }}
+                <button onClick={() => {
+                  setExportFormat('csv'); setTimeout(() => {
+                    const params = new URLSearchParams();
+                    params.set('format', 'csv');
+                    params.set('type', exportType);
+                    if (expStartDate) params.set('startDate', expStartDate);
+                    if (expEndDate) params.set('endDate', expEndDate);
+                    if (expStepId) params.set('stepId', expStepId);
+                    if (expStatus) params.set('status', expStatus);
+                    if (expTeam) params.set('team', expTeam);
+                    if (expAssignedToId) params.set('assignedToId', expAssignedToId);
+                    if (expClientId) params.set('clientId', expClientId);
+                    if (expPriority) params.set('priority', expPriority);
+                    if (expCompleted !== 'all') params.set('completed', expCompleted);
+                    if (expIncludeArchived) params.set('includeArchived', 'true');
+                    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+                    if (token) params.set('token', token);
+                    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `${exportType}_export_${Date.now()}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                  }, 50);
+                }}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
                   <Download size={14} /> Download CSV
                 </button>
-                <button onClick={() => { setExportFormat('pdf'); setTimeout(() => {
-                  const params = new URLSearchParams();
-                  params.set('format', 'pdf');
-                  params.set('type', exportType);
-                  if (expStartDate) params.set('startDate', expStartDate);
-                  if (expEndDate) params.set('endDate', expEndDate);
-                  if (expStepId) params.set('stepId', expStepId);
-                  if (expStatus) params.set('status', expStatus);
-                  if (expTeam) params.set('team', expTeam);
-                  if (expAssignedToId) params.set('assignedToId', expAssignedToId);
-                  if (expClientId) params.set('clientId', expClientId);
-                  if (expPriority) params.set('priority', expPriority);
-                  if (expCompleted !== 'all') params.set('completed', expCompleted);
-                  if (expIncludeArchived) params.set('includeArchived', 'true');
-                  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
-                  if (token) params.set('token', token);
-                  const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
-                  window.open(url, '_blank');
-                }, 50); }}
+                <button onClick={() => {
+                  setExportFormat('pdf'); setTimeout(() => {
+                    const params = new URLSearchParams();
+                    params.set('format', 'pdf');
+                    params.set('type', exportType);
+                    if (expStartDate) params.set('startDate', expStartDate);
+                    if (expEndDate) params.set('endDate', expEndDate);
+                    if (expStepId) params.set('stepId', expStepId);
+                    if (expStatus) params.set('status', expStatus);
+                    if (expTeam) params.set('team', expTeam);
+                    if (expAssignedToId) params.set('assignedToId', expAssignedToId);
+                    if (expClientId) params.set('clientId', expClientId);
+                    if (expPriority) params.set('priority', expPriority);
+                    if (expCompleted !== 'all') params.set('completed', expCompleted);
+                    if (expIncludeArchived) params.set('includeArchived', 'true');
+                    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : '';
+                    if (token) params.set('token', token);
+                    const url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/api/admin/export?${params.toString()}`;
+                    window.open(url, '_blank');
+                  }, 50);
+                }}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '12px 16px', background: 'var(--olive)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
                   <Download size={14} /> Print PDF Report
                 </button>

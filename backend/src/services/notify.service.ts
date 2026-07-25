@@ -20,7 +20,10 @@ type NotifType =
   | 'extension_request'
   | 'extension_decision'
   | 'client_status_changed'
-  | 'notif_alert';
+  | 'notif_alert'
+  | 'note_mention'
+  | 'note_created'
+  | 'note_updated';
 
 interface NotifPayload {
   organisationId: string;
@@ -588,3 +591,59 @@ export async function notifyTaskAlerted(opts: {
   await createMany(payloads);
 }
 
+export async function notifyNoteMention(opts: {
+  organisationId: string;
+  userIds: string[];
+  noteTitle: string;
+  noteId: string;
+  mentionedBy: string;
+}) {
+  const { organisationId, userIds, noteTitle, noteId, mentionedBy } = opts;
+  const payloads: NotifPayload[] = userIds.map(userId => ({
+    organisationId,
+    userId,
+    type: 'note_mention',
+    message: `You were mentioned in a note: "${noteTitle}" by ${mentionedBy}`,
+    referenceId: noteId,
+    referenceType: 'note',
+  }));
+  await createMany(payloads);
+}
+
+export async function notifyNoteCreated(opts: {
+  organisationId: string;
+  userIds: string[];
+  noteTitle: string;
+  noteId: string;
+  createdBy: string;
+}) {
+  const { organisationId, userIds, noteTitle, noteId, createdBy } = opts;
+  const payloads: NotifPayload[] = userIds.map(userId => ({
+    organisationId,
+    userId,
+    type: 'note_created',
+    message: `New note created: "${noteTitle}" by ${createdBy}`,
+    referenceId: noteId,
+    referenceType: 'note',
+  }));
+  await createMany(payloads);
+}
+
+export async function notifyNoteUpdated(opts: {
+  organisationId: string;
+  userIds: string[];
+  noteTitle: string;
+  noteId: string;
+  updatedBy: string;
+}) {
+  const { organisationId, userIds, noteTitle, noteId, updatedBy } = opts;
+  const payloads: NotifPayload[] = userIds.map(userId => ({
+    organisationId,
+    userId,
+    type: 'note_updated',
+    message: `Note updated: "${noteTitle}" by ${updatedBy}`,
+    referenceId: noteId,
+    referenceType: 'note',
+  }));
+  await createMany(payloads);
+}

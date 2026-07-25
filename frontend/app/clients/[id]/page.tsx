@@ -8,7 +8,8 @@ import { ClientDetailSkeleton } from '@/components/ui/SkeletonLoader';
 const ClientDetailPane = dynamic(() => import('@/components/pipeline/ClientDetailPane'), {
   loading: () => (
     <AppLayout>
-      <Topbar title="Client Details" subtitle="Client profile, timeline and step history" />
+      <Topbar title="Client Details"
+        subtitle="Client profile, timeline and step history" />
       <ClientDetailSkeleton withHeader={false} />
     </AppLayout>
   ),
@@ -17,7 +18,7 @@ const ClientDetailPane = dynamic(() => import('@/components/pipeline/ClientDetai
 
 export default function ClientDetailPage() {
   const { id } = useParams();
-  
+
   return (
     <ClientDetailPane id={String(id)} />
   );

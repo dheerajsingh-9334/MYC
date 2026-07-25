@@ -95,6 +95,13 @@ export async function advanceClientToStep(
     data: { currentStepId: toStepId, stepEnteredAt: now },
   });
 
+  if (toStep.serviceId) {
+    await prisma.clientService.updateMany({
+      where: { clientId, serviceId: toStep.serviceId },
+      data: { currentStepId: toStepId, stepEnteredAt: now }
+    });
+  }
+
   // ── NOTIFY: step advanced → whole owning team + all admins ──────────
   void notifyStepAdvanced({
     organisationId: client.organisationId,
@@ -410,15 +417,43 @@ export async function initializeClientPipeline(
   clientId: string,
   organisationId: string,
   userId: string,
-  startingStepNumber: number = 1
+  startingStepNumber: number = 1,
+  serviceId?: string
 ) {
-  // Create 12 default steps for this client
   let startingStepId = '';
-  for (const s of DEFAULT_12_STEPS) {
+  
+  let sourceSteps: any[] = [];
+  
+  if (serviceId) {
+    const service = await prisma.service.findUnique({
+      where: { id: serviceId },
+      include: {
+        steps: {
+          where: { clientId: null, isActive: true },
+          include: { taskTemplates: { orderBy: { sortOrder: 'asc' } } },
+          orderBy: { stepNumber: 'asc' }
+        }
+      }
+    });
+    if (service && service.steps.length > 0) {
+      sourceSteps = service.steps;
+    }
+  }
+
+  // Fallback to defaults if no service or service has no steps
+  if (sourceSteps.length === 0) {
+    sourceSteps = DEFAULT_12_STEPS.map(s => ({
+      ...s,
+      taskTemplates: s.templates
+    }));
+  }
+
+  for (const s of sourceSteps) {
     const createdStep = await prisma.step.create({
       data: {
         organisationId,
         clientId,
+        serviceId: serviceId || null,
         stepNumber: s.stepNumber,
         name: s.name,
         owningTeamName: s.owningTeamName,
@@ -432,7 +467,7 @@ export async function initializeClientPipeline(
     }
 
     // Create templates for this step
-    for (const t of s.templates) {
+    for (const t of s.taskTemplates || []) {
       await prisma.stepTaskTemplate.create({
         data: {
           stepId: createdStep.id,
@@ -440,7 +475,7 @@ export async function initializeClientPipeline(
           title: t.title,
           relativeDueDay: t.relativeDueDay,
           sortOrder: t.sortOrder,
-          priority: 'normal',
+          priority: t.priority || 'normal',
         },
       });
     }
@@ -451,6 +486,26 @@ export async function initializeClientPipeline(
     where: { id: clientId },
     data: { currentStepId: startingStepId },
   });
+
+  // Create ClientService link to track this service pipeline independently
+  if (serviceId) {
+    await prisma.clientService.upsert({
+      where: {
+        clientId_serviceId: { clientId, serviceId }
+      },
+      update: {
+        currentStepId: startingStepId,
+        stepEnteredAt: new Date(),
+      },
+      create: {
+        clientId,
+        serviceId,
+        currentStepId: startingStepId,
+        stepEnteredAt: new Date(),
+        status: 'active'
+      }
+    });
+  }
 
   // Auto-advance to the starting step (creates tasks + notifications)
   await advanceClientToStep(clientId, startingStepId, 'admin', userId, 'Client created');

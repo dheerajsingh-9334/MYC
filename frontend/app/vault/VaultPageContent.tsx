@@ -132,7 +132,7 @@ export default function VaultPage() {
   });
 
   // Fetch tasks for selected client+step (admin only)
-  const { data: tasks = [] } = useQuery<{id: string; title: string}[]>({
+  const { data: tasks = [] } = useQuery<{ id: string; title: string }[]>({
     queryKey: ['vault-tasks', form.clientId, form.stepId],
     queryFn: async () => {
       const data = await apiFetch(`/api/tasks?clientId=${form.clientId}&stepId=${form.stepId}`);
@@ -286,8 +286,10 @@ export default function VaultPage() {
   /* ── Render ── */
   return (
     <AppLayout>
-      <Topbar title="Vault" subtitle={`${vault.totalDocs} item${vault.totalDocs !== 1 ? 's' : ''} across all clients — Proof of work organised by client → step`} />
-      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box' }}>
+      <Topbar title="Vault"
+      // subtitle={`${vault.totalDocs} item${vault.totalDocs !== 1 ? 's' : ''} across all clients — Proof of work organised by client → step`} 
+      />
+      <div className="dashboard-mobile-scroll" style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, boxSizing: 'border-box' }}>
         {/* Toolbar — count left, controls right */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
@@ -296,7 +298,7 @@ export default function VaultPage() {
         }}>
           {/* Left: count + active search pill */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-            {/* <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', background: 'var(--surface-2)', padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)', fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>
+            {/* <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', background: 'var(--surface-2)', padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', whiteSpace: 'nowrap' }}>
               {vault.totalDocs} {vault.totalDocs === 1 ? 'item' : 'items'}
             </span> */}
             {search.trim() && (
@@ -367,139 +369,139 @@ export default function VaultPage() {
                     <th style={{ ...thStyleBase, width: '10%', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
-                  {filteredFolders.map((client: DocNode) => {
-                    const clientOpen = expandedClients.has(client.id) || !!search.trim();
-                    return (
-                      <tbody key={client.id}>
-                        {/* Client row */}
-                        <tr onClick={() => toggleClient(client.id)}
-                          className="standup-row"
-                          style={{ background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                        >
-                          <td colSpan={5} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 18px', fontWeight: 600, color: 'var(--ink)', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span style={{ 
-                                display: 'inline-block',
-                                fontSize: 9, 
-                                transform: clientOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
-                                transition: 'transform 0.2s',
-                                color: 'var(--muted)',
-                                flexShrink: 0
-                              }}>▶</span>
-                              <span style={{ fontSize: 14, fontWeight: 600 }}>{client.name}</span>
-                              <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>· {client.fullName}</span>
-                              <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface)', padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border)', fontWeight: 500 }}>
-                                {client.childCount} item{client.childCount !== 1 ? 's' : ''} · {client.stepCount} step{client.stepCount !== 1 ? 's' : ''}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
+                {filteredFolders.map((client: DocNode) => {
+                  const clientOpen = expandedClients.has(client.id) || !!search.trim();
+                  return (
+                    <tbody key={client.id}>
+                      {/* Client row */}
+                      <tr onClick={() => toggleClient(client.id)}
+                        className="standup-row"
+                        style={{ background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                      >
+                        <td colSpan={5} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 18px', fontWeight: 600, color: 'var(--ink)', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{
+                              display: 'inline-block',
+                              fontSize: 9,
+                              transform: clientOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                              transition: 'transform 0.2s',
+                              color: 'var(--muted)',
+                              flexShrink: 0
+                            }}>▶</span>
+                            <span style={{ fontSize: 14, fontWeight: 600 }}>{client.name}</span>
+                            <span style={{ fontSize: 11.5, color: 'var(--muted)', fontWeight: 400 }}>· {client.fullName}</span>
+                            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface)', padding: '2px 8px', borderRadius: 10, border: '1px solid var(--border)', fontWeight: 500 }}>
+                              {client.childCount} item{client.childCount !== 1 ? 's' : ''} · {client.stepCount} step{client.stepCount !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
 
-                        {/* Step rows */}
-                        {clientOpen && (client.children || []).map((step: DocNode, stepIdx: number) => {
-                          const stepOpen = expandedSteps.has(step.id) || !!search.trim();
-                          const isLastStep = stepIdx === (client.children || []).length - 1;
-                          return (
-                            <Fragment key={step.id}>
-                              <tr onClick={() => toggleStep(step.id)}
-                                className="standup-row"
-                                style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
-                                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                              >
-                                <td colSpan={5} style={{ padding: '8px 18px 8px 40px', fontWeight: 500, color: 'var(--ink-2)', position: 'relative' }}>
-                                  {/* Tree connector lines: client → step */}
-                                  <div style={{
-                                    position: 'absolute', left: 20, top: 0,
-                                    bottom: isLastStep && !stepOpen ? '50%' : 0,
-                                    width: 1, background: 'var(--border)',
-                                  }} />
-                                  <div style={{
-                                    position: 'absolute', left: 20, top: '50%',
-                                    width: 12, height: 1, background: 'var(--border)',
-                                  }} />
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <span style={{ 
-                                      display: 'inline-block',
-                                      fontSize: 9, 
-                                      transform: stepOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
-                                      transition: 'transform 0.2s',
-                                      color: 'var(--muted)',
-                                      flexShrink: 0
-                                    }}>▶</span>
-                                    <span>{step.name}</span>
-                                    <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
-                                      {step.childCount} item{step.childCount !== 1 ? 's' : ''}
-                                    </span>
-                                  </div>
-                                </td>
-                              </tr>
+                      {/* Step rows */}
+                      {clientOpen && (client.children || []).map((step: DocNode, stepIdx: number) => {
+                        const stepOpen = expandedSteps.has(step.id) || !!search.trim();
+                        const isLastStep = stepIdx === (client.children || []).length - 1;
+                        return (
+                          <Fragment key={step.id}>
+                            <tr onClick={() => toggleStep(step.id)}
+                              className="standup-row"
+                              style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                            >
+                              <td colSpan={5} style={{ padding: '8px 18px 8px 40px', fontWeight: 500, color: 'var(--ink-2)', position: 'relative' }}>
+                                {/* Tree connector lines: client → step */}
+                                <div style={{
+                                  position: 'absolute', left: 20, top: 0,
+                                  bottom: isLastStep && !stepOpen ? '50%' : 0,
+                                  width: 1, background: 'var(--border)',
+                                }} />
+                                <div style={{
+                                  position: 'absolute', left: 20, top: '50%',
+                                  width: 12, height: 1, background: 'var(--border)',
+                                }} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  <span style={{
+                                    display: 'inline-block',
+                                    fontSize: 9,
+                                    transform: stepOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                                    transition: 'transform 0.2s',
+                                    color: 'var(--muted)',
+                                    flexShrink: 0
+                                  }}>▶</span>
+                                  <span>{step.name}</span>
+                                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                                    {step.childCount} item{step.childCount !== 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
 
-                              {/* Task / Doc rows */}
-                              {stepOpen && (step.children || []).map((child: DocNode, childIdx: number) => {
-                                const isLastChild = childIdx === (step.children || []).length - 1;
-                                if (child.type === 'task') {
-                                  const taskOpen = expandedSteps.has(child.id) || !!search.trim();
-                                  return (
-                                    <Fragment key={child.id}>
-                                      <tr onClick={() => toggleStep(child.id)}
-                                        className="standup-row"
-                                        style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
-                                      >
-                                        <td colSpan={5} style={{ padding: '8px 18px 8px 62px', fontWeight: 500, color: 'var(--ink-2)', position: 'relative' }}>
-                                          {/* Tree connector lines: step → task */}
-                                          <div style={{
-                                            position: 'absolute', left: 40, top: 0,
-                                            bottom: isLastChild && !taskOpen ? '50%' : 0,
-                                            width: 1, background: 'var(--border)',
-                                          }} />
-                                          <div style={{
-                                            position: 'absolute', left: 40, top: '50%',
-                                            width: 12, height: 1, background: 'var(--border)',
-                                          }} />
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <span style={{ 
-                                              display: 'inline-block',
-                                              fontSize: 9, 
-                                              transform: taskOpen ? 'rotate(90deg)' : 'rotate(0deg)', 
-                                              transition: 'transform 0.2s',
-                                              color: 'var(--muted)',
-                                              flexShrink: 0
-                                            }}>▶</span>
-                                            <span style={{ fontSize: 12.5 }}>{child.name}</span>
-                                            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
-                                              {child.childCount} item{child.childCount !== 1 ? 's' : ''}
-                                            </span>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                      {taskOpen && (child.children || []).map((doc: DocNode) => (
-                                        <DocRow key={doc.id} doc={doc} isAdmin={isAdmin}
-                                          onPreview={() => setPreviewDoc(doc)}
-                                          onDelete={() => doc.rawId && deleteDoc.mutate(doc.rawId)}
-                                          onUpdate={() => setEditingDoc(doc)} />
-                                      ))}
-                                    </Fragment>
-                                  );
-                                }
-                                // Direct doc under step (no task)
+                            {/* Task / Doc rows */}
+                            {stepOpen && (step.children || []).map((child: DocNode, childIdx: number) => {
+                              const isLastChild = childIdx === (step.children || []).length - 1;
+                              if (child.type === 'task') {
+                                const taskOpen = expandedSteps.has(child.id) || !!search.trim();
                                 return (
-                                  <DocRow key={child.id} doc={child} isAdmin={isAdmin}
-                                    onPreview={() => setPreviewDoc(child)}
-                                    onDelete={() => child.rawId && deleteDoc.mutate(child.rawId)}
-                                    onUpdate={() => setEditingDoc(child)} />
+                                  <Fragment key={child.id}>
+                                    <tr onClick={() => toggleStep(child.id)}
+                                      className="standup-row"
+                                      style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
+                                    >
+                                      <td colSpan={5} style={{ padding: '8px 18px 8px 62px', fontWeight: 500, color: 'var(--ink-2)', position: 'relative' }}>
+                                        {/* Tree connector lines: step → task */}
+                                        <div style={{
+                                          position: 'absolute', left: 40, top: 0,
+                                          bottom: isLastChild && !taskOpen ? '50%' : 0,
+                                          width: 1, background: 'var(--border)',
+                                        }} />
+                                        <div style={{
+                                          position: 'absolute', left: 40, top: '50%',
+                                          width: 12, height: 1, background: 'var(--border)',
+                                        }} />
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                          <span style={{
+                                            display: 'inline-block',
+                                            fontSize: 9,
+                                            transform: taskOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                                            transition: 'transform 0.2s',
+                                            color: 'var(--muted)',
+                                            flexShrink: 0
+                                          }}>▶</span>
+                                          <span style={{ fontSize: 12.5 }}>{child.name}</span>
+                                          <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--muted)', background: 'var(--surface)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)' }}>
+                                            {child.childCount} item{child.childCount !== 1 ? 's' : ''}
+                                          </span>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                    {taskOpen && (child.children || []).map((doc: DocNode) => (
+                                      <DocRow key={doc.id} doc={doc} isAdmin={isAdmin}
+                                        onPreview={() => setPreviewDoc(doc)}
+                                        onDelete={() => doc.rawId && deleteDoc.mutate(doc.rawId)}
+                                        onUpdate={() => setEditingDoc(doc)} />
+                                    ))}
+                                  </Fragment>
                                 );
-                              })}
-                            </Fragment>
-                          );
-                        })}
-                      </tbody>
-                    );
-                  })}
+                              }
+                              // Direct doc under step (no task)
+                              return (
+                                <DocRow key={child.id} doc={child} isAdmin={isAdmin}
+                                  onPreview={() => setPreviewDoc(child)}
+                                  onDelete={() => child.rawId && deleteDoc.mutate(child.rawId)}
+                                  onUpdate={() => setEditingDoc(child)} />
+                              );
+                            })}
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  );
+                })}
               </table>
             )}
           </div>
@@ -521,7 +523,7 @@ export default function VaultPage() {
                   <Link2 size={18} color="#fff" />
                 </div>
                 <div>
-                  <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Add Drive Link</div>
+                  <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Add Drive Link</div>
                   <div style={{ fontSize: 12.5, color: 'var(--muted)', marginTop: 2 }}>Paste a Google Drive URL as proof of work</div>
                 </div>
               </div>
@@ -548,7 +550,7 @@ export default function VaultPage() {
                 Step *
                 <select value={form.stepId} onChange={e => setForm(f => ({ ...f, stepId: e.target.value, taskId: '' }))} style={inputStyle} disabled={!form.clientId}>
                   <option value="">— Select step —</option>
-                  {stepOptions.map(s => <option key={s.id} value={s.id}>Step {String(s.stepNumber).padStart(2,'0')} — {s.name}</option>)}
+                  {stepOptions.map(s => <option key={s.id} value={s.id}>Step {String(s.stepNumber).padStart(2, '0')} — {s.name}</option>)}
                 </select>
               </label>
 
@@ -566,7 +568,7 @@ export default function VaultPage() {
                   placeholder="https://drive.google.com/file/d/… or docs.google.com/…"
                   value={form.driveUrl}
                   onChange={e => setForm(f => ({ ...f, driveUrl: e.target.value }))}
-                  style={{ ...inputStyle, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}
+                  style={{ ...inputStyle, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 12 }}
                 />
               </label>
 
@@ -607,7 +609,7 @@ export default function VaultPage() {
             <div style={{ display: 'flex', alignItems: 'start', gap: 12, padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
               <span style={{ fontSize: 22, marginTop: 2 }}>{driveIcon(previewDoc.driveUrl)}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewDoc.name}</div>
+                <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewDoc.name}</div>
                 {previewDoc.notes && <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>{previewDoc.notes}</div>}
               </div>
               <a href={previewDoc.driveUrl} target="_blank" rel="noreferrer"
@@ -654,7 +656,7 @@ function DocRow({ doc, isAdmin, onPreview, onDelete, onUpdate }: {
 }) {
   const isDrive = doc.docType === 'drive_link';
   const displayType = isDrive ? (doc.driveUrl?.includes('spreadsheets') ? 'Google Sheet' : doc.driveUrl?.includes('document') ? 'Google Doc' : 'Drive Link') : 'File';
-  
+
   return (
     <tr className="standup-row" style={{ borderBottom: '1px solid var(--surface-2)' }}>
       <td style={{ ...tdStyle, paddingLeft: 76 }}>

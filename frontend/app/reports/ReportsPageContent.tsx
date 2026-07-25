@@ -7,8 +7,8 @@ import { restrictNumericKeyDown } from '@/lib/validation';
 
 import AppLayout from '@/components/layout/AppLayout';
 import Topbar from '@/components/layout/Topbar';
-import { 
-  Briefcase, Users, UserCheck, 
+import {
+  Briefcase, Users, UserCheck,
   X, Download, Eye, Printer, Loader2,
   FileSpreadsheet
 } from 'lucide-react';
@@ -99,14 +99,14 @@ function SVGBarChart({ budget, spent, profit }: { budget: number; spent: number;
               <span style={{ fontWeight: 600, color: 'var(--ink)' }}>${item.value}</span>
             </div>
             <div style={{ height: 10, background: 'var(--surface-2)', borderRadius: 5, overflow: 'hidden' }}>
-              <div 
-                style={{ 
-                  height: '100%', 
-                  width: `${pct}%`, 
-                  background: item.color, 
-                  borderRadius: 5, 
-                  transition: 'width 0.35s cubic-bezier(0.4, 0, 0.2, 1)' 
-                }} 
+              <div
+                style={{
+                  height: '100%',
+                  width: `${pct}%`,
+                  background: item.color,
+                  borderRadius: 5,
+                  transition: 'width 0.35s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
               />
             </div>
           </div>
@@ -309,13 +309,13 @@ export default function ReportsPage() {
 
   return (
     <AppLayout>
-      <Topbar 
-        title="Operations & Business Analytics" 
-        subtitle="Generate data-driven client, team, and employee performance audits" 
+      <Topbar
+        title="Operations & Business Analytics"
+      // subtitle="Generate data-driven client, team, and employee performance audits" 
       />
-      
+
       <div style={{ padding: '24px 30px', flex: 1, display: 'flex', flexDirection: 'column', gap: 24, overflowY: 'auto' }}>
-        
+
         {/* Intro Banner */}
         <div style={{
           background: 'linear-gradient(135deg, var(--olive) 0%, var(--olive-light) 100%)',
@@ -327,7 +327,7 @@ export default function ReportsPage() {
           flexDirection: 'column',
           gap: 6
         }}>
-          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, fontFamily: 'Instrument Serif, serif', letterSpacing: '0.5px' }}>Business Intelligence Hub</h2>
+          <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', letterSpacing: '0.5px' }}>Business Intelligence Hub</h2>
           <p style={{ margin: 0, fontSize: 13.5, opacity: 0.9 }}>Select an operations report type below to configure parameter filters, preview real-time charts, and download print-ready dossiers.</p>
         </div>
 
@@ -340,7 +340,7 @@ export default function ReportsPage() {
           {REPORT_TYPES.map((report) => {
             const Icon = report.icon;
             return (
-              <div 
+              <div
                 key={report.id}
                 onClick={() => handleOpenReport(report)}
                 style={{
@@ -399,7 +399,7 @@ export default function ReportsPage() {
             display: 'flex',
             justifyContent: 'flex-end'
           }} onClick={(e) => { if (e.target === e.currentTarget) setIsDrawerOpen(false); }}>
-            
+
             <div style={{
               width: '100%',
               maxWidth: 620,
@@ -410,7 +410,7 @@ export default function ReportsPage() {
               flexDirection: 'column',
               animation: 'slideIn 0.25s ease-out'
             }}>
-              
+
               {/* Drawer Header */}
               <div style={{
                 padding: '20px 24px',
@@ -424,7 +424,7 @@ export default function ReportsPage() {
                   <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: 'var(--ink)' }}>{selectedReport.title} Options</h2>
                   <p style={{ margin: '2px 0 0 0', fontSize: 12, color: 'var(--muted)' }}>Configure filters to generate live reports.</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsDrawerOpen(false)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 6 }}
                 >
@@ -441,7 +441,7 @@ export default function ReportsPage() {
                 flexDirection: 'column',
                 gap: 20
               }}>
-                
+
                 {/* Inputs configuration based on report type */}
                 <div style={{
                   background: 'var(--surface-2)',
@@ -455,8 +455,8 @@ export default function ReportsPage() {
                     <>
                       <div>
                         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Select Project Pipeline</label>
-                        <select 
-                          value={paramClientId} 
+                        <select
+                          value={paramClientId}
                           onChange={e => setParamClientId(e.target.value)}
                           style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}
                         >
@@ -468,7 +468,7 @@ export default function ReportsPage() {
                       </div>
                       <div>
                         <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Project Budget (Optional)</label>
-                        <input 
+                        <input
                           type="number"
                           placeholder="e.g. 5000 (leave blank or 0 to hide margin details)"
                           value={paramBudget}
@@ -486,8 +486,8 @@ export default function ReportsPage() {
                   {selectedReport.id === 'team' && (
                     <div>
                       <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Select Team</label>
-                      <select 
-                        value={paramTeamName} 
+                      <select
+                        value={paramTeamName}
                         onChange={e => setParamTeamName(e.target.value)}
                         style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}
                       >
@@ -502,8 +502,8 @@ export default function ReportsPage() {
                   {selectedReport.id === 'employee' && (
                     <div>
                       <label style={{ display: 'block', fontSize: 12.5, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Select Employee</label>
-                      <select 
-                        value={paramEmployeeId} 
+                      <select
+                        value={paramEmployeeId}
                         onChange={e => setParamEmployeeId(e.target.value)}
                         style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--ink)' }}
                       >
@@ -589,8 +589,8 @@ export default function ReportsPage() {
                         {/* Burndown Trend Line Chart */}
                         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Project Burndown Trend</div>
-                          <SVGLineChart 
-                            labels={previewData.charts.burndown.days} 
+                          <SVGLineChart
+                            labels={previewData.charts.burndown.days}
                             datasets={[
                               { label: 'Ideal Burndown', data: previewData.charts.burndown.ideal, color: '#A9B2A1', dashed: true },
                               { label: 'Actual Burndown', data: previewData.charts.burndown.actual, color: '#2E5077' }
@@ -639,8 +639,8 @@ export default function ReportsPage() {
                         {/* Weekly Team velocity line chart */}
                         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Weekly Team Completion Velocity</div>
-                          <SVGLineChart 
-                            labels={previewData.charts.trend.labels} 
+                          <SVGLineChart
+                            labels={previewData.charts.trend.labels}
                             datasets={[
                               { label: 'Tasks Completed', data: previewData.charts.trend.completion, color: '#2E5077' }
                             ]}
@@ -701,10 +701,10 @@ export default function ReportsPage() {
                         {/* Task completion distribution donut chart */}
                         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
                           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)' }}>Task Completion Distribution</div>
-                          <SVGDonutChart 
-                            data={previewData.charts.completion} 
-                            labels={['Completed', 'Pending', 'Overdue']} 
-                            colors={['#5F6F52', '#2E5077', '#C84B31']} 
+                          <SVGDonutChart
+                            data={previewData.charts.completion}
+                            labels={['Completed', 'Pending', 'Overdue']}
+                            colors={['#5F6F52', '#2E5077', '#C84B31']}
                           />
                         </div>
 
@@ -789,7 +789,7 @@ export default function ReportsPage() {
         )}
 
       </div>
-      
+
       {/* Dynamic Keyframes Animation for sliding Drawer */}
       <style>{`
         @keyframes slideIn {

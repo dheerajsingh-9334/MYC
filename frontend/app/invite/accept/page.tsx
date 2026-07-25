@@ -340,7 +340,7 @@ const containerStyle: React.CSSProperties = {
   alignItems: 'center',
   justifyContent: 'center',
   background: '#FAFAF7',
-  fontFamily: 'Inter, system-ui, sans-serif',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   padding: 20,
 };
 
@@ -365,12 +365,12 @@ const logoIconStyle: React.CSSProperties = {
   justifyContent: 'center',
   fontWeight: 'bold',
   fontSize: 22,
-  fontFamily: 'Instrument Serif, serif',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   margin: '0 auto 16px',
 };
 
 const titleStyle: React.CSSProperties = {
-  fontFamily: 'Instrument Serif, serif',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   fontSize: 28,
   fontWeight: 500,
   color: 'var(--ink, #1A1A1A)',
@@ -425,7 +425,7 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--ink, #1A1A1A)',
   background: '#ffffff',
   outline: 'none',
-  fontFamily: 'inherit',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
 };
 
 const inputIconStyle: React.CSSProperties = {

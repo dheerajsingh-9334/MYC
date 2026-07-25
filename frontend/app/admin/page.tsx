@@ -8,7 +8,7 @@ import { DashboardSkeleton } from '@/components/ui/SkeletonLoader';
 const AdminDashboard = dynamic(() => import('./AdminDashboard'), {
   loading: () => (
     <AppLayout>
-      <Topbar title="Admin Dashboard" subtitle="Org-wide view · Tasks, teams, performance" />
+      <Topbar title="Admin Dashboard" />
       <DashboardSkeleton />
     </AppLayout>
   ),

@@ -617,7 +617,7 @@ const statCardValueContainerStyle: React.CSSProperties = {
 };
 
 const statCardValueStyle: React.CSSProperties = {
-  fontFamily: 'Instrument Serif, serif',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   fontSize: 36,
   lineHeight: 1,
   color: 'var(--ink)',
@@ -639,7 +639,7 @@ const attentionRowStyle: React.CSSProperties = {
 };
 
 const badgeStyle = (bg: string, color: string, label: string): React.CSSProperties => ({
-  fontFamily: 'JetBrains Mono, monospace',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   fontSize: 10,
   fontWeight: 700,
   padding: '2px 8px',
@@ -693,7 +693,7 @@ const summaryLabelStyle: React.CSSProperties = {
 };
 
 const summaryValueStyle: React.CSSProperties = {
-  fontFamily: 'Instrument Serif, serif',
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   fontSize: 28,
   lineHeight: 1,
   color: 'var(--ink)',

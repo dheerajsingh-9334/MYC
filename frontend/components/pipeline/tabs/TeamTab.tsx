@@ -24,7 +24,7 @@ function BlockerEditor({ taskId, onSubmit, onCancel, isPending }: {
         value={draft.data.blockerNote}
         onChange={e => draft.setData(p => ({ ...p, blockerNote: e.target.value }))}
         placeholder="What's blocking this task?"
-        style={{ width: '100%', padding: '8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, minHeight: 56, fontFamily: 'inherit', outline: 'none', resize: 'vertical' }}
+        style={{ width: '100%', padding: '8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, minHeight: 56, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', outline: 'none', resize: 'vertical' }}
       />
       <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
         <button

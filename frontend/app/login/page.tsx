@@ -69,9 +69,9 @@ export default function LoginPage() {
             width: 52, height: 52, background: 'var(--olive)', borderRadius: 12,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#fff', fontWeight: 700, fontSize: 22,
-            fontFamily: 'Instrument Serif, serif', margin: '0 auto 16px',
+            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', margin: '0 auto 16px',
           }}>M</div>
-          <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 28, color: 'var(--ink)', letterSpacing: '-0.3px' }}>
+          <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, color: 'var(--ink)', letterSpacing: '-0.3px' }}>
             My<span style={{ color: 'var(--olive)', fontStyle: 'italic' }}>C</span>Ops
           </div>
           <div style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 6 }}>
