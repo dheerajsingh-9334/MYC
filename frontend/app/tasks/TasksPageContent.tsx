@@ -502,6 +502,9 @@ export default function TasksPage() {
         return old.map((t: any) => {
           if (t.id === id) {
             let data = { ...t, status };
+            if (status !== 'blocked') {
+              data.blockerNote = null;
+            }
             if (status === 'in_progress') {
               if (!t.isTimerRunning) {
                 data.isTimerRunning = true;

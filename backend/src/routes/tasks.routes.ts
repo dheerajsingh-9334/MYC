@@ -177,15 +177,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
       }
     }
 
-    if (role !== "admin") {
-      where.client = {
-        tasks: {
-          none: {
-            status: "blocked"
-          }
-        }
-      };
-    }
+
 
     const tasks = await prisma.task.findMany({
       where,
@@ -226,19 +218,7 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
       return;
     }
 
-    if (req.user.role !== 'admin') {
-      const blockedTask = await prisma.task.findFirst({
-        where: {
-          clientId: task.clientId,
-          status: 'blocked',
-          organisationId: req.user.orgId
-        }
-      });
-      if (blockedTask) {
-        res.status(403).json({ error: "Access denied: client is blocked." });
-        return;
-      }
-    }
+
 
     res.json(task);
   } catch (err) {
@@ -314,6 +294,9 @@ router.patch(
       if (isAlerted !== undefined) data.isAlerted = isAlerted;
       if (status !== undefined) {
         data.status = status;
+        if (status !== "blocked") {
+          data.blockerNote = null;
+        }
         if (status === "complete") {
           data.completedAt = new Date();
           data.completedById = req.user.userId;
@@ -460,22 +443,7 @@ router.patch(
         return;
       }
 
-      // Block modifying status if the client is blocked (has at least one blocked task)
-      if (status !== "blocked") {
-        const blockedTask = await prisma.task.findFirst({
-          where: {
-            clientId: task.clientId,
-            status: "blocked",
-            organisationId: req.user.orgId
-          }
-        });
-        if (blockedTask) {
-          res.status(400).json({
-            error: "Cannot modify tasks for a blocked client. The client has a blocked task that must be resolved first."
-          });
-          return;
-        }
-      }
+
 
       // Only assignee, admin, or team leader can change status
       let canChange = false;
@@ -493,6 +461,10 @@ router.patch(
       }
 
       const data: any = { status };
+
+      if (status !== "blocked") {
+        data.blockerNote = null;
+      }
 
       // Handle timer transitions based on new status
       if (status === "in_progress") {
@@ -559,20 +531,7 @@ router.patch(
         return;
       }
 
-      // Block starting timer if the client has any blocked task
-      const blockedTask = await prisma.task.findFirst({
-        where: {
-          clientId: task.clientId,
-          status: "blocked",
-          organisationId: req.user.orgId
-        }
-      });
-      if (blockedTask) {
-        res.status(400).json({
-          error: "Cannot start timer for a blocked client. The client has a blocked task that must be resolved first."
-        });
-        return;
-      }
+
 
       // Only assignee or admin can start the timer
       if (task.assignedToId !== req.user.userId && req.user.role !== "admin") {
@@ -591,6 +550,7 @@ router.patch(
         where: { id: req.params.id },
         data: {
           status: "in_progress", // automatically transition to In Progress
+          blockerNote: null,
           isTimerRunning: true,
           timerStartedAt: new Date(),
           ...(!task.inProgressAt ? { inProgressAt: new Date() } : {}),
@@ -675,20 +635,7 @@ router.patch(
         return;
       }
 
-      // Block completing if the client has any blocked task
-      const blockedTask = await prisma.task.findFirst({
-        where: {
-          clientId: task.clientId,
-          status: "blocked",
-          organisationId: req.user.orgId
-        }
-      });
-      if (blockedTask) {
-        res.status(400).json({
-          error: "Cannot complete tasks for a blocked client. The client has a blocked task that must be resolved first."
-        });
-        return;
-      }
+
 
       const completedAt = new Date();
       const onTime = completedAt <= new Date(task.dueDate);
@@ -708,6 +655,7 @@ router.patch(
           where: { id: req.params.id },
           data: {
             status: "complete",
+            blockerNote: null,
             completedAt,
             completedById: req.user.userId,
             isTimerRunning: false,

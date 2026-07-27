@@ -43,6 +43,7 @@ export default function KanbanBoard({
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [draggedHeight, setDraggedHeight] = useState<number>(64);
+  const isClickPrevented = React.useRef(false);
 
   React.useEffect(() => {
     setLocalTasks(tasks);
@@ -50,7 +51,7 @@ export default function KanbanBoard({
 
   const activeStatuses = isAdmin
     ? ['pending', 'in_progress', 'blocked', 'complete', 'rejected', 'cancelled']
-    : ['pending', 'in_progress', 'extension_requested', 'complete', 'rejected', 'cancelled'];
+    : ['pending', 'in_progress', 'blocked', 'extension_requested', 'complete', 'rejected', 'cancelled'];
 
   // Group and sort tasks by status (most recent first)
   const groupedTasks = useMemo(() => {
@@ -77,6 +78,7 @@ export default function KanbanBoard({
     e.dataTransfer.setData('taskId', taskId);
     setDraggedTaskId(taskId);
     setDraggedHeight((e.currentTarget as HTMLElement).offsetHeight);
+    isClickPrevented.current = true;
     // Needed for Firefox
     e.dataTransfer.effectAllowed = "move";
   };
@@ -242,9 +244,19 @@ export default function KanbanBoard({
                 <div
                   draggable
                   onDragStart={(e) => handleDragStart(e, t.id)}
-                  onDragEnd={() => { setDraggedTaskId(null); setDragOverTaskId(null); }}
+                  onDragEnd={() => { 
+                    setDraggedTaskId(null); 
+                    setDragOverTaskId(null); 
+                    setTimeout(() => { isClickPrevented.current = false; }, 100);
+                  }}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverTaskId(t.id); }}
-                  onClick={() => onUpdateTask(t)}
+                  onClick={(e) => {
+                    if (isClickPrevented.current) {
+                      e.preventDefault();
+                      return;
+                    }
+                    onUpdateTask(t);
+                  }}
                   style={{
                     background: 'var(--surface)',
                     border: '1px solid var(--border)',
@@ -268,8 +280,9 @@ export default function KanbanBoard({
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, alignItems: 'flex-start', gap: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.4 }}>{t.title}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', lineHeight: 1.4, textDecoration: t.status === 'cancelled' || t.status === 'rejected' ? 'line-through' : 'none' }}>{t.title}</div>
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                      {t.blockerNote && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--blocked, #6B3FA0)', marginTop: 4, boxShadow: '0 0 0 2px var(--blocked-bg, #F0E8FA)' }} title={`Blocked: ${t.blockerNote}`} />}
                       {t.priority === 'high' && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--red)', marginTop: 4, boxShadow: '0 0 0 2px var(--red-bg)' }} title="High Priority" />}
                     </div>
                   </div>
