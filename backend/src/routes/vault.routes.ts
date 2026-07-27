@@ -42,7 +42,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
           .then((rows) => rows.map((row) => row.id))
       : [];
 
-    let clientWhere: any = { organisationId: orgId, isBlocked: false };
+    let clientWhere: any = { organisationId: orgId };
     if (role === "team_leader" && teamStepIds.length) {
       // Find all clientIds that have at least one task owned by this team
       const teamClientIds = await prisma.task
@@ -59,7 +59,6 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
       clientWhere.id = { in: teamClientIds };
     } else if (role === "admin") {
       // Admin sees all clients (no extra filter needed beyond orgId)
-      delete clientWhere.isBlocked; // admins can see blocked clients in vault
     } else if (role === "team_member") {
       const myClientIds = await prisma.task
         .findMany({

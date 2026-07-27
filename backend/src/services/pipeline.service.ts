@@ -442,10 +442,22 @@ export async function initializeClientPipeline(
 
   // Fallback to defaults if no service or service has no steps
   if (sourceSteps.length === 0) {
-    sourceSteps = DEFAULT_12_STEPS.map(s => ({
-      ...s,
-      taskTemplates: s.templates
-    }));
+    if (serviceId) {
+      // If a specific service was assigned but has no steps, just create a single placeholder step
+      // to satisfy the database `currentStepId` requirement without auto-populating all default steps.
+      sourceSteps = [{
+        stepNumber: 1,
+        name: 'Initial Step',
+        owningTeamName: 'Intake Team',
+        slaDays: 3,
+        taskTemplates: []
+      }];
+    } else {
+      sourceSteps = DEFAULT_12_STEPS.map(s => ({
+        ...s,
+        taskTemplates: s.templates
+      }));
+    }
   }
 
   for (const s of sourceSteps) {

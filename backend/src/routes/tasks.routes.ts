@@ -196,7 +196,7 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
         extensionRequestedDate: true, extensionReason: true, blockerNote: true,
         isPinned: true, isAlerted: true,
         isTimerRunning: true, timerStartedAt: true, timeSpentSeconds: true,
-        inProgressAt: true,
+        inProgressAt: true, position: true,
         client: { select: { id: true, fullName: true, brandName: true, email: true } },
         step: { select: { id: true, name: true, stepNumber: true, owningTeamName: true, slaDays: true } },
         assignedTo: { select: { id: true, fullName: true, email: true, teamName: true } },
@@ -246,6 +246,34 @@ router.get("/:id", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+// PATCH /api/tasks/reorder
+router.patch("/reorder", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const { taskIds } = req.body;
+    if (!Array.isArray(taskIds)) {
+      res.status(400).json({ error: "taskIds must be an array" });
+      return;
+    }
+
+    // Update positions sequentially
+    // In a real production app with massive concurrency, this might need more robust handling,
+    // but for typical Kanban columns this is extremely fast and effective.
+    await prisma.$transaction(
+      taskIds.map((id, index) =>
+        prisma.task.update({
+          where: { id },
+          data: { position: index },
+        })
+      )
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("[tasks] reorder error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // PATCH /api/tasks/:id — admin/leader edits a task (title, priority, dueDate,
 // status, assignee, step). Used by the admin "All Tasks" table on /admin.
 router.patch(
@@ -264,6 +292,9 @@ router.patch(
         stepId,
         isPinned,
         isAlerted,
+        timeSpentSeconds,
+        isTimerRunning,
+        timerStartedAt,
       } = req.body;
       const existing = await prisma.task.findFirst({
         where: { id: req.params.id, organisationId: req.user.orgId },
@@ -322,6 +353,23 @@ router.patch(
             existing.timeSpentSeconds + Math.max(0, elapsed);
         }
       }
+      
+      // Allow manual override for timer by admin/owner
+      if (timeSpentSeconds !== undefined) {
+        data.timeSpentSeconds = parseInt(timeSpentSeconds, 10) || 0;
+      }
+      if (isTimerRunning !== undefined) {
+        data.isTimerRunning = isTimerRunning;
+        if (isTimerRunning && !existing.isTimerRunning) {
+          data.timerStartedAt = new Date();
+          if (!existing.inProgressAt) {
+            data.inProgressAt = new Date();
+          }
+        } else if (!isTimerRunning && existing.isTimerRunning) {
+          data.timerStartedAt = null;
+        }
+      }
+      
       if (assignedToId !== undefined) {
         if (assignedToId === null || assignedToId === "") {
           data.assignedToId = null;
@@ -429,11 +477,18 @@ router.patch(
         }
       }
 
-      // Only assignee or admin can change status
-      if (task.assignedToId !== req.user.userId && req.user.role !== "admin") {
+      // Only assignee, admin, or team leader can change status
+      let canChange = false;
+      if (req.user.role === "admin" || task.assignedToId === req.user.userId) {
+        canChange = true;
+      } else if (req.user.role === "team_leader") {
+        canChange = true;
+      }
+
+      if (!canChange) {
         res
           .status(403)
-          .json({ error: "Only the assignee can change the task status" });
+          .json({ error: "Only the assignee, admin, or team leader can change the task status" });
         return;
       }
 

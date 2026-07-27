@@ -57,7 +57,7 @@ export default function StaffDashboard() {
   useEffect(() => {
     const loadUser = () => setUser(getUser());
     loadUser();
-    
+
     // Background fetch to keep user role fresh across reloads
     if (!USE_MOCK) {
       apiFetch('/api/auth/me').then(freshUser => {
@@ -65,9 +65,9 @@ export default function StaffDashboard() {
         setUser(freshUser);
       }).catch(err => console.error('Failed to refresh user in dashboard:', err));
     }
-    
+
     window.addEventListener('user-updated', loadUser);
-    
+
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
     if (savedTheme) {
       setTheme(savedTheme);
@@ -77,7 +77,7 @@ export default function StaffDashboard() {
         document.documentElement.classList.remove('dark');
       }
     }
-    
+
     return () => window.removeEventListener('user-updated', loadUser);
   }, []);
 
@@ -245,8 +245,8 @@ export default function StaffDashboard() {
   const filteredTeamMembers = useMemo(() => {
     if (!memberSearch.trim()) return teamMembers;
     const query = memberSearch.toLowerCase();
-    return teamMembers.filter((m: any) => 
-      m.fullName?.toLowerCase().includes(query) || 
+    return teamMembers.filter((m: any) =>
+      m.fullName?.toLowerCase().includes(query) ||
       m.email?.toLowerCase().includes(query) ||
       m.role?.toLowerCase().includes(query)
     );
@@ -266,7 +266,7 @@ export default function StaffDashboard() {
     if (user?.role !== 'team_leader') return { completed: 0, overdue: 0, pending: 0 };
     const completed = teamTasks.filter((t: any) => t.status === 'complete').length;
     const pending = teamTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length;
-    
+
     const todayStart = startOfDay(new Date());
     const overdue = teamTasks.filter((t: any) => {
       if (t.status === 'complete' || t.status === 'rejected' || t.status === 'cancelled') return false;
@@ -432,7 +432,7 @@ export default function StaffDashboard() {
             if (t.timerStartedAt) {
               addedSeconds = Math.max(0, Math.floor((Date.now() - new Date(t.timerStartedAt).getTime()) / 1000));
             }
-             return {
+            return {
               ...t,
               status: 'pending',
               isTimerRunning: false,
@@ -550,10 +550,10 @@ export default function StaffDashboard() {
 
   const tabs: { key: TabKey; label: string; count: number; icon: any; accent: string; bg: string }[] = useMemo(() => {
     const list: { key: TabKey; label: string; count: number; icon: any; accent: string; bg: string }[] = [
-      { key: 'all',       label: 'All Tasks',  count: grouped.all.length,       icon: ListChecks, accent: 'var(--ink-2)', bg: 'var(--surface-2)' },
-      { key: 'active',    label: 'Active Tasks',count: grouped.active.length,   icon: ListChecks, accent: 'var(--olive)', bg: 'var(--olive-50)' },
-      { key: 'completed', label: 'Completed',  count: grouped.completed.length, icon: CircleCheck, accent: 'var(--green)', bg: 'var(--green-bg)' },
-      { key: 'rejected',  label: 'Rejected',   count: grouped.rejected.length,  icon: XCircle,     accent: 'var(--rejected)', bg: 'var(--rejected-bg)' },
+      { key: 'all', label: 'All Tasks', count: grouped.all.length, icon: ListChecks, accent: 'var(--ink-2)', bg: 'var(--surface-2)' },
+      { key: 'active', label: user?.role === 'team_leader' ? 'My Tasks' : 'Active Tasks', count: grouped.active.length, icon: ListChecks, accent: 'var(--olive)', bg: 'var(--olive-50)' },
+      { key: 'completed', label: 'Completed', count: grouped.completed.length, icon: CircleCheck, accent: 'var(--green)', bg: 'var(--green-bg)' },
+      { key: 'rejected', label: 'Rejected', count: grouped.rejected.length, icon: XCircle, accent: 'var(--rejected)', bg: 'var(--rejected-bg)' },
     ];
     if (user?.role === 'team_leader') {
       list.push({
@@ -586,15 +586,15 @@ export default function StaffDashboard() {
       return teamTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled');
     }
     return tab === 'active' ? grouped.active :
-           tab === 'completed' ? grouped.completed :
-           grouped.rejected;
+      tab === 'completed' ? grouped.completed :
+        grouped.rejected;
   }, [tab, grouped, teamTasks]);
 
   const [taskSearch, setTaskSearch] = useState('');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [staffTaskPriority, setStaffTaskPriority] = useState<'all' | 'high' | 'normal'>('all');
   const [taskLimit, setTaskLimit] = useState(20);
-  
+
   const filterRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -630,7 +630,7 @@ export default function StaffDashboard() {
   const filteredProblems = useMemo(() => {
     const term = taskSearch.trim().toLowerCase();
     if (!term) return problemsList;
-    return problemsList.filter((p: any) => 
+    return problemsList.filter((p: any) =>
       p.title.toLowerCase().includes(term) ||
       (p.description && p.description.toLowerCase().includes(term)) ||
       (p.user?.fullName && p.user.fullName.toLowerCase().includes(term)) ||
@@ -653,7 +653,7 @@ export default function StaffDashboard() {
   const myPerformance = useMemo(() => {
     const tasks = (USE_MOCK ? localTasks : (liveTasks as any[])) || [];
     if (!user) return { avgHours: '0.0h' };
-    
+
     const myCompletedTasks = tasks.filter((t: any) => {
       const assigneeId = t.assignedToId || t.assignedTo?.id;
       return (assigneeId === user.id || t.assignedTo?.fullName === user.fullName) && t.status === 'complete';
@@ -743,7 +743,7 @@ export default function StaffDashboard() {
                     borderRadius: '50%',
                     background: user?.role === 'admin' ? 'linear-gradient(135deg, var(--olive), var(--olive-light))'
                       : user?.role === 'team_leader' ? 'linear-gradient(135deg, #2860A1, #5B9BD5)'
-                      : 'var(--surface-2)',
+                        : 'var(--surface-2)',
                     color: '#fff',
                     display: 'flex',
                     alignItems: 'center',
@@ -756,7 +756,7 @@ export default function StaffDashboard() {
                   </div>
                 )}
               </div>
-              
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--ink)' }}>
                   {user?.fullName || 'Employee'}
@@ -801,7 +801,7 @@ export default function StaffDashboard() {
 
         {/* Bottom Split Layout: 70% Tasks (Left) and 30% Calendar (Right) */}
         <div className="dashboard-split-grid" style={{ alignItems: 'stretch', flex: 1, minHeight: 0 }}>
-          
+
           {/* Left 70% Column */}
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
             <SectionCard
@@ -836,16 +836,16 @@ export default function StaffDashboard() {
                         padding: '4px 10px',
                         borderRadius: 4,
                         border: 'none',
-                        background: tab === 'active' ? 'var(--surface)' : 'transparent',
-                        color: tab === 'active' ? 'var(--ink)' : 'var(--muted)',
+                        background: ['active', 'completed', 'rejected', 'problems'].includes(tab) ? 'var(--surface)' : 'transparent',
+                        color: ['active', 'completed', 'rejected', 'problems'].includes(tab) ? 'var(--ink)' : 'var(--muted)',
                         fontSize: 11.5,
                         fontWeight: 600,
                         cursor: 'pointer',
-                        boxShadow: tab === 'active' ? 'var(--shadow-sm)' : 'none',
+                        boxShadow: ['active', 'completed', 'rejected', 'problems'].includes(tab) ? 'var(--shadow-sm)' : 'none',
                         transition: 'all 0.12s',
                       }}
                     >
-                      Active Tasks
+                      {user?.role === 'team_leader' ? 'My Tasks' : 'Active Tasks'}
                     </button>
                     {user?.role === 'team_leader' && (
                       <button
@@ -921,9 +921,9 @@ export default function StaffDashboard() {
                           <ClientCombobox
                             value={tab}
                             onChange={(val) => setTab((val || 'active') as any)}
-                            placeholder="Active Tasks"
+                            placeholder={tabs.find(t => t.key === tab)?.label || (user?.role === 'team_leader' ? 'My Tasks' : 'Active Tasks')}
                             searchPlaceholder="Search statuses…"
-                            options={tabs.map(t => ({ id: t.key, label: `${t.label} (${t.count})` }))}
+                            options={tabs.filter(t => !['all', 'active', 'team_tasks'].includes(t.key)).map(t => ({ id: t.key, label: `${t.label} (${t.count})` }))}
                           />
                         </div>
                         <div>
@@ -1055,8 +1055,8 @@ export default function StaffDashboard() {
                   title="All clear"
                   message={
                     tab === 'active' ? 'No matching active tasks found.' :
-                    tab === 'completed' ? 'No matching completed tasks found.' :
-                    'No matching rejected tasks found.'
+                      tab === 'completed' ? 'No matching completed tasks found.' :
+                        'No matching rejected tasks found.'
                   }
                 />
               ) : (
@@ -1081,9 +1081,11 @@ export default function StaffDashboard() {
                       const effectiveStatus = t.status;
                       const stripe = isAlerted ? 'var(--red)'
                         : effectiveStatus === 'complete' ? 'var(--green)'
-                        : (effectiveStatus === 'rejected' || effectiveStatus === 'cancelled') ? 'var(--rejected)'
-                        : tab === 'team_tasks' ? '#2860A1'
-                        : 'var(--olive)';
+                          : effectiveStatus === 'rejected' ? 'var(--rejected)'
+                            : effectiveStatus === 'cancelled' ? '#EC4899'
+                              : effectiveStatus === 'in_progress' ? '#EC4899'
+                                : tab === 'team_tasks' ? '#2860A1'
+                                  : 'var(--olive)';
                       const due = format(new Date(t.dueDate), 'EEE d MMM');
                       const completedAt = t.completedAt ? format(new Date(t.completedAt), "d MMM, h:mma") : null;
                       const whenLabel = tab === 'completed' && completedAt ? completedAt : due;
@@ -1151,7 +1153,7 @@ export default function StaffDashboard() {
                               )}
                               {tab !== 'completed' && (t.status === 'in_progress' || t.timeSpentSeconds > 0) && (
                                 <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }} onClick={e => e.stopPropagation()}>
-                                  · Status: <span style={{ fontWeight: 600, color: t.status === 'in_progress' ? 'var(--olive)' : 'var(--muted)' }}>
+                                  · Status: <span style={{ fontWeight: 600, color: t.status === 'in_progress' ? '#EC4899' : 'var(--muted)' }}>
                                     {t.status === 'in_progress' ? 'In Progress' : t.status}
                                   </span>
                                   <TaskTimer
@@ -1222,38 +1224,38 @@ export default function StaffDashboard() {
                                 {isReopening ? 'Reopening…' : 'Reopen'}
                               </button>
                             )}
-                             {(tab === 'active' || tab === 'team_tasks') && (
+                            {(tab === 'active' || tab === 'team_tasks') && (
                               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                                 {user?.role === 'team_leader' && (() => {
-                                   const userTeams = user.teamName?.split(',').map((ut: any) => ut.trim()).filter(Boolean) || [];
-                                   const tTeam = t.step?.owningTeamName || t.assignedTo?.teamName;
-                                   return tTeam && userTeams.includes(tTeam);
-                                 })() && (
-                                  <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                                    <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Assignee:</span>
-                                    <select
-                                      value={t.assignedToId || t.assignedTo?.id || ''}
-                                      onChange={(e) => handleAssignTask(t.id, e.target.value)}
-                                      style={{
-                                        padding: '4px 8px',
-                                        borderRadius: 6,
-                                        border: '1px solid var(--border)',
-                                        background: 'var(--surface)',
-                                        color: 'var(--ink-2)',
-                                        fontSize: 11.5,
-                                        fontWeight: 500,
-                                        outline: 'none',
-                                        cursor: 'pointer',
-                                      }}
-                                    >
-                                      <option value="">Unassigned</option>
-                                      <option value={user.id}>{user.fullName} (Lead)</option>
-                                      {teamMembers.map((m: any) => (
-                                        <option key={m.id} value={m.id}>{m.fullName}</option>
-                                      ))}
-                                    </select>
-                                  </div>
-                                )}
+                                {user?.role === 'team_leader' && (() => {
+                                  const userTeams = user.teamName?.split(',').map((ut: any) => ut.trim()).filter(Boolean) || [];
+                                  const tTeam = t.step?.owningTeamName || t.assignedTo?.teamName;
+                                  return tTeam && userTeams.includes(tTeam);
+                                })() && (
+                                    <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                                      <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 600 }}>Assignee:</span>
+                                      <select
+                                        value={t.assignedToId || t.assignedTo?.id || ''}
+                                        onChange={(e) => handleAssignTask(t.id, e.target.value)}
+                                        style={{
+                                          padding: '4px 8px',
+                                          borderRadius: 6,
+                                          border: '1px solid var(--border)',
+                                          background: 'var(--surface)',
+                                          color: 'var(--ink-2)',
+                                          fontSize: 11.5,
+                                          fontWeight: 500,
+                                          outline: 'none',
+                                          cursor: 'pointer',
+                                        }}
+                                      >
+                                        <option value="">Unassigned</option>
+                                        <option value={user.id}>{user.fullName} (Lead)</option>
+                                        {teamMembers.map((m: any) => (
+                                          <option key={m.id} value={m.id}>{m.fullName}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                  )}
 
                                 <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
                                   <select
@@ -1354,7 +1356,7 @@ export default function StaffDashboard() {
                     </div>
                     <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.3px', textTransform: 'uppercase', marginTop: 4 }}>Completed</div>
                   </div>
-                  
+
                   <div style={{ background: 'var(--surface-2)', padding: '10px 8px', borderRadius: 8, textAlign: 'center', border: '1px solid var(--border)' }}>
                     <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--red)' }}>
                       {teamStats.overdue}
@@ -1533,17 +1535,17 @@ export default function StaffDashboard() {
                     const firstDay = new Date(year, month, 1);
                     const startDayOfWeek = firstDay.getDay();
                     const daysList: Date[] = [];
-                    
+
                     const prevMonthEnd = new Date(year, month, 0).getDate();
                     for (let i = startDayOfWeek - 1; i >= 0; i--) {
                       daysList.push(new Date(year, month - 1, prevMonthEnd - i));
                     }
-                    
+
                     const lastDay = new Date(year, month + 1, 0).getDate();
                     for (let i = 1; i <= lastDay; i++) {
                       daysList.push(new Date(year, month, i));
                     }
-                    
+
                     const totalSlots = Math.ceil(daysList.length / 7) * 7;
                     const nextMonthPadding = totalSlots - daysList.length;
                     for (let i = 1; i <= nextMonthPadding; i++) {
@@ -1557,7 +1559,7 @@ export default function StaffDashboard() {
                       const dYear = day.getFullYear();
                       const dMonth = day.getMonth();
                       const dDate = day.getDate();
-                      
+
                       const dayTasks = myTasks.filter((t: any) => {
                         const tDate = new Date(t.dueDate);
                         return tDate.getFullYear() === dYear && tDate.getMonth() === dMonth && tDate.getDate() === dDate;
@@ -1588,7 +1590,7 @@ export default function StaffDashboard() {
 
                       let cellBg = isCurrentMonth ? 'var(--surface)' : 'var(--surface-2)';
                       let cellBorder = isCurrentMonth ? '1px solid rgba(214, 227, 245, 0.4)' : '1px solid transparent';
-                      
+
                       if (isDayToday) {
                         cellBg = 'var(--olive-50)';
                         cellBorder = '1.5px solid var(--olive-light)';
@@ -1645,8 +1647,8 @@ export default function StaffDashboard() {
                             alignItems: 'center',
                             justifyContent: 'center',
                             opacity: isCurrentMonth ? 1 : 0.5,
-                            boxShadow: isHovered 
-                              ? 'var(--shadow)' 
+                            boxShadow: isHovered
+                              ? 'var(--shadow)'
                               : 'none',
                             transform: isHovered ? 'translateY(-2px)' : 'none',
                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -1719,7 +1721,7 @@ export default function StaffDashboard() {
                                   const isOverdue = t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled' && differenceInCalendarDays(startOfDay(new Date(t.dueDate)), todayStart) < 0;
                                   let statusText = t.status.replace('_', ' ');
                                   let statusColor = 'var(--muted)';
-                                  
+
                                   if (t.status === 'complete') {
                                     statusColor = 'var(--green)';
                                   } else if (t.status === 'rejected' || t.status === 'cancelled') {
@@ -1934,7 +1936,7 @@ function DueTasksDrawer({ tasks, onClose }: { tasks: any[]; onClose: () => void 
     const due = tasks.filter((t) => t.status !== 'complete' && t.status !== 'cancelled');
     return {
       overdue: due.filter((t) => isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate))).length,
-      today:   due.filter((t) => isToday(new Date(t.dueDate))).length,
+      today: due.filter((t) => isToday(new Date(t.dueDate))).length,
       thisWeek: due.filter((t) => {
         const d = new Date(t.dueDate);
         return d >= today && d <= weekEnd;
@@ -1972,9 +1974,9 @@ function DueTasksDrawer({ tasks, onClose }: { tasks: any[]; onClose: () => void 
 
         <div style={{ display: 'flex', gap: 6, padding: '14px 24px', borderBottom: '1px solid var(--border)' }}>
           {([
-            { k: 'overdue',   label: 'Overdue',   color: 'var(--red)' },
-            { k: 'today',     label: 'Today',     color: 'var(--amber)' },
-            { k: 'thisWeek',  label: 'This week', color: 'var(--olive)' },
+            { k: 'overdue', label: 'Overdue', color: 'var(--red)' },
+            { k: 'today', label: 'Today', color: 'var(--amber)' },
+            { k: 'thisWeek', label: 'This week', color: 'var(--olive)' },
           ] as const).map((f) => (
             <button key={f.k} onClick={() => setFilter(f.k)}
               style={{
@@ -2024,8 +2026,8 @@ function DueTasksDrawer({ tasks, onClose }: { tasks: any[]; onClose: () => void 
                       {isOver
                         ? `+${differenceInCalendarDays(startOfDay(new Date(t.dueDate)), today)}d`
                         : isToday(new Date(t.dueDate))
-                        ? 'Today'
-                        : format(new Date(t.dueDate), 'd MMM')}
+                          ? 'Today'
+                          : format(new Date(t.dueDate), 'd MMM')}
                     </div>
                   </li>
                 );

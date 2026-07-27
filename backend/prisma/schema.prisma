@@ -202,6 +202,7 @@ model Task {
   isPinned               Boolean      @default(false)
   isAlerted              Boolean      @default(false)
   inProgressAt           DateTime?
+  position               Int          @default(0)
   documents              Document[]
   assignedTo             User         @relation("AssignedTo", fields: [assignedToId], references: [id])
   client                 Client       @relation(fields: [clientId], references: [id])

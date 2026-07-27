@@ -94,7 +94,7 @@ export default function AdminDashboard() {
 
   // Admin Tasks State
   const [adminTaskTab, setAdminTaskTab] = useState<'all' | 'active' | 'completed' | 'rejected' | 'problems'>('active');
-  const [chartYearFilter, setChartYearFilter] = useState<string>('all');
+  const [chartYearFilter, setChartYearFilter] = useState<string>(new Date().getFullYear().toString());
   const [chartMonthFilter, setChartMonthFilter] = useState<string>('all');
   const [adminTaskSearch, setAdminTaskSearch] = useState('');
   const [adminTaskScope, setAdminTaskScope] = useState<'my' | 'all'>('all');
@@ -522,7 +522,8 @@ export default function AdminDashboard() {
 
   const yearOptions = useMemo(() => {
     const years = Array.from(new Set(allClients.map((c: any) => new Date(c.dateJoined || c.createdAt || c.addedAt || new Date()).getFullYear()))).sort().reverse();
-    return [{ id: 'all', label: 'All Years' }, ...years.slice(0, 4).map(y => ({ id: y.toString(), label: y.toString() }))];
+    if (years.length === 0) years.push(new Date().getFullYear());
+    return years.map(y => ({ id: y.toString(), label: y.toString() }));
   }, [allClients]);
 
   const monthOptions = [
@@ -557,12 +558,7 @@ export default function AdminDashboard() {
       } else if (chartYearFilter !== 'all' && chartMonthFilter === 'all') {
         label = format(c.parsedDate, 'MMM');
       } else {
-        const d = c.parsedDate.getDate();
-        if (d <= 7) label = 'Week 1';
-        else if (d <= 14) label = 'Week 2';
-        else if (d <= 21) label = 'Week 3';
-        else if (d <= 28) label = 'Week 4';
-        else label = 'Week 5';
+        label = c.parsedDate.getDate().toString();
       }
       counts[label] = (counts[label] || 0) + 1;
       if (!clientsByMonth[label]) clientsByMonth[label] = [];
@@ -586,11 +582,13 @@ export default function AdminDashboard() {
         data.push(counts[m] || 0);
       });
     } else {
-      const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5'];
-      weeks.forEach(w => {
-        labels.push(w);
-        data.push(counts[w] || 0);
-      });
+      const year = chartYearFilter === 'all' ? 2024 : parseInt(chartYearFilter);
+      const daysInMonth = new Date(year, parseInt(chartMonthFilter) + 1, 0).getDate();
+      for (let i = 1; i <= daysInMonth; i++) {
+        const d = i.toString();
+        labels.push(d);
+        data.push(counts[d] || 0);
+      }
     }
 
     return { labels, data, clientsByMonth };
@@ -1039,7 +1037,7 @@ export default function AdminDashboard() {
                             placeholder="All Active"
                             searchPlaceholder="Search statuses…"
                             options={[
-                              { id: 'all', label: `All Tasks (${groupedAdminTasks?.all?.length || 0})` },
+                              { id: 'all', label: `All Statuses (${groupedAdminTasks?.all?.length || 0})` },
                               { id: 'active', label: `All Active (${groupedAdminTasks?.active?.length || 0})` },
                               { id: 'completed', label: `Completed (${groupedAdminTasks?.completed?.length || 0})` },
                               { id: 'rejected', label: `Rejected (${groupedAdminTasks?.rejected?.length || 0})` },
@@ -1061,6 +1059,27 @@ export default function AdminDashboard() {
                             ]}
                           />
                         </div>
+
+                        {(adminTaskTab !== 'active' || adminTaskPriority !== '') && (
+                          <div style={{ paddingTop: 8, borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+                            <button
+                              onClick={() => {
+                                setAdminTaskTab('active');
+                                setAdminTaskPriority('');
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--muted)',
+                                fontSize: 11.5,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Clear filters
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -1234,39 +1253,22 @@ export default function AdminDashboard() {
               style={{ flexShrink: 0 }}
               action={
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {/* Segmented Control for Year */}
-                  <div style={{ display: 'inline-flex', background: 'var(--surface-2)', padding: 2, borderRadius: 6, border: '1px solid var(--border)' }}>
-                    {yearOptions.map((y) => (
-                      <button
-                        key={y.id}
-                        onClick={() => setChartYearFilter(y.id)}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: 4,
-                          border: 'none',
-                          background: chartYearFilter === y.id ? 'var(--surface)' : 'transparent',
-                          color: chartYearFilter === y.id ? 'var(--ink)' : 'var(--muted)',
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          boxShadow: chartYearFilter === y.id ? 'var(--shadow-sm)' : 'none',
-                          transition: 'all 0.12s',
-                        }}
-                      >
-                        {y.label === 'All Years' ? 'All Time' : y.label}
-                      </button>
-                    ))}
+                  <div style={{ width: 110 }}>
+                    <ClientCombobox
+                      value={chartYearFilter}
+                      onChange={(v) => setChartYearFilter(v || new Date().getFullYear().toString())}
+                      options={yearOptions}
+                      placeholder="Select Year"
+                    />
                   </div>
-                  {chartYearFilter !== 'all' && (
-                    <div style={{ width: 110 }}>
-                      <ClientCombobox
-                        value={chartMonthFilter}
-                        onChange={(v) => setChartMonthFilter(v || 'all')}
-                        options={monthOptions}
-                        placeholder="All Months"
-                      />
-                    </div>
-                  )}
+                  <div style={{ width: 110 }}>
+                    <ClientCombobox
+                      value={chartMonthFilter}
+                      onChange={(v) => setChartMonthFilter(v || 'all')}
+                      options={monthOptions}
+                      placeholder="All Months"
+                    />
+                  </div>
                 </div>
               }
             >
@@ -1295,6 +1297,16 @@ export default function AdminDashboard() {
                   return (
                     <>
                       <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                        <defs>
+                          <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--olive)" />
+                            <stop offset="100%" stopColor="var(--olive-light)" stopOpacity="0.2" />
+                          </linearGradient>
+                          <linearGradient id="barGradientHover" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--olive-light)" />
+                            <stop offset="100%" stopColor="var(--olive-200)" stopOpacity="0.4" />
+                          </linearGradient>
+                        </defs>
                         {/* Grid Lines */}
                         {[0, 0.25, 0.5, 0.75, 1].map((pct, idx) => {
                           const y = padding + chartHeight * pct;
@@ -1307,77 +1319,62 @@ export default function AdminDashboard() {
                           );
                         })}
 
-                        {/* Bars */}
-                        {points.map((p, idx) => (
-                          <rect key={idx} x={p.x} y={p.y} width={p.barWidth} height={p.barHeight} rx={4}
-                            fill={growthTooltip?.label === p.label ? '#0077A3' : '#0096C7'}
-                            style={{ transition: 'fill 0.15s, opacity 0.15s', cursor: 'pointer' }}
-                            onMouseEnter={() => setGrowthTooltip({ x: p.x + p.barWidth/2, y: p.y, label: p.label, val: p.val })}
-                            onMouseLeave={() => setGrowthTooltip(null)}
-                          />
-                        ))}
+                        {/* Bars and X-Axis Labels */}
+                        {points.map((p, idx) => {
+                          const displayHeight = Math.max(p.barHeight, 4);
+                          const displayY = padding + chartHeight - displayHeight;
+                          // Show a short label like "Jan" instead of "January 2026" if possible
+                          const shortLabel = p.label.split(' ')[0].substring(0, 3);
+                          return (
+                          <g key={idx}>
+                            <rect x={p.x} y={displayY} width={p.barWidth} height={displayHeight} rx={4}
+                              fill={growthTooltip?.label === p.label ? 'url(#barGradientHover)' : 'url(#barGradient)'}
+                              style={{ 
+                                transition: 'fill 0.2s, height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), y 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)', 
+                                cursor: 'pointer' 
+                              }}
+                              onMouseEnter={() => setGrowthTooltip({ x: p.x + p.barWidth/2, y: displayY, label: p.label, val: p.val })}
+                              onMouseLeave={() => setGrowthTooltip(null)}
+                            />
+                            <text 
+                              x={p.x + p.barWidth / 2} 
+                              y={height - 15} 
+                              textAnchor="middle" 
+                              fontSize="10" 
+                              fill="var(--muted)" 
+                              fontWeight="600"
+                            >
+                              {shortLabel}
+                            </text>
+                          </g>
+                        )})}
 
                       </svg>
 
                       {/* Hover Tooltip */}
-                      {growthTooltip && (() => {
-                        const names = (clientsByMonth || {})[growthTooltip.label] || [];
-                        return (
-                          <div style={{
-                            position: 'absolute',
-                            left: `${(growthTooltip.x / 500) * 100}%`,
-                            top: `${(growthTooltip.y / 180) * 100}%`,
-                            transform: 'translate(-50%, -105%)',
-                            zIndex: 1000,
-                            background: 'rgba(20, 25, 12, 0.98)',
-                            backdropFilter: 'blur(8px)',
-                            border: '1px solid rgba(255, 255, 255, 0.15)',
-                            borderRadius: '8px',
-                            padding: '12px',
-                            color: '#fff',
-                            fontSize: '12px',
-                            boxShadow: 'var(--shadow-lg)',
-                            pointerEvents: 'none',
-                            width: '210px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px',
-                            transition: 'all 0.1s ease',
-                          }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '6px', fontWeight: 'bold' }}>
-                              <span>{growthTooltip.label}</span>
-                              <span style={{ color: 'var(--olive)' }}>{growthTooltip.val} Cumulative</span>
-                            </div>
-                            <div style={{ fontSize: '10.5px', color: 'rgba(255, 255, 255, 0.65)', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                              Joined in Month ({names.length}):
-                            </div>
-                            {names.length === 0 ? (
-                              <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.5)', fontStyle: 'italic' }}>None</div>
-                            ) : (
-                              <ul style={{
-                                margin: 0,
-                                paddingLeft: '16px',
-                                listStyleType: 'disc',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: '4px',
-                                maxHeight: '110px',
-                                overflowY: 'auto',
-                                fontSize: '11.5px',
-                                lineHeight: '1.4',
-                                color: '#f3f4f6',
-                                pointerEvents: 'auto',
-                              }}>
-                                {names.map((name, i) => (
-                                  <li key={i} style={{ fontWeight: 500 }}>
-                                    {name}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      })()}
+                      {growthTooltip && (
+                        <div style={{
+                          position: 'absolute',
+                          left: `${(growthTooltip.x / width) * 100}%`,
+                          top: `${(growthTooltip.y / height) * 100}%`,
+                          transform: 'translate(-50%, -120%)',
+                          zIndex: 1000,
+                          background: 'rgba(20, 25, 12, 0.98)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          borderRadius: '6px',
+                          padding: '6px 10px',
+                          color: '#fff',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          boxShadow: 'var(--shadow-md)',
+                          pointerEvents: 'none',
+                          transition: 'all 0.1s ease',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          <span style={{ color: 'var(--olive-light)' }}>{growthTooltip.val}</span> Joins
+                        </div>
+                      )}
                     </>
                   );
                 })()}

@@ -1,12 +1,20 @@
 'use client';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { createContext, useContext, useEffect } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import { USE_MOCK } from '@/lib/mockData';
 import { apiFetch } from '@/lib/api';
 
+const LayoutContext = createContext(false);
+
 export default function AppLayout({ children, withHeader }: { children: React.ReactNode, withHeader?: boolean }) {
+  const isWrapped = useContext(LayoutContext);
+  const pathname = usePathname();
   const router = useRouter();
+
+  if (isWrapped) {
+    return <>{children}</>;
+  }
 
   useEffect(() => {
     if (USE_MOCK) return; // skip auth check in demo mode
@@ -32,9 +40,14 @@ export default function AppLayout({ children, withHeader }: { children: React.Re
     }
   }, []);
 
+  if (pathname === '/login') {
+    return <LayoutContext.Provider value={true}>{children}</LayoutContext.Provider>;
+  }
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar />
+    <LayoutContext.Provider value={true}>
+      <div style={{ display: 'flex', minHeight: '100vh' }}>
+        <Sidebar />
       <div
         className="sidebar-overlay"
         onClick={() => {
@@ -46,6 +59,7 @@ export default function AppLayout({ children, withHeader }: { children: React.Re
       <main id="app-main-scroll" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflowY: 'auto', overflowX: 'hidden' }}>
         {children}
       </main>
-    </div>
+      </div>
+    </LayoutContext.Provider>
   );
 }

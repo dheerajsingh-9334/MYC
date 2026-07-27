@@ -786,7 +786,7 @@ export default function ClientDetailPane({
       { label: 'Blocked', count: taskStatusCounts.blocked, color: 'var(--blocked)' },
       { label: 'Overdue', count: taskStatusCounts.overdue, color: 'var(--red)' },
       { label: 'Due Today', count: taskStatusCounts.due_today, color: 'var(--amber)' },
-      { label: 'In Progress', count: taskStatusCounts.in_progress, color: 'var(--olive)' },
+      { label: 'In Progress', count: taskStatusCounts.in_progress, color: '#EC4899' },
       { label: 'Pending', count: taskStatusCounts.pending, color: 'var(--muted)' },
     ].filter(d => d.count > 0);
     
@@ -1353,7 +1353,7 @@ export default function ClientDetailPane({
                     { label: 'Blocked', count: taskStatusCounts.blocked, color: 'var(--blocked)' },
                     { label: 'Overdue', count: taskStatusCounts.overdue, color: 'var(--red)' },
                     { label: 'Due Today', count: taskStatusCounts.due_today, color: 'var(--amber)' },
-                    { label: 'In Progress', count: taskStatusCounts.in_progress, color: 'var(--olive)' },
+                    { label: 'In Progress', count: taskStatusCounts.in_progress, color: '#EC4899' },
                     { label: 'Pending', count: taskStatusCounts.pending, color: 'var(--muted)' },
                   ];
                   const total = processedTasks.length || 1;

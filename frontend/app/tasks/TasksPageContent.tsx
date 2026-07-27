@@ -23,6 +23,8 @@ import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
 import RaiseHandModal from '@/components/ui/RaiseHandModal';
 import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 import { LoadingSpinner, BtnSpinner } from '@/components/ui/LoadingSpinner';
+import { useViewPreference } from '@/lib/useViewPreference';
+import KanbanBoard from '@/components/tasks/KanbanBoard';
 
 const AUTO_REFRESH_MS = 30_000;
 const PAGE_SIZE = 15;
@@ -48,6 +50,12 @@ export default function TasksPage() {
   const [assigneeFilter, setAssigneeFilter] = useState<string>('');
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
+
+  const [viewType, setViewType] = useViewPreference<'list' | 'board'>({
+    page: 'tasks',
+    key: 'view_type',
+    defaultValue: 'board',
+  });
   const [showFilters, setShowFilters] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const [tasksScope, setTasksScope] = useState<'all' | 'mine'>('all');
@@ -146,21 +154,21 @@ export default function TasksPage() {
   const { data: liveClients = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: () => apiFetch('/api/clients'),
-    enabled: !USE_MOCK && (showRaiseHandModal || (showAddTask && isAdmin)),
+    enabled: !USE_MOCK && (showRaiseHandModal || showAddTask),
     retry: false,
   });
 
   const { data: liveUsers = [] } = useQuery({
     queryKey: ['users'],
     queryFn: () => apiFetch('/api/users'),
-    enabled: !USE_MOCK && ((showAddTask && isAdmin) || (!!editingTask && isAdmin)),
+    enabled: !USE_MOCK && (showAddTask || !!editingTask),
     retry: false,
   });
 
   const { data: addTaskClientSteps = [] } = useQuery({
     queryKey: ['steps', addTaskForm.clientId],
     queryFn: () => apiFetch(`/api/steps?clientId=${addTaskForm.clientId}`),
-    enabled: !USE_MOCK && !!addTaskForm.clientId && showAddTask && isAdmin,
+    enabled: !USE_MOCK && !!addTaskForm.clientId && showAddTask,
     retry: false,
   });
 
@@ -278,7 +286,7 @@ export default function TasksPage() {
       list = list.filter((t) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled' && isToday(new Date(t.dueDate)));
     } else if (chipFilter === 'rejected') {
       list = list.filter((t) => t.status === 'rejected' || t.status === 'cancelled');
-        } else if (chipFilter === 'complete') {
+    } else if (chipFilter === 'complete') {
       list = list.filter((t) => t.status === 'complete');
     } else if (chipFilter === 'extension_requested') {
       list = list.filter((t) => t.status === 'extension_requested');
@@ -370,7 +378,7 @@ export default function TasksPage() {
           updated = current.filter((x: string) => x !== variables.id);
         }
         localStorage.setItem('pinned_tasks', JSON.stringify(updated));
-      } catch (err) {}
+      } catch (err) { }
       qc.invalidateQueries({ queryKey: ['tasks'] });
       qc.invalidateQueries({ queryKey: ['standup'] });
       qc.invalidateQueries({ queryKey: ['clients'] });
@@ -518,10 +526,11 @@ export default function TasksPage() {
 
       return { previousTasks };
     },
-    onError: (err, variables, context: any) => {
+    onError: (err: any, variables, context: any) => {
       if (context?.previousTasks) {
         qc.setQueryData(['tasks'], context.previousTasks);
       }
+      alert(err?.message || "Failed to update task status");
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['tasks'] });
@@ -560,7 +569,7 @@ export default function TasksPage() {
       driveUrl: vaultLinkUrl.trim(),
       notes: vaultLinkNotes,
     });
-  }; 
+  };
 
   const closeVaultModal = () => {
     setVaultTask(null);
@@ -569,6 +578,45 @@ export default function TasksPage() {
     setVaultLinkNotes('');
     setVaultLinkErr('');
   };
+
+  const reorderMut = useMutation({
+    mutationFn: async (taskIds: string[]) => {
+      const data = await apiFetch(`/api/tasks/reorder`, {
+        method: 'PATCH',
+        body: JSON.stringify({ taskIds }),
+      });
+      return data;
+    },
+    onMutate: async (taskIds) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => {
+          const index = taskIds.indexOf(t.id);
+          if (index !== -1) {
+            return { ...t, position: index };
+          }
+          return t;
+        });
+      });
+
+      return { previousTasks };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      qc.invalidateQueries({ queryKey: ['admin-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['standup'] });
+    },
+    onError: (err: any, variables, context: any) => {
+      if (context?.previousTasks) {
+        qc.setQueryData(['tasks'], context.previousTasks);
+      }
+      alert(err?.message || "Failed to reorder tasks");
+      qc.invalidateQueries({ queryKey: ['tasks'] }); // Re-fetch to reset visual order
+    }
+  });
 
   // Status counts — derived from the full task list, ignoring current filters items
   const counts = useMemo(() => {
@@ -584,13 +632,13 @@ export default function TasksPage() {
   }, [tasks]);
 
   const chips: { key: ChipKind; label: string; count: number; color?: string }[] = [
-    { key: '',          label: 'All',        count: counts.total },
-    { key: 'overdue',   label: 'Overdue',    count: counts.overdue, color: 'var(--red)' },
-    { key: 'today',     label: 'Due Today',  count: counts.today,   color: 'var(--amber)' },
-    { key: 'in_progress', label: 'In Progress', count: counts.in_progress, color: 'var(--olive)' },
+    { key: '', label: 'All', count: counts.total },
+    { key: 'overdue', label: 'Overdue', count: counts.overdue, color: 'var(--red)' },
+    { key: 'today', label: 'Due Today', count: counts.today, color: 'var(--amber)' },
+    { key: 'in_progress', label: 'In Progress', count: counts.in_progress, color: '#EC4899' },
     { key: 'extension_requested', label: 'Extension Requested', count: counts.extension_requested, color: 'var(--blue)' },
-    { key: 'rejected',  label: 'Rejected',   count: counts.rejected, color: '#B0436A' },
-    { key: 'complete',  label: 'Completed',  count: counts.complete, color: 'var(--green)' },
+    { key: 'rejected', label: 'Rejected', count: counts.rejected, color: '#B0436A' },
+    { key: 'complete', label: 'Completed', count: counts.complete, color: 'var(--green)' },
   ];
   if (!user || isLoading) {
     return (
@@ -612,12 +660,12 @@ export default function TasksPage() {
           color="#fff"
           label={
             deleteTaskMut.isPending ? 'Deleting task...' :
-            completeMut.isPending ? 'Completing task...' :
-            rejectMut.isPending ? 'Rejecting task...' :
-            blockMut.isPending ? 'Blocking task...' :
-            extendMut.isPending ? 'Requesting extension...' :
-            reopenMut.isPending ? 'Reopening task...' :
-            'Processing...'
+              completeMut.isPending ? 'Completing task...' :
+                rejectMut.isPending ? 'Rejecting task...' :
+                  blockMut.isPending ? 'Blocking task...' :
+                    extendMut.isPending ? 'Requesting extension...' :
+                      reopenMut.isPending ? 'Reopening task...' :
+                        'Processing...'
           }
         />
       )}
@@ -627,45 +675,84 @@ export default function TasksPage() {
           isStaff
             ? `${user?.fullName || 'Team Member'} · ${user?.teamName || ''}`
             : isLeader
-            ? `${user?.teamName || 'Team'} · ${counts.total} tasks`
-            : tasksScope === 'all'
-            ? `Org-wide · ${counts.total} tasks`
-            : `${user?.fullName || 'Team Member'} · ${user?.teamName || ''}`
+              ? `${user?.teamName || 'Team'} · ${counts.total} tasks`
+              : tasksScope === 'all'
+                ? `Org-wide · ${counts.total} tasks`
+                : `${user?.fullName || 'Team Member'} · ${user?.teamName || ''}`
         }
         search={search}
         setSearch={setSearch}
       />
       <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, height: 'calc(100vh - 56px)', overflow: 'hidden', boxSizing: 'border-box' }}>
 
-        {/* Toolbar — filter pills left, controls right */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-          padding: '8px 14px', marginBottom: 14, boxSizing: 'border-box',
-        }}>
-          {/* Left: task count + active filter pills */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' }}>
+          padding: '8px 14px', marginBottom: 14, boxSizing: 'border-box', overflowX: 'auto',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'nowrap'
+        }} className="custom-scrollbar">
+          {/* Filters (Explicit as in Jira Kanban) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'nowrap' }}>
 
-            {chipFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{chips.find(c => c.key === chipFilter)?.label}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setChipFilter('')} /></span>)}
-            {teamFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{teamFilter}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setTeamFilter('')} /></span>)}
-            {clientFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{clientOptions.find(c => c.id === clientFilter)?.label}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setClientFilter('')} /></span>)}
-            {assigneeFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{assigneeOptions.find(a => a.id === assigneeFilter)?.name}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setAssigneeFilter('')} /></span>)}
-            {priorityFilter && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>{priorityFilter}<X size={10} style={{ cursor: 'pointer' }} onClick={() => setPriorityFilter('')} /></span>)}
-             {tasksScope === 'mine' && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>My Tasks<X size={10} style={{ cursor: 'pointer' }} onClick={() => setTasksScope('all')} /></span>)}
-             {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || tasksScope === 'mine') && (
-               <button onClick={() => { setChipFilter(''); setTeamFilter(''); setClientFilter(''); setAssigneeFilter(''); setPriorityFilter(''); setTasksScope('all'); }}
-                 style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Clear all</button>
-             )}
-          </div>
-
-          {/* Right: Search | Expand | Collapse | Filters | Add Task */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <div style={{ position: 'relative', width: 180 }}>
+            <div style={{ position: 'relative', flex: 1, minWidth: 140, maxWidth: 220 }}>
               <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
               <input type="text" placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)}
-                style={{ width: '100%', padding: '5px 10px 5px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }} />
+                style={{ width: '100%', padding: '6px 10px 6px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }} />
             </div>
-            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+
+            <div style={{ display: 'inline-flex', background: 'var(--surface-2)', padding: 2, borderRadius: 6, border: '1px solid var(--border)', flexShrink: 0 }}>
+              <button onClick={() => setTasksScope('all')} style={{ padding: '4px 10px', borderRadius: 4, border: 'none', background: tasksScope === 'all' ? 'var(--surface)' : 'transparent', color: tasksScope === 'all' ? 'var(--ink)' : 'var(--muted)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', boxShadow: tasksScope === 'all' ? 'var(--shadow-sm)' : 'none', transition: 'all 0.12s' }}>All Tasks</button>
+              <button onClick={() => setTasksScope('mine')} style={{ padding: '4px 10px', borderRadius: 4, border: 'none', background: tasksScope === 'mine' ? 'var(--surface)' : 'transparent', color: tasksScope === 'mine' ? 'var(--ink)' : 'var(--muted)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', boxShadow: tasksScope === 'mine' ? 'var(--shadow-sm)' : 'none', transition: 'all 0.12s' }}>My Tasks</button>
+            </div>
+
+            <div style={{ flex: 1, minWidth: 110 }}>
+              <ClientCombobox
+                value={chipFilter}
+                onChange={(val) => setChipFilter(val as ChipKind)}
+                placeholder="Issue type"
+                searchPlaceholder="Search statuses…"
+                options={chips.map(c => ({ id: c.key, label: `${c.label} (${c.count})` }))}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 110 }}>
+              <ClientCombobox
+                value={priorityFilter}
+                onChange={setPriorityFilter}
+                placeholder="Priority"
+                options={[
+                  { id: 'high', label: 'High Priority' },
+                  { id: 'medium', label: 'Medium Priority' },
+                  { id: 'low', label: 'Low Priority' }
+                ]}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 110 }}>
+              <ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="Category (Client)" />
+            </div>
+            <div style={{ flex: 1, minWidth: 110 }}>
+              <ClientCombobox
+                value={assigneeFilter}
+                onChange={setAssigneeFilter}
+                placeholder="Assignee"
+                options={assigneeOptions.map(a => ({ id: a.id, label: a.name }))}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 110 }}>
+              <ClientCombobox
+                value={teamFilter}
+                onChange={setTeamFilter}
+                placeholder="Team (Epic)"
+                options={teamOptions.map(t => ({ id: t, label: t }))}
+              />
+            </div>
+
+            {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || tasksScope === 'mine') && (
+              <button onClick={() => { setChipFilter(''); setTeamFilter(''); setClientFilter(''); setAssigneeFilter(''); setPriorityFilter(''); setTasksScope('all'); setSearch(''); }}
+                style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Clear all</button>
+            )}
+          </div>
+
+          {/* Right: Controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             {(() => {
               const allExpanded = groupedByClient.length > 0 && groupedByClient.every(g => expandedClients[g.client.id] === true);
               return (
@@ -676,102 +763,78 @@ export default function TasksPage() {
                     setExpandedClients(next);
                   }}
                   title={allExpanded ? 'Collapse all' : 'Expand all'}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; }}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px',
+                    border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+                    fontSize: 11.5, fontWeight: 600, background: 'var(--surface)',
+                    color: 'var(--ink-2)', cursor: viewType === 'list' ? 'pointer' : 'default',
+                    whiteSpace: 'nowrap',
+                    visibility: viewType === 'list' ? 'visible' : 'hidden',
+                    pointerEvents: viewType === 'list' ? 'auto' : 'none'
+                  }}
+                  onMouseEnter={e => { if (viewType === 'list') { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; } }}
+                  onMouseLeave={e => { if (viewType === 'list') { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; } }}
                 >
                   {allExpanded ? <ChevronsUp size={13} /> : <ChevronsDown size={13} />}
                   {allExpanded ? 'Collapse all' : 'Expand all'}
                 </button>
-              ); 
+              );
             })()}
-            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-            <div ref={filterRef} style={{ position: 'relative' }}>
-              <button onClick={() => setShowFilters(prev => !prev)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || showFilters) ? 'var(--olive-50)' : 'var(--surface)', color: (chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter || showFilters) ? 'var(--olive-dark)' : 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap', minWidth: 95, justifyContent: 'center' }}>
-                <Filter size={13} /> Filters
-                {(chipFilter || teamFilter || clientFilter || assigneeFilter || priorityFilter) && (<span style={{ background: 'var(--olive)', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700, padding: '1px 5px', marginLeft: 2 }}>{[chipFilter, teamFilter, clientFilter, assigneeFilter, priorityFilter].filter(Boolean).length}</span>)}
-                <ChevronDown size={11} style={{ opacity: 0.6, transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
-              </button>
-              {showFilters && (
-                <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 6, width: 260, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 999, padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div><label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Task Visibility</label><div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}><button onClick={() => setTasksScope('all')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: tasksScope === 'all' ? 'var(--olive)' : 'transparent', color: tasksScope === 'all' ? '#fff' : 'var(--ink-2)' }}>All Tasks</button><button onClick={() => setTasksScope('mine')} style={{ flex: 1, padding: '6px 0', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: tasksScope === 'mine' ? 'var(--olive)' : 'transparent', color: tasksScope === 'mine' ? '#fff' : 'var(--ink-2)' }}>My Tasks</button></div></div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)' }}>Status</div>
-                    <ClientCombobox
-                      value={chipFilter}
-                      onChange={(val) => setChipFilter(val as ChipKind)}
-                      placeholder="All Statuses"
-                      searchPlaceholder="Search statuses…"
-                      options={chips.map(c => ({ id: c.key, label: `${c.label} (${c.count})` }))}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)' }}>Team</div>
-                    <ClientCombobox
-                      value={teamFilter}
-                      onChange={setTeamFilter}
-                      placeholder="All Teams"
-                      options={teamOptions.map(t => ({ id: t, label: t }))}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)' }}>Client</div>
-                    <ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="All Clients" />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)' }}>Assignee</div>
-                    <ClientCombobox
-                      value={assigneeFilter}
-                      onChange={setAssigneeFilter}
-                      placeholder="All Assignees"
-                      options={assigneeOptions.map(a => ({ id: a.id, label: a.name }))}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)' }}>Priority</div>
-                    <ClientCombobox
-                      value={priorityFilter}
-                      onChange={setPriorityFilter}
-                      placeholder="All Priorities"
-                      options={[
-                        { id: 'high', label: 'High Priority' },
-                        { id: 'medium', label: 'Medium Priority' },
-                        { id: 'low', label: 'Low Priority' }
-                      ]}
-                    />
-                  </div>
-                </div>
-              )}
+
+            <div style={{ display: 'inline-flex', background: 'var(--surface-2)', padding: 2, borderRadius: 6, border: '1px solid var(--border)' }}>
+              <button onClick={() => setViewType('list')} style={{ padding: '4px 10px', borderRadius: 4, border: 'none', background: viewType === 'list' ? 'var(--surface)' : 'transparent', color: viewType === 'list' ? 'var(--ink)' : 'var(--muted)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', boxShadow: viewType === 'list' ? 'var(--shadow-sm)' : 'none', transition: 'all 0.12s' }}>List View</button>
+              <button onClick={() => setViewType('board')} style={{ padding: '4px 10px', borderRadius: 4, border: 'none', background: viewType === 'board' ? 'var(--surface)' : 'transparent', color: viewType === 'board' ? 'var(--ink)' : 'var(--muted)', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', boxShadow: viewType === 'board' ? 'var(--shadow-sm)' : 'none', transition: 'all 0.12s' }}>Kanban Board</button>
             </div>
-            {isAdmin && (
-              <button onClick={() => setShowAddTask(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)', background: 'var(--olive)', color: '#fff', border: 'none', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}>
-                <Plus size={14} /> Add Task
-              </button>
-            )}
+
+            <button onClick={() => setShowAddTask(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 32, padding: '0 14px', borderRadius: 'var(--radius-sm)', background: 'var(--olive)', color: '#fff', border: 'none', fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'var(--olive)'; }}>
+              <Plus size={14} /> Add Task
+            </button>
           </div>
         </div>
-
 
         <SectionCard style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }} padding={0}>
           {isLoading ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Loading tasks…</div>
           ) : (
             <>
-              <div
-                onScroll={handleTaskScroll}
-                style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', margin: '16px 20px 20px', background: 'var(--surface)' }}
-              >
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10 }}>
-                      <Th onClick={() => toggleSort('title')} active={sortKey === 'title'} dir={sortDir} width="40%">Task</Th>
-                      <Th onClick={() => toggleSort('team')} active={sortKey === 'team'} dir={sortDir} width="15%">Team</Th>
-                      <Th onClick={() => toggleSort('status')} active={sortKey === 'status'} dir={sortDir} width="15%">Status</Th>
-                      <Th onClick={() => toggleSort('dueDate')} active={sortKey === 'dueDate'} dir={sortDir} width="15%">When (due)</Th>
-                      <Th align="center" width="15%">Actions</Th>
-                    </tr>
-                  </thead>
+              {viewType === 'board' ? (
+                <div style={{ flex: 1, minHeight: 0, padding: '16px 20px', overflowY: 'hidden' }}>
+                  <KanbanBoard
+                    tasks={filtered}
+                    isAdmin={isAdmin}
+                    isLeader={isLeader}
+                    onStatusChange={(id: string, status: string) => {
+                      if (status === 'extension_requested') {
+                        setExtendTaskId(id);
+                      } else {
+                        statusMut.mutate({ id, status });
+                      }
+                    }}
+                    onStartTimer={(id: string) => startTimerMut.mutate(id)}
+                    onStopTimer={(id: string) => stopTimerMut.mutate(id)}
+                    onUpdateTask={(task: any) => setEditingTask(task)}
+                    onDeleteTask={(id: string) => { const t = filtered.find((t: any) => t.id === id); setDeleteConfirm({ id, title: t?.title || 'this task' }); }}
+                    onPinToggle={(id: string, pin: boolean) => pinMut.mutate({ id, pin })}
+                    onAlertToggle={(id: string, alert: boolean) => alertMut.mutate({ id, alert })}
+                    onReorder={(taskIds: string[]) => reorderMut.mutate(taskIds)}
+                  />
+                </div>
+              ) : (
+                <div
+                  onScroll={handleTaskScroll}
+                  style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', margin: '16px 20px 20px', background: 'var(--surface)' }}
+                >
+                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10 }}>
+                        <Th onClick={() => toggleSort('title')} active={sortKey === 'title'} dir={sortDir} width="40%">Task</Th>
+                        <Th onClick={() => toggleSort('team')} active={sortKey === 'team'} dir={sortDir} width="15%">Team</Th>
+                        <Th onClick={() => toggleSort('status')} active={sortKey === 'status'} dir={sortDir} width="15%">Status</Th>
+                        <Th onClick={() => toggleSort('dueDate')} active={sortKey === 'dueDate'} dir={sortDir} width="15%">When (due)</Th>
+                        <Th align="center" width="15%">Actions</Th>
+                      </tr>
+                    </thead>
                     {filtered.length === 0 ? (
                       <tbody><tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No tasks match your filters.</td></tr></tbody>
                     ) : scrollableGroups.map((group) => {
@@ -811,13 +874,13 @@ export default function TasksPage() {
                           >
                             <td colSpan={5} style={{ position: 'sticky', top: 40, zIndex: 9, background: 'inherit', padding: '10px 18px', fontWeight: 600, borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                                <span style={{ 
+                                <span style={{
                                   display: 'inline-block',
-                                  fontSize: 9, 
-                                  transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)', 
+                                  fontSize: 9,
+                                  transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
                                   transition: 'transform 0.2s',
                                   color: 'var(--muted)',
-                                  flexShrink: 0 
+                                  flexShrink: 0
                                 }}>▶</span>
                                 <span style={{
                                   fontSize: 13.5, fontWeight: 700, color: 'var(--olive-dark)',
@@ -886,8 +949,9 @@ export default function TasksPage() {
                         </tbody>
                       );
                     })}
-                </table>
-              </div>
+                  </table>
+                </div>
+              )}
             </>
           )}
         </SectionCard>
@@ -992,7 +1056,7 @@ export default function TasksPage() {
                   <div>No documents yet.</div>
                   <div style={{ fontSize: 12, marginTop: 4 }}>Add a Google Drive link above to attach proof of work.</div>
                 </div>
-              ) : (vaultDocsQuery.data as {id: string; title: string; driveUrl?: string; notes?: string}[])?.map((doc) => (
+              ) : (vaultDocsQuery.data as { id: string; title: string; driveUrl?: string; notes?: string }[])?.map((doc) => (
                 <div key={doc.id}
                   style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 24px', borderBottom: '1px solid var(--surface-2)' }}
                   onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'}
@@ -1147,7 +1211,7 @@ export default function TasksPage() {
           </div>
         </div>
       )}
-      {showAddTask && isAdmin && (
+      {showAddTask && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
           onClick={(e) => { if (e.target === e.currentTarget) { setShowAddTask(false); setAddTaskFieldErrors({}); setAddTaskError(''); } }}>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 500, boxShadow: 'var(--shadow-lg)', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -1375,13 +1439,14 @@ export default function TasksPage() {
           </div>
         </div>
       )}
-      {editingTask && isAdmin && (
+      {editingTask && (
         <UpdateTaskModal
           open={!!editingTask}
           onClose={() => setEditingTask(null)}
           onSuccess={() => qc.invalidateQueries({ queryKey: ['tasks'] })}
           task={editingTask}
           users={liveUsers || []}
+          isAdmin={isAdmin}
         />
       )}
       {showRaiseHandModal && (
@@ -1431,15 +1496,15 @@ function StaffTaskRow({
   const whenLabel = done && completedAt
     ? `Done ${completedAt}`
     : overdue
-    ? `Due ${format(new Date(t.dueDate), 'd MMM')} (${overdueDays}d late)`
-    : `Due ${format(new Date(t.dueDate), 'd MMM')}`;
+      ? `Due ${format(new Date(t.dueDate), 'd MMM')} (${overdueDays}d late)`
+      : `Due ${format(new Date(t.dueDate), 'd MMM')}`;
   const whenColor = done ? 'var(--green)' : rej ? '#B0436A' : overdue ? 'var(--red)' : today ? 'var(--amber)' : 'var(--muted)';
 
   const hidePin = t.status === 'complete' || t.status === 'blocked' || t.status === 'extension_requested' || t.status === 'rejected' || t.status === 'cancelled';
 
   const statusColor: Record<string, string> = {
-    pending: 'var(--muted)', in_progress: 'var(--olive)', complete: 'var(--green)',
-    blocked: '#6B3FA0', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--muted)',
+    pending: 'var(--muted)', in_progress: '#EC4899', complete: 'var(--green)',
+    blocked: '#6B3FA0', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--red)',
   };
   const statusLabel: Record<string, string> = {
     pending: 'Pending', in_progress: 'In Progress', complete: 'Complete',
@@ -1541,10 +1606,10 @@ function StaffTaskRow({
             fontSize: 11.5, fontWeight: 600,
             background: t.status === 'complete' ? 'var(--green-bg)'
               : t.status === 'blocked' ? '#F0E8FA'
-              : t.status === 'rejected' ? '#FBEEF1'
-              : t.status === 'extension_requested' ? 'var(--amber-bg)'
-              : t.status === 'in_progress' ? 'var(--olive-50)'
-              : 'var(--surface-2)',
+                : t.status === 'rejected' ? '#FBEEF1'
+                  : t.status === 'extension_requested' ? 'var(--amber-bg)'
+                    : t.status === 'in_progress' ? '#FCE7F3'
+                      : 'var(--surface-2)',
             color: statusColor[t.status],
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: statusColor[t.status] }} />
@@ -1803,12 +1868,12 @@ const pageBtnStyle: React.CSSProperties = {
 const statusBadgeStyle = (status: string): React.CSSProperties => {
   const colors: Record<string, { bg: string; color: string }> = {
     pending: { bg: 'var(--pending-bg)', color: 'var(--pending)' },
-    in_progress: { bg: 'var(--olive-50)', color: 'var(--olive)' },
+    in_progress: { bg: '#FCE7F3', color: '#EC4899' },
     complete: { bg: 'var(--green-bg)', color: 'var(--green)' },
     blocked: { bg: 'var(--blocked-bg)', color: 'var(--blocked)' },
     extension_requested: { bg: 'var(--amber-bg)', color: 'var(--amber)' },
     rejected: { bg: 'var(--rejected-bg)', color: 'var(--rejected)' },
-    cancelled: { bg: 'var(--surface-2)', color: 'var(--muted)' },
+    cancelled: { bg: 'var(--red-bg)', color: 'var(--red)' },
   };
   const c = colors[status] || colors.pending;
   return {

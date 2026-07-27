@@ -41,7 +41,8 @@ export function ClientCombobox({
     const onClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    const onScroll = () => {
+    const onScroll = (e: Event) => {
+      if (ref.current && ref.current.contains(e.target as Node)) return;
       setOpen(false);
     };
     if (open) {

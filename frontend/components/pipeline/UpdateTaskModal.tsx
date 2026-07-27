@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
-import { X } from 'lucide-react';
+import { X, Eye, Folder } from 'lucide-react';
 import { LoadingSpinner, BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
   onSuccess: () => void;
   task: any;
   users: any[];
+  isAdmin?: boolean;
 }
 
 type UpdateTaskData = {
@@ -21,9 +22,11 @@ type UpdateTaskData = {
   teamName: string;
   assignedToId: string;
   status: string;
+  timeSpentSeconds: number;
+  isTimerRunning: boolean;
 };
 
-export default function UpdateTaskModal({ open, onClose, onSuccess, task, users }: Props) {
+export default function UpdateTaskModal({ open, onClose, onSuccess, task, users, isAdmin }: Props) {
   const [form, setForm] = useState<UpdateTaskData>({
     title: '',
     description: '',
@@ -32,6 +35,8 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users 
     teamName: '',
     assignedToId: '',
     status: 'pending',
+    timeSpentSeconds: 0,
+    isTimerRunning: false,
   });
 
   const [error, setError] = useState('');
@@ -46,6 +51,8 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users 
         teamName: task.step?.owningTeamName || task.assignedTo?.teamName || '',
         assignedToId: task.assignedToId || task.assignedTo?.id || '',
         status: task.status || 'pending',
+        timeSpentSeconds: task.timeSpentSeconds || 0,
+        isTimerRunning: task.isTimerRunning || false,
       });
     }
   }, [task, open]);
@@ -74,6 +81,8 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users 
           dueDate: new Date(data.dueDate).toISOString(),
           assignedToId: data.assignedToId,
           status: data.status,
+          timeSpentSeconds: data.timeSpentSeconds,
+          isTimerRunning: data.isTimerRunning,
         }),
       });
     },
@@ -195,11 +204,34 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users 
               <option value="pending">Pending</option>
               <option value="in_progress">In Progress</option>
               <option value="complete">Complete</option>
-              <option value="blocked">Blocked</option>
+              {isAdmin && <option value="blocked">Blocked</option>}
               <option value="extension_requested">Extension Requested</option>
               <option value="cancelled">Cancelled</option>
               <option value="rejected">Rejected</option>
             </select>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Time Spent (seconds)</label>
+              <input
+                type="number"
+                value={form.timeSpentSeconds}
+                onChange={(e) => setForm(f => ({ ...f, timeSpentSeconds: parseInt(e.target.value) || 0 }))}
+                style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Timer Running</label>
+              <select
+                value={form.isTimerRunning ? 'true' : 'false'}
+                onChange={(e) => setForm(f => ({ ...f, isTimerRunning: e.target.value === 'true' }))}
+                style={{ width: '100%', padding: '9px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none' }}
+              >
+                <option value="false">Stopped</option>
+                <option value="true">Running</option>
+              </select>
+            </div>
           </div>
 
           <div style={{ marginBottom: 12 }}>
@@ -220,19 +252,33 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users 
         </div>
 
         {/* Modal footer */}
-        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
-          <button onClick={onClose} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
-            Cancel
-          </button>
-          <button
-            onClick={() => { setError(''); mutation.mutate(form); }}
-            disabled={mutation.isPending || !form.title.trim() || !form.dueDate || !form.assignedToId}
-            style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (mutation.isPending || !form.title.trim() || !form.dueDate || !form.assignedToId) ? 0.6 : 1 }}
-          >
-            {mutation.isPending ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Updating...</span>
-            ) : 'Update Task'}
-          </button>
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
+          <div>
+            {task?.client?.id && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <a href={`/clients/${task.client.id}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--olive)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
+                  <Eye size={14} /> View Client
+                </a>
+                <a href={`/clients/${task.client.id}?tab=vault`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--olive)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
+                  <Folder size={14} /> Vault
+                </a>
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onClose} style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
+              Cancel
+            </button>
+            <button
+              onClick={() => { setError(''); mutation.mutate(form); }}
+              disabled={mutation.isPending || !form.title.trim() || !form.dueDate || !form.assignedToId}
+              style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: 'pointer', opacity: (mutation.isPending || !form.title.trim() || !form.dueDate || !form.assignedToId) ? 0.6 : 1 }}
+            >
+              {mutation.isPending ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Updating...</span>
+              ) : 'Update Task'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

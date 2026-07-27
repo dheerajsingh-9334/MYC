@@ -916,8 +916,8 @@ export default function AdminDashboard() {
                                   const isLast = taskIdx === tasks.length - 1;
 
                                   const statusColor: Record<string, string> = {
-                                    pending: 'var(--muted)', in_progress: 'var(--olive)', complete: 'var(--green)',
-                                    blocked: '#6B3FA0', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--muted)',
+                                    pending: 'var(--muted)', in_progress: '#EC4899', complete: 'var(--green)',
+                                    blocked: '#6B3FA0', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--red)',
                                   };
                                   const statusLabel: Record<string, string> = {
                                     pending: 'Pending', in_progress: 'In Progress', complete: 'Complete',
@@ -1014,7 +1014,7 @@ export default function AdminDashboard() {
                                             : t.status === 'blocked' ? '#F0E8FA'
                                               : t.status === 'rejected' ? '#FBEEF1'
                                                 : t.status === 'extension_requested' ? 'var(--amber-bg)'
-                                                  : t.status === 'in_progress' ? 'var(--olive-50)'
+                                                  : t.status === 'in_progress' ? '#FCE7F3'
                                                     : 'var(--surface-2)',
                                           color: statusColor[t.status] || 'var(--muted)',
                                         }}>
