@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { isPast, isToday, differenceInDays, format } from 'date-fns';
 import { Clock, TriangleAlert, CircleCheck, Play, Pause, AlertCircle, Pin, Eye, Edit2, Trash2, Search } from 'lucide-react';
-
+import autoAnimate from '@formkit/auto-animate';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'To Do',
@@ -75,7 +75,7 @@ export default function KanbanBoard({
   }, [localTasks]);
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
-    e.dataTransfer.setData('taskId', taskId);
+    e.dataTransfer.setData('text/plain', taskId);
     setDraggedTaskId(taskId);
     setDraggedHeight((e.currentTarget as HTMLElement).offsetHeight);
     isClickPrevented.current = true;
@@ -87,7 +87,7 @@ export default function KanbanBoard({
     e.preventDefault();
     setDragOverTaskId(null);
     setDraggedTaskId(null);
-    const taskId = e.dataTransfer.getData('taskId');
+    const taskId = e.dataTransfer.getData('text/plain');
     if (!taskId) return;
 
     const draggedTask = localTasks.find((t: any) => t.id === taskId);
@@ -226,7 +226,14 @@ export default function KanbanBoard({
           </div>
         )}
 
-        <div style={{ padding: 12, flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }} className="custom-scrollbar">
+        <div 
+          ref={(el) => {
+            if (el && !el.dataset.autoAnimated) {
+              autoAnimate(el, { duration: 250, easing: 'ease-in-out' });
+              el.dataset.autoAnimated = "true";
+            }
+          }}
+          style={{ padding: 12, flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }} className="custom-scrollbar">
           {colTasks.map(t => {
             const isDropTarget = dragOverTaskId === t.id && draggedTaskId !== t.id;
             return (
