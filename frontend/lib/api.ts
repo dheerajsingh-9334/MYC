@@ -24,31 +24,44 @@ export async function apiFetch(path: string, options?: RequestInit): Promise<any
     // Try refresh
     const refreshToken = localStorage.getItem('refresh_token');
     if (refreshToken) {
-      const refreshRes = await fetch(`${API_BASE}/api/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-      });
-      if (refreshRes.ok) {
-        const { accessToken } = await refreshRes.json();
-        localStorage.setItem('access_token', accessToken);
-        // Retry
-        const retryRes = await fetch(`${API_BASE}${path}`, {
-          ...options,
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken}`,
-            ...options?.headers,
-          },
+      try {
+        const refreshRes = await fetch(`${API_BASE}/api/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
         });
-        if (!retryRes.ok) throw new Error(await retryRes.text());
-        return retryRes.json();
+        if (refreshRes.ok) {
+          const { accessToken } = await refreshRes.json();
+          localStorage.setItem('access_token', accessToken);
+          // Retry
+          const retryRes = await fetch(`${API_BASE}${path}`, {
+            ...options,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+              ...options?.headers,
+            },
+          });
+          if (!retryRes.ok) {
+            // If retry still fails with 401, we should logout
+            if (retryRes.status === 401) {
+              if (typeof window !== 'undefined') {
+                clearTokens();
+                window.location.href = '/login';
+              }
+              throw new Error('Unauthorized');
+            }
+            throw new Error(await retryRes.text());
+          }
+          return retryRes.json();
+        }
+      } catch (err) {
+        console.error('Refresh token error:', err);
       }
     }
     // Redirect to login
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      clearTokens();
       window.location.href = '/login';
     }
     throw new Error('Unauthorized');
