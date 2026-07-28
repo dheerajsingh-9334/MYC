@@ -136,11 +136,12 @@ export default function TasksPage() {
   const isAdmin = user?.role === 'admin';
   const isLeader = user?.role === 'team_leader';
   const isStaff = user?.role === 'team_member';
+  const userTeams = useMemo(() => {
+    if (!user?.teamName) return [];
+    return user.teamName.split(',').map((t: string) => t.trim()).filter(Boolean);
+  }, [user]);
 
-  // Staff always see only their own tasks (locked); team leaders see their team's tasks (backend-filtered)
-  useEffect(() => {
-    if (isStaff) setTasksScope('mine');
-  }, [isStaff]);
+  // Staff and team leaders see their team's tasks (backend-filtered) by default
 
   const { data: liveTasks = [], isLoading } = useQuery({
     queryKey: ['tasks'],
@@ -213,23 +214,55 @@ export default function TasksPage() {
     }
   });
 
+  const addTaskClientOptions = useMemo(() => {
+    if (isAdmin || userTeams.length === 0) return liveClients;
+    return liveClients.filter((c: any) => {
+      // Check if current step belongs to user's team
+      if (c.currentStep?.owningTeamName && userTeams.includes(c.currentStep.owningTeamName)) return true;
+      // Also check history
+      if (c.stepHistory?.some((h: any) => h.toStep?.owningTeamName && userTeams.includes(h.toStep.owningTeamName))) return true;
+      // If they already have a task assigned to this team
+      if (c.tasks?.some((t: any) => t.assignedTo?.teamName && userTeams.includes(t.assignedTo.teamName))) return true;
+      return false;
+    });
+  }, [liveClients, isAdmin, userTeams]);
+
   const addTaskTeamOptions = useMemo(() => {
+    let availableTeams = new Set<string>();
+    
     // If a client is selected, restrict to teams that own steps in their pipeline
     if (addTaskForm.clientId && (addTaskClientSteps as any[]).length > 0) {
-      const pipelineTeams = new Set<string>();
-      (addTaskClientSteps as any[]).forEach((s) => { if (s.owningTeamName) pipelineTeams.add(s.owningTeamName); });
-      return Array.from(pipelineTeams).sort();
+      (addTaskClientSteps as any[]).forEach((s) => { if (s.owningTeamName) availableTeams.add(s.owningTeamName); });
+    } else {
+      // Fallback: all active teams from users
+      (liveUsers as any[]).forEach((u) => { if (u.teamName && u.isActive !== false) availableTeams.add(u.teamName); });
     }
-    // Fallback: all active teams from users
-    const set = new Set<string>();
-    (liveUsers as any[]).forEach((u) => { if (u.teamName && u.isActive !== false) set.add(u.teamName); });
-    return Array.from(set).sort();
-  }, [liveUsers, addTaskForm.clientId, addTaskClientSteps]);
+    
+    // Non-admins can only assign tasks to their own teams
+    if (!isAdmin && userTeams.length > 0) {
+      const restricted = new Set<string>();
+      userTeams.forEach((t: string) => {
+        // Only include if it's in the available pipeline teams (or if pipeline teams is empty)
+        if (availableTeams.size === 0 || availableTeams.has(t)) {
+          restricted.add(t);
+        }
+      });
+      return Array.from(restricted).sort();
+    }
+    
+    return Array.from(availableTeams).sort();
+  }, [liveUsers, addTaskForm.clientId, addTaskClientSteps, isAdmin, userTeams]);
 
   const addTaskAssignees = useMemo(() => {
-    if (!addTaskForm.teamName) return liveUsers as any[];
-    return (liveUsers as any[]).filter((u) => u.teamName === addTaskForm.teamName && u.isActive !== false);
-  }, [liveUsers, addTaskForm.teamName]);
+    let filteredUsers = liveUsers as any[];
+    if (addTaskForm.teamName) {
+      filteredUsers = filteredUsers.filter((u) => u.teamName === addTaskForm.teamName && u.isActive !== false);
+    } else if (!isAdmin && userTeams.length > 0) {
+      // If no team selected yet, restrict assignees to user's teams
+      filteredUsers = filteredUsers.filter((u) => userTeams.includes(u.teamName) && u.isActive !== false);
+    }
+    return filteredUsers;
+  }, [liveUsers, addTaskForm.teamName, isAdmin, userTeams]);
 
   const tasks: any[] = USE_MOCK ? MOCK_TASKS : liveTasks;
 
@@ -821,6 +854,10 @@ export default function TasksPage() {
                     onPinToggle={(id: string, pin: boolean) => pinMut.mutate({ id, pin })}
                     onAlertToggle={(id: string, alert: boolean) => alertMut.mutate({ id, alert })}
                     onReorder={(taskIds: string[]) => reorderMut.mutate(taskIds)}
+                    onRaiseHand={(task: any) => {
+                      setSelectedTaskForProblem(task);
+                      setShowRaiseHandModal(true);
+                    }}
                   />
                 </div>
               ) : (
@@ -1239,7 +1276,7 @@ export default function TasksPage() {
                   style={{ width: '100%', padding: '9px 12px', border: `1px solid ${addTaskFieldErrors.clientId ? 'var(--red)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: addTaskFieldErrors.clientId ? 'var(--red-bg)' : 'var(--surface)', outline: 'none' }}
                 >
                   <option value="">Select project / client...</option>
-                  {liveClients.map((c: any) => (
+                  {addTaskClientOptions.map((c: any) => (
                     <option key={c.id} value={c.id}>{c.brandName || c.fullName}</option>
                   ))}
                 </select>
@@ -1458,6 +1495,11 @@ export default function TasksPage() {
           onClose={() => {
             setShowRaiseHandModal(false);
             setSelectedTaskForProblem(null);
+          }}
+          onSuccess={() => {
+            if (selectedTaskForProblem) {
+              statusMut.mutate({ id: selectedTaskForProblem.id, status: 'blocked' });
+            }
           }}
           clients={USE_MOCK ? MOCK_CLIENTS : liveClients}
           preselectedTask={selectedTaskForProblem}

@@ -149,13 +149,13 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const { role, orgId, teamName } = req.user;
 
-    if (role !== 'admin' && role !== 'team_leader') {
+    if (role !== 'admin' && role !== 'team_leader' && role !== 'team_member') {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }
 
     const where: any = { organisationId: orgId };
-    if (role === 'team_leader' && teamName) {
+    if ((role === 'team_leader' || role === 'team_member') && teamName) {
       where.teamName = teamName;
     }
 

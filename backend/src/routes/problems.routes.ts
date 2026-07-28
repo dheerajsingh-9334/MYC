@@ -46,7 +46,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       res.status(403).json({ error: 'Admins cannot raise problems' });
       return;
     }
-    const { clientId, title, description } = req.body;
+    const { clientId, title, description, taskId } = req.body;
     
     if (!title) {
       res.status(400).json({ error: 'Title is required' });
@@ -58,6 +58,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
         organisationId: orgId,
         userId,
         clientId: clientId || undefined,
+        taskId: taskId || undefined,
         title,
         description,
       },
@@ -141,6 +142,21 @@ router.patch('/:id/resolve', requireAuth, async (req: Request, res: Response) =>
       }
     });
     
+    if (updated.title.startsWith('Problem with task: ')) {
+      const taskTitle = updated.title.replace('Problem with task: ', '');
+      await prisma.task.updateMany({
+        where: {
+          clientId: updated.clientId || undefined,
+          title: taskTitle,
+          organisationId: orgId,
+          status: 'blocked'
+        },
+        data: {
+          status: 'pending'
+        }
+      });
+    }
+
     res.json(updated);
   } catch (err) {
     console.error(err);

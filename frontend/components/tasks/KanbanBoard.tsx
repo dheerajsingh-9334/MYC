@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { isPast, isToday, differenceInDays, format } from 'date-fns';
-import { Clock, TriangleAlert, CircleCheck, Play, Pause, AlertCircle, Pin, Eye, Edit2, Trash2, Search } from 'lucide-react';
+import { Clock, TriangleAlert, CircleCheck, Play, Pause, AlertCircle, Pin, Eye, Edit2, Trash2, Search, Hand } from 'lucide-react';
 import autoAnimate from '@formkit/auto-animate';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'To Do',
   in_progress: 'In Progress',
-  blocked: 'Blocked',
+  blocked: 'Raise Hand',
   extension_requested: 'Extension',
   complete: 'Done',
   rejected: 'Rejected',
@@ -35,6 +35,7 @@ export default function KanbanBoard({
   onPinToggle,
   onAlertToggle,
   onReorder,
+  onRaiseHand,
 }: any) {
   // Track per-column search filters
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
@@ -49,9 +50,7 @@ export default function KanbanBoard({
     setLocalTasks(tasks);
   }, [tasks]);
 
-  const activeStatuses = isAdmin
-    ? ['pending', 'in_progress', 'blocked', 'complete', 'rejected', 'cancelled']
-    : ['pending', 'in_progress', 'blocked', 'extension_requested', 'complete', 'rejected', 'cancelled'];
+  const activeStatuses = ['pending', 'in_progress', 'complete', 'rejected', 'cancelled', 'extension_requested', 'blocked'];
 
   // Group and sort tasks by status (most recent first)
   const groupedTasks = useMemo(() => {
@@ -92,6 +91,21 @@ export default function KanbanBoard({
 
     const draggedTask = localTasks.find((t: any) => t.id === taskId);
     if (!draggedTask) return;
+
+    if (draggedTask.status !== status && status === 'blocked' && typeof onRaiseHand === 'function') {
+      onRaiseHand(draggedTask);
+      return;
+    }
+
+    if (draggedTask.status !== status && status === 'extension_requested') {
+      onStatusChange(taskId, status); // This triggers the extension modal in TasksPageContent
+      return;
+    }
+
+    // Admins cannot drag tasks into Raise Hand or Extension columns
+    if (isAdmin && (status === 'blocked' || status === 'extension_requested')) {
+      return;
+    }
 
     const updatedTask = { ...draggedTask, status };
     const colTasks = groupedTasks[status] ? [...groupedTasks[status]] : [];
@@ -298,7 +312,17 @@ export default function KanbanBoard({
                     <span style={{ display: 'inline-flex', alignItems: 'center' }}>• {t.assignedTo?.fullName || 'Unassigned'}</span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                    <div>
+                      {status === 'blocked' && isAdmin && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onStatusChange(t.id, 'pending'); }}
+                          style={{ fontSize: 11, background: 'var(--green)', color: '#fff', padding: '4px 8px', borderRadius: 4, border: 'none', cursor: 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                        >
+                          <CircleCheck size={12} /> Resolve
+                        </button>
+                      )}
+                    </div>
                     {/* Due Date Indicator */}
                     {(() => {
                       const done = t.status === 'complete';

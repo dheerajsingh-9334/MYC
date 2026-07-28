@@ -133,6 +133,8 @@ model Step {
   taskTemplates  StepTaskTemplate[]
   tasks          Task[]
   clientServices ClientService[]
+
+  @@index([organisationId])
 }
 
 model StepTaskTemplate {
@@ -173,6 +175,9 @@ model Client {
   problems       Problem[]
   noteMentions   NoteClientMention[]
   clientServices ClientService[]
+
+  @@index([organisationId])
+  @@index([status])
 }
 
 model Task {
@@ -204,12 +209,18 @@ model Task {
   inProgressAt           DateTime?
   position               Int          @default(0)
   documents              Document[]
+  problems               Problem[]
   assignedTo             User         @relation("AssignedTo", fields: [assignedToId], references: [id])
   client                 Client       @relation(fields: [clientId], references: [id])
   completedBy            User?        @relation("CompletedBy", fields: [completedById], references: [id])
   organisation           Organisation @relation(fields: [organisationId], references: [id])
   rejectedBy             User?        @relation("RejectedBy", fields: [rejectedById], references: [id])
   step                   Step         @relation(fields: [stepId], references: [id])
+
+  @@index([organisationId])
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model StepHistory {
@@ -226,6 +237,9 @@ model StepHistory {
   fromStep          Step?          @relation("FromStep", fields: [fromStepId], references: [id])
   toStep            Step           @relation("ToStep", fields: [toStepId], references: [id])
   triggeredByUser   User?          @relation(fields: [triggeredByUserId], references: [id])
+
+  @@index([organisationId])
+  @@index([clientId])
 }
 
 model Notification {
@@ -386,6 +400,8 @@ model Problem {
   createdAt      DateTime     @default(now())
   resolvedAt     DateTime?
   client         Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  taskId         String?
+  task           Task?        @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
 }

@@ -5,7 +5,7 @@ import { clearTokens, getUser } from '@/lib/api';
 import {
   LayoutDashboard, Sun, CheckSquare, Users, Settings,
   TrendingUp, LogOut, GitBranch, Shield, UserCheck,
-  FolderLock, Activity, BarChart3, Bell, X, Layers, StickyNote,
+  FolderLock, Activity, BarChart3, Bell, X, Layers, StickyNote, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { USE_MOCK } from '@/lib/mockData';
@@ -48,6 +48,29 @@ export default function Sidebar() {
   const [user, setUser] = useState<any>(USE_MOCK ? MOCK_USER : null);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebar-collapsed');
+      if (saved === 'true') {
+        setIsCollapsed(true);
+        document.body.classList.add('sidebar-collapsed');
+      }
+    }
+  }, []);
+
+  const toggleCollapse = () => {
+    const next = !isCollapsed;
+    setIsCollapsed(next);
+    localStorage.setItem('sidebar-collapsed', String(next));
+    if (next) {
+      document.body.classList.add('sidebar-collapsed');
+    } else {
+      document.body.classList.remove('sidebar-collapsed');
+    }
+  };
+
   useEffect(() => {
     if (!USE_MOCK) {
       const loadUser = () => setUser(getUser());
@@ -88,6 +111,7 @@ export default function Sidebar() {
     return (
       <Link href={item.href}
         className={`sidebar-link ${active ? 'active' : ''}`}
+        title={isCollapsed ? item.label : undefined}
         style={{
           display: 'flex', alignItems: 'center', gap: 12,
           padding: '9px 12px 9px 16px',
@@ -102,7 +126,7 @@ export default function Sidebar() {
         }}
       >
         <item.icon size={16} className="sidebar-icon" style={{ flexShrink: 0, transition: 'transform 0.2s ease' }} />
-        <span style={{ flex: 1 }}>{item.label}</span>
+        <span className="sidebar-nav-label" style={{ flex: 1, whiteSpace: 'nowrap' }}>{item.label}</span>
       </Link>
     );
   };
@@ -112,9 +136,10 @@ export default function Sidebar() {
       background: 'var(--surface)', borderRight: '1px solid var(--border)',
       padding: '0 0 20px 0', position: 'sticky', top: 0, height: '100vh',
       display: 'flex', flexDirection: 'column', width: 'var(--sidebar-w)', flexShrink: 0,
+      transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     }}>
       {/* Brand */}
-      <div style={{
+      <div className="sidebar-brand-container" style={{
         display: 'flex',
         alignItems: 'center',
         gap: 10,
@@ -124,13 +149,33 @@ export default function Sidebar() {
         marginBottom: 16,
         boxSizing: 'border-box',
         justifyContent: 'space-between',
+        transition: 'padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 36, height: 36, background: 'var(--olive)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', letterSpacing: '0.5px' }}>M</div>
-          <div style={{ fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 19, color: 'var(--ink)', letterSpacing: '0.3px' }}>
+          <div className="sidebar-brand-text" style={{ fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 19, color: 'var(--ink)', letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>
             MYC OS
           </div>
         </div>
+        
+        {/* Toggle Collapse Desktop */}
+        <button
+          onClick={toggleCollapse}
+          className="desktop-sidebar-collapse"
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--muted)',
+            cursor: 'pointer',
+            padding: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
         <button
           className="mobile-sidebar-close"
           onClick={() => {
@@ -153,7 +198,7 @@ export default function Sidebar() {
 
       {/* Role context banner (for non-admin) */}
       {role !== 'admin' && user?.teamName && (
-        <div style={{
+        <div className="sidebar-role-badge" style={{
           margin: '0 12px 14px', padding: '8px 10px',
           background: roleBadge.bg, borderRadius: 8,
           fontSize: 11.5, color: roleBadge.color, fontWeight: 500,
@@ -165,7 +210,7 @@ export default function Sidebar() {
       )}
 
       {/* Workspace Nav */}
-      <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', color: 'var(--soft)', padding: '0 20px 6px', textTransform: 'uppercase' }}>Workspace</div>
+      <div className="sidebar-section-title" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', color: 'var(--soft)', padding: '0 20px 6px', textTransform: 'uppercase' }}>Workspace</div>
       <nav style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 12px' }}>
         {workspaceItems.map((item, idx) => <NavLink key={item.href} item={item} index={idx} />)}
       </nav>
@@ -173,7 +218,7 @@ export default function Sidebar() {
       {/* Manage Nav */}
       {manageItems.length > 0 && (
         <>
-          <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', color: 'var(--soft)', padding: '20px 20px 6px', textTransform: 'uppercase' }}>Manage</div>
+          <div className="sidebar-section-title" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', color: 'var(--soft)', padding: '20px 20px 6px', textTransform: 'uppercase' }}>Manage</div>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 12px' }}>
             {manageItems.map((item, idx) => <NavLink key={item.href} item={item} index={workspaceItems.length + idx} />)}
           </nav>
@@ -181,9 +226,9 @@ export default function Sidebar() {
       )}
 
       {/* Footer / User profile */}
-      <div style={{ marginTop: 'auto', padding: '16px 20px', borderTop: '1px solid var(--border)' }}>
+      <div className="sidebar-footer" style={{ marginTop: 'auto', padding: '10px 16px', borderTop: '1px solid var(--border)', transition: 'padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, padding: 8,
+          display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px',
           borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'background 0.15s',
         }}
           onClick={() => setShowProfileModal(true)}
@@ -216,13 +261,13 @@ export default function Sidebar() {
               {initials}
             </div>
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="sidebar-user-details" style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.fullName || 'Guest'}</div>
-            <div style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 16, padding: '1px 6px', borderRadius: 6, background: roleBadge.bg, color: roleBadge.color, fontWeight: 600 }}>
+            <div style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 2, padding: '1px 6px', borderRadius: 6, background: roleBadge.bg, color: roleBadge.color, fontWeight: 600 }}>
               {roleBadge.label}
             </div>
           </div>
-          <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} title="Logout" style={{ color: 'var(--soft)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+          <button className="sidebar-logout-btn" onClick={(e) => { e.stopPropagation(); handleLogout(); }} title="Logout" style={{ color: 'var(--soft)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
             <LogOut size={14} />
           </button>
         </div>

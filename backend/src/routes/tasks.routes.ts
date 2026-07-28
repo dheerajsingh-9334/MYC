@@ -395,9 +395,15 @@ router.patch(
               owningTeamName: true,
             },
           },
-          assignedTo: { select: { id: true, fullName: true, teamName: true } },
         },
       });
+
+      if (status !== undefined && status !== "blocked") {
+        await prisma.problem.updateMany({
+          where: { taskId: req.params.id, status: "open" },
+          data: { status: "resolved", resolvedAt: new Date() },
+        });
+      }
 
       if (!updated.isPinned && !updated.isAlerted) {
         const otherActiveFlags = await prisma.task.findFirst({
@@ -445,11 +451,14 @@ router.patch(
 
 
 
-      // Only assignee, admin, or team leader can change status
+      // Only assignee, admin, or team leader can change status, unless it's a blocker.
       let canChange = false;
       if (req.user.role === "admin" || task.assignedToId === req.user.userId) {
         canChange = true;
       } else if (req.user.role === "team_leader") {
+        canChange = true;
+      } else if (status === "blocked") {
+        // Any team member can raise a hand / block a task if they find an issue
         canChange = true;
       }
 
@@ -464,6 +473,20 @@ router.patch(
 
       if (status !== "blocked") {
         data.blockerNote = null;
+        if (task.status === "blocked") {
+          await prisma.problem.updateMany({
+            where: {
+              clientId: task.clientId,
+              title: `Problem with task: ${task.title}`,
+              status: "open",
+              organisationId: req.user.orgId
+            },
+            data: {
+              status: "resolved",
+              resolvedAt: new Date()
+            }
+          });
+        }
       }
 
       // Handle timer transitions based on new status

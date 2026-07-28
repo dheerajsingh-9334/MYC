@@ -309,7 +309,7 @@ export async function notifyExtensionDecision(opts: {
       rows.push({
         organisationId,
         userId: m.id,
-        type: 'extension_decision',
+        type: 'notif_alert', // Fallback until extension_decision is migrated
         message: teamMessage,
         referenceId: taskId,
         referenceType: 'task',

@@ -6,7 +6,7 @@ const config: Record<string, { label: string; bg: string; color: string }> = {
   on_track:  { label: 'On track',  bg: 'var(--green-bg)',  color: 'var(--green)' },
   due_today: { label: 'Due today', bg: 'var(--amber-bg)',  color: 'var(--amber)' },
   overdue:   { label: 'Overdue',   bg: 'var(--red-bg)',    color: 'var(--red)' },
-  blocked:   { label: 'Blocked',   bg: '#F0E8FA',          color: '#6B3FA0' },
+  blocked:   { label: 'Raise Hand',   bg: '#F0E8FA',          color: '#6B3FA0' },
 };
 
 export default function StatusBadge({ status }: StatusBadgeProps) {

@@ -90,13 +90,19 @@ export default function TeamPage() {
     return list;
   }, [team, user]);
 
+  const [search, setSearch] = useState('');
+
   const inactive = useMemo(() => {
-    const list = team.filter((m) => m.isActive === false && m.role !== 'admin');
+    let list = team.filter((m) => m.isActive === false && m.role !== 'admin');
     if (user?.role === 'team_leader' && user.teamName) {
-      return list.filter((m) => m.teamName === user.teamName);
+      list = list.filter((m) => m.teamName === user.teamName);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((m) => m.fullName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q) || (m.teamName && m.teamName.toLowerCase().includes(q)));
     }
     return list;
-  }, [team, user]);
+  }, [team, user, search]);
 
   // Admin sees the full file-based tree. Team leaders see only their team.
   const [expandedTeams, setExpandedTeams] = useState<Set<string>>(new Set());
@@ -115,6 +121,7 @@ export default function TeamPage() {
   const [newTeamName, setNewTeamName] = useState('');
 
   const [editingUser, setEditingUser] = useState<Member | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
 
   const allTeamNames = useMemo(() => {
     const merged = new Set([...TEAMS, ...dbTeams, ...team.map(t => t.teamName).filter(Boolean)]);
@@ -126,7 +133,6 @@ export default function TeamPage() {
     return all;
   }, [team, dbTeams, user]);
 
-  const [search, setSearch] = useState('');
 
   useEffect(() => {
     if (mounted && typeof window !== 'undefined') {
@@ -221,6 +227,7 @@ export default function TeamPage() {
     onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ['users'] });
       setInviteLink(data.link);
+      setEmailSent(data.emailSent);
       setError('');
     },
     onError: (e: any) => setError(e.message || 'Failed to generate invitation link'),
@@ -319,7 +326,7 @@ export default function TeamPage() {
 
   return (
     <AppLayout>
-      {(deleteUserMut.isPending || deleteTeamMut.isPending || deactivateMut.isPending || activateMut.isPending) && (
+      {(deleteUserMut.isPending || deleteTeamMut.isPending) && (
         <LoadingSpinner
           fullPage
           size={40}
@@ -444,7 +451,7 @@ export default function TeamPage() {
                 </table>
               </div>
             </div>
-          ) : (filteredTree.length === 0 && activeAdmins.length === 0) ? (
+          ) : (filteredTree.length === 0 && activeAdmins.length === 0 && (!isAdmin || inactive.length === 0)) ? (
             <div style={{ padding: 60, textAlign: 'center', color: 'var(--muted)' }}>No matching teams or members.</div>
           ) : (
             <div style={{ padding: '8px 0' }}>
@@ -559,12 +566,10 @@ export default function TeamPage() {
                                       onClick: () => setEditingUser(m),
                                     },
                                     {
-                                      label: 'Deactivate',
+                                      label: deactivateMut.isPending && deactivateMut.variables === m.id ? 'Deactivating...' : 'Deactivate',
                                       icon: <Trash2 size={13} />,
                                       onClick: () => {
-                                        if (confirm(`Deactivate ${m.fullName}?`)) {
-                                          deactivateMut.mutate(m.id);
-                                        }
+                                        deactivateMut.mutate(m.id);
                                       },
                                     },
                                     {
@@ -734,12 +739,10 @@ export default function TeamPage() {
                                         onClick: () => setEditingUser(m),
                                       },
                                       {
-                                        label: 'Deactivate',
+                                        label: deactivateMut.isPending && deactivateMut.variables === m.id ? 'Deactivating...' : 'Deactivate',
                                         icon: <Trash2 size={13} />,
                                         onClick: () => {
-                                          if (confirm(`Deactivate ${m.fullName}?`)) {
-                                            deactivateMut.mutate(m.id);
-                                          }
+                                          deactivateMut.mutate(m.id);
                                         },
                                       },
                                       {
@@ -762,48 +765,117 @@ export default function TeamPage() {
                       </tbody>
                     );
                   })}
+                  {/* Inactive section (admin only) */}
+                  {isAdmin && inactive.length > 0 && (
+                    <tbody key="Deactivated">
+                      <tr onClick={() => toggle('Deactivated')}
+                        style={{ background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s', userSelect: 'none' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}>
+                        <td colSpan={isAdmin ? 8 : 7} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <span style={{
+                              display: 'inline-block',
+                              fontSize: 9,
+                              transform: (expandedTeams.has('Deactivated') || !!search.trim()) ? 'rotate(90deg)' : 'rotate(0deg)',
+                              transition: 'transform 0.2s',
+                              color: 'var(--muted)',
+                              flexShrink: 0
+                            }}>▶</span>
+                            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--muted)' }}>Deactivated</span>
+                            <span style={{ fontSize: 11.5, color: 'var(--muted)' }}>
+                              · {inactive.length} member{inactive.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {(expandedTeams.has('Deactivated') || !!search.trim()) && inactive.map((m, memberIdx) => {
+                        const isLast = memberIdx === inactive.length - 1;
+                        return (
+                          <tr key={m.id} className="standup-row" style={{ borderBottom: isLast ? '2px solid var(--border)' : '1px solid var(--surface-2)', opacity: 0.65 }}>
+                            <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'middle', position: 'relative', ...colStyles.member }}>
+                              {/* Tree connector lines */}
+                              <div style={{
+                                position: 'absolute', left: 20, top: 0,
+                                bottom: isLast ? '50%' : 0,
+                                width: 1, background: 'var(--border)',
+                              }} />
+                              <div style={{
+                                position: 'absolute', left: 20, top: '50%',
+                                width: 12, height: 1, background: 'var(--border)',
+                              }} />
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ position: 'relative', width: 28, height: 28, flexShrink: 0 }}>
+                                  {m.avatarUrl ? (
+                                    <img
+                                      src={m.avatarUrl}
+                                      alt={m.fullName}
+                                      style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }}
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        const sibling = e.currentTarget.nextSibling as HTMLElement;
+                                        if (sibling) sibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div style={{
+                                    width: 28, height: 28, borderRadius: '50%',
+                                    background: 'linear-gradient(135deg, var(--muted), var(--soft))',
+                                    color: '#fff', display: m.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontWeight: 600, fontSize: 11
+                                  }}>
+                                    {getInitials(m.fullName)}
+                                  </div>
+                                </div>
+                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--muted)' }}>{m.fullName}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12.5, color: 'var(--muted)', ...colStyles.email }}>
+                              {m.email}
+                            </td>
+                            <td style={{ padding: '10px 18px', verticalAlign: 'middle', ...colStyles.role }}>
+                              <span style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                padding: '2px 8px',
+                                borderRadius: 999,
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                background: 'var(--surface-2)',
+                                color: 'var(--muted)',
+                              }}>
+                                {roleIcon(m.role)}
+                                {roleLabel(m.role)}
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--muted)', ...colStyles.active }}>—</td>
+                            <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--muted)', ...colStyles.late }}>—</td>
+                            <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--muted)', ...colStyles.done }}>—</td>
+                            <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 13, fontWeight: 700, color: 'var(--muted)', ...colStyles.avgTime }}>—</td>
+                            {isAdmin && (
+                              <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', ...colStyles.actions }}>
+                                <button
+                                  onClick={() => activateMut.mutate(m.id)}
+                                  disabled={activateMut.isPending && activateMut.variables === m.id}
+                                  style={{ ...btnMini, color: 'var(--olive)', borderColor: 'rgba(128,128,0,0.2)', opacity: (activateMut.isPending && activateMut.variables === m.id) ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                                >
+                                  {activateMut.isPending && activateMut.variables === m.id ? (
+                                    <>
+                                      <span style={{ width: 12, height: 12, border: '2px solid rgba(85, 107, 47, 0.3)', borderTopColor: 'var(--olive)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                      Activating...
+                                    </>
+                                  ) : 'Activate'}
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  )}
                 </table>
               </div>
-
-              {/* Inactive section (admin only) */}
-              {isAdmin && inactive.length > 0 && (
-                <div style={{ marginTop: 8, borderTop: '1px solid var(--border)' }}>
-                  <div style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Folder size={14} style={{ color: 'var(--muted)' }} />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', letterSpacing: '0.3px', textTransform: 'uppercase' }}>Deactivated ({inactive.length})</span>
-                  </div>
-                  <div style={{
-                    paddingLeft: 24,
-                    borderLeft: '1px dashed var(--border)',
-                    marginLeft: 26,
-                    marginTop: 4,
-                    marginBottom: 12
-                  }}>
-                    {inactive.map((m) => (
-                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0' }}>
-                        <div style={{ width: 24, height: 24, borderRadius: 6, background: 'var(--surface-2)', color: 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 10, opacity: 0.55 }}>
-                          {getInitials(m.fullName)}
-                        </div>
-                        <div style={{ flex: 1, opacity: 0.55 }}>
-                          <div style={{ fontSize: 12.5, color: 'var(--muted)' }}>{m.fullName} · {m.teamName || '—'}</div>
-                        </div>
-                        {isAdmin && (
-                          <button
-                            onClick={() => {
-                              if (confirm(`Reactivate ${m.fullName}?`)) {
-                                activateMut.mutate(m.id);
-                              }
-                            }}
-                            style={{ ...btnMini, color: 'var(--olive)', borderColor: 'rgba(128,128,0,0.2)' }}
-                          >
-                            Activate
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -834,7 +906,7 @@ export default function TeamPage() {
                 <div style={{ padding: '20px 24px' }}>
                   <div style={{ background: '#EBF7EE', border: '1px solid #D1F0D8', color: '#2E7D32', padding: '12px 14px', borderRadius: 'var(--radius-sm)', fontSize: 13, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <UserCheck size={16} />
-                    <span>Invitation link generated successfully!</span>
+                    <span>{emailSent ? 'Invitation link generated and emailed successfully!' : 'Invitation link generated successfully!'}</span>
                   </div>
                   <label style={lbl}>Shareable Magic-Link</label>
                   <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>

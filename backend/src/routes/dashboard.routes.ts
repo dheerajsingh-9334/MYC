@@ -57,6 +57,12 @@ router.get('/stats', requireAuth, async (req: Request, res: Response) => {
 //   - per-team rollup: members, active tasks, completed (last 7d), overdue
 //   - per-member rollup (top loaders): name, team, active, overdue, completed (last 7d)
 //   - recent activity: 10 most recent task completions
+// Cache users and steps to massively reduce DB load (they rarely change)
+let usersCache: any[] | null = null;
+let stepsCache: any[] | null = null;
+let lastCacheTime = 0;
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 router.get('/admin', requireAuth, async (req: Request, res: Response) => {
   try {
     if (req.user.role !== 'admin' && req.user.role !== 'team_leader') {
@@ -67,35 +73,53 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
     const isAdmin = role === 'admin';
 
     const clientFilter: any = { organisationId: orgId };
-    const activeClientFilter: any = { organisationId: orgId, status: 'active' };
-    const completedClientFilter: any = { organisationId: orgId, status: 'completed' };
     const taskFilter: any = { organisationId: orgId };
     const stepHistoryFilter: any = { organisationId: orgId };
 
     if (!isAdmin) {
       clientFilter.tasks = { none: { status: 'blocked' } };
-      activeClientFilter.tasks = { none: { status: 'blocked' } };
-      completedClientFilter.tasks = { none: { status: 'blocked' } };
-      taskFilter.client = { tasks: { none: { status: 'blocked' } } };
-      stepHistoryFilter.client = { tasks: { none: { status: 'blocked' } } };
+      stepHistoryFilter.client = { tasks: { none: 'blocked' } };
     }
 
+    const t0 = Date.now();
+    
+    // Refresh cache if needed
+    if (!usersCache || !stepsCache || Date.now() - lastCacheTime > CACHE_TTL) {
+      const [u, s] = await Promise.all([
+        prisma.user.findMany({
+          where: { organisationId: orgId, isActive: true },
+          select: { id: true, fullName: true, role: true, teamName: true },
+        }),
+        prisma.step.findMany({
+          where: { organisationId: orgId, clientId: null, isActive: true },
+          select: { id: true, name: true, stepNumber: true, owningTeamName: true },
+        })
+      ]);
+      usersCache = u;
+      stepsCache = s;
+      lastCacheTime = Date.now();
+    }
+
+    const users = usersCache;
+    const steps = stepsCache;
+
+    // Execute remaining 3 queries in parallel (safe for 15 pool limit)
     const [
-      totalClients,
-      activeClients,
-      completedClients,
-      tasks,
-      users,
-      steps,
-      completedClientsList,
       allClientsList,
-      histories,
-      dashboardClientList,
+      tasks,
+      histories
     ] = await Promise.all([
-      prisma.client.count({ where: clientFilter }),
-      prisma.client.count({ where: activeClientFilter }),
-      prisma.client.count({ where: completedClientFilter }),
-      // Tasks with all fields needed for rollup AND recentCompletions log (no separate query)
+      prisma.client.findMany({
+        where: clientFilter,
+        select: {
+          id: true, fullName: true, brandName: true, status: true,
+          stepEnteredAt: true, dateJoined: true, createdAt: true,
+          currentStep: {
+            select: { id: true, name: true, stepNumber: true, slaDays: true, owningTeamName: true },
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
       prisma.task.findMany({
         where: taskFilter,
         select: {
@@ -103,32 +127,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
           completedAt: true, createdAt: true, inProgressAt: true,
           assignedToId: true, stepId: true, clientId: true,
           extensionRequestedDate: true, extensionReason: true,
-          assignedTo: { select: { id: true, fullName: true, teamName: true, role: true } },
-          step: { select: { id: true, name: true, owningTeamName: true, stepNumber: true } },
-          client: { select: { id: true, brandName: true, fullName: true } },
-          completedBy: { select: { fullName: true } },
         },
-      }),
-      prisma.user.findMany({
-        where: { organisationId: orgId, isActive: true },
-        select: { id: true, fullName: true, role: true, teamName: true },
-      }),
-      prisma.step.findMany({
-        where: { organisationId: orgId, clientId: null, isActive: true },
-        select: { id: true, name: true, stepNumber: true, owningTeamName: true },
-      }),
-      // Completed clients — only fields needed for avgCompletionTime calculation
-      prisma.client.findMany({
-        where: completedClientFilter,
-        select: {
-          id: true, createdAt: true, dateJoined: true,
-          stepHistory: { select: { createdAt: true }, orderBy: { createdAt: 'desc' }, take: 1 },
-        },
-      }),
-      // All clients — only fields needed for step-stay duration calculations
-      prisma.client.findMany({
-        where: clientFilter,
-        select: { id: true, dateJoined: true, createdAt: true, status: true },
       }),
       prisma.stepHistory.findMany({
         where: stepHistoryFilter,
@@ -138,20 +137,14 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
           toStep: { select: { stepNumber: true } },
         },
         orderBy: { createdAt: 'asc' },
-      }),
-      // Lightweight client list for dashboard display panels (client risk, charts, attention)
-      prisma.client.findMany({
-        where: clientFilter,
-        select: {
-          id: true, fullName: true, brandName: true, status: true,
-          stepEnteredAt: true, dateJoined: true, createdAt: true,
-          currentStep: {
-            select: { id: true, name: true, stepNumber: true, slaDays: true, owningTeamName: true },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      }),
+      })
     ]);
+
+    const totalClients = allClientsList.length;
+    const activeClients = allClientsList.filter(c => c.status === 'active').length;
+    const completedClients = allClientsList.filter(c => c.status === 'completed').length;
+    const completedClientsList = allClientsList.filter(c => c.status === 'completed');
+    const dashboardClientList = allClientsList;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -168,7 +161,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
     let totalDurationDays = 0;
     let completedCount = 0;
     for (const c of completedClientsList) {
-      const completionDate = c.stepHistory[0]?.createdAt || c.createdAt;
+      const completionDate = c.stepEnteredAt || c.createdAt;
       const joinedDate = c.dateJoined || c.createdAt;
       const durationMs = completionDate.getTime() - joinedDate.getTime();
       const durationDays = Math.max(0, Math.round(durationMs / (1000 * 60 * 60 * 24)));
@@ -249,6 +242,10 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
     }
 
     // Per-team rollup
+    const userMap = new Map(users.map(u => [u.id, u]));
+    const stepMap = new Map(steps.map(s => [s.id, s]));
+    const clientMap = new Map(allClientsList.map(c => [c.id, c]));
+
     const teamMap = new Map<string, {
       teamName: string;
       memberCount: number;
@@ -271,14 +268,14 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       if (u.role === 'team_leader') team.leadCount += 1;
     }
     for (const t of activeTasks) {
-      const teamName = t.step?.owningTeamName || t.assignedTo?.teamName || '(Unassigned)';
+      const teamName = stepMap.get(t.stepId)?.owningTeamName || userMap.get(t.assignedToId)?.teamName || '(Unassigned)';
       const team = ensureTeam(teamName);
       team.activeTasks += 1;
       if (t.status === 'blocked') team.blocked += 1;
       if (new Date(t.dueDate) < today) team.overdue += 1;
     }
     for (const t of completedLast7d) {
-      const teamName = t.step?.owningTeamName || t.assignedTo?.teamName || '(Unassigned)';
+      const teamName = stepMap.get(t.stepId)?.owningTeamName || userMap.get(t.assignedToId)?.teamName || '(Unassigned)';
       const team = ensureTeam(teamName);
       team.completedLast7d += 1;
     }
@@ -308,8 +305,8 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
 
     // Per-step rollup
     const stepRollup = steps.map((s) => {
-      const stepActive = activeTasks.filter((t) => t.step?.name === s.name);
-      const stepCompleted = completedLast7d.filter((t) => t.step?.name === s.name).length;
+      const stepActive = activeTasks.filter((t) => t.stepId === s.id);
+      const stepCompleted = completedLast7d.filter((t) => t.stepId === s.id).length;
       return {
         stepId: s.id, stepNumber: s.stepNumber, name: s.name, owningTeamName: s.owningTeamName,
         activeTasks: stepActive.length,
@@ -320,7 +317,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       };
     });
 
-    // Build recentCompletions activity log from already-fetched tasks (no extra DB query)
+    // Build recentCompletions activity log from tasks
     const sortedForLogs = [...tasks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 100);
     const logs: any[] = [];
     (sortedForLogs as any[]).forEach((t: any) => {
@@ -328,12 +325,12 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         id: `${t.id}-created`,
         title: t.title,
         completedAt: t.createdAt,
-        assignee: t.assignedTo?.fullName || 'Unassigned',
-        team: t.step?.owningTeamName || '(Unassigned)',
-        client: t.client?.brandName || t.client?.fullName || 'General',
-        step: t.step?.name || 'Task Created',
+        assignee: userMap.get(t.assignedToId)?.fullName || 'Unassigned',
+        team: stepMap.get(t.stepId)?.owningTeamName || '(Unassigned)',
+        client: clientMap.get(t.clientId)?.brandName || clientMap.get(t.clientId)?.fullName || 'General',
+        step: stepMap.get(t.stepId)?.name || 'Task Created',
         action: 'created',
-        message: `${t.assignedTo?.fullName || 'Unassigned'} was assigned task "${t.title}"`
+        message: `${userMap.get(t.assignedToId)?.fullName || 'Unassigned'} was assigned task "${t.title}"`
       });
 
       if (t.inProgressAt) {
@@ -341,12 +338,12 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
           id: `${t.id}-inprogress`,
           title: t.title,
           completedAt: t.inProgressAt,
-          assignee: t.assignedTo?.fullName || 'Unassigned',
-          team: t.step?.owningTeamName || '(Unassigned)',
-          client: t.client?.brandName || t.client?.fullName || 'General',
-          step: t.step?.name || 'Task Started',
+          assignee: userMap.get(t.assignedToId)?.fullName || 'Unassigned',
+          team: stepMap.get(t.stepId)?.owningTeamName || '(Unassigned)',
+          client: clientMap.get(t.clientId)?.brandName || clientMap.get(t.clientId)?.fullName || 'General',
+          step: stepMap.get(t.stepId)?.name || 'Task Started',
           action: 'in_progress',
-          message: `${t.assignedTo?.fullName || 'Unassigned'} started task "${t.title}"`
+          message: `${userMap.get(t.assignedToId)?.fullName || 'Unassigned'} started task "${t.title}"`
         });
       }
 
@@ -355,12 +352,12 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
           id: `${t.id}-completed`,
           title: t.title,
           completedAt: t.completedAt,
-          assignee: t.completedBy?.fullName || t.assignedTo?.fullName || 'Unassigned',
-          team: t.step?.owningTeamName || '(Unassigned)',
-          client: t.client?.brandName || t.client?.fullName || 'General',
-          step: t.step?.name || 'Task Completed',
+          assignee: userMap.get(t.assignedToId)?.fullName || 'Unassigned',
+          team: stepMap.get(t.stepId)?.owningTeamName || '(Unassigned)',
+          client: clientMap.get(t.clientId)?.brandName || clientMap.get(t.clientId)?.fullName || 'General',
+          step: stepMap.get(t.stepId)?.name || 'Task Completed',
           action: 'completed',
-          message: `${t.completedBy?.fullName || t.assignedTo?.fullName || 'Unassigned'} completed task "${t.title}"`
+          message: `${userMap.get(t.assignedToId)?.fullName || 'Unassigned'} completed task "${t.title}"`
         });
       }
 
@@ -369,10 +366,10 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
           id: `${t.id}-blocked`,
           title: t.title,
           completedAt: t.createdAt,
-          assignee: t.assignedTo?.fullName || 'Unassigned',
-          team: t.step?.owningTeamName || '(Unassigned)',
-          client: t.client?.brandName || t.client?.fullName || 'General',
-          step: t.step?.name || 'Task Blocked',
+          assignee: userMap.get(t.assignedToId)?.fullName || 'Unassigned',
+          team: stepMap.get(t.stepId)?.owningTeamName || '(Unassigned)',
+          client: clientMap.get(t.clientId)?.brandName || clientMap.get(t.clientId)?.fullName || 'General',
+          step: stepMap.get(t.stepId)?.name || 'Task Blocked',
           action: 'blocked',
           message: `Task "${t.title}" was blocked`
         });
@@ -410,7 +407,9 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       dueDate: t.dueDate, completedAt: t.completedAt,
       assignedToId: t.assignedToId, stepId: t.stepId,
       extensionRequestedDate: t.extensionRequestedDate, extensionReason: t.extensionReason,
-      client: t.client, step: t.step, assignedTo: t.assignedTo,
+      client: clientMap.get(t.clientId) || null, 
+      step: stepMap.get(t.stepId) || null, 
+      assignedTo: userMap.get(t.assignedToId) || null,
     }));
 
     res.json({
@@ -438,14 +437,15 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
         dueDate: t.dueDate,
         extensionRequestedDate: t.extensionRequestedDate,
         extensionReason: t.extensionReason,
-        assignee: (t as any).assignedTo?.fullName,
-        team: (t as any).step?.owningTeamName,
-        client: (t as any).client?.brandName || (t as any).client?.fullName,
-        step: (t as any).step?.name,
+        assignee: userMap.get(t.assignedToId)?.fullName,
+        team: stepMap.get(t.stepId)?.owningTeamName,
+        client: clientMap.get(t.clientId)?.brandName || clientMap.get(t.clientId)?.fullName,
+        step: stepMap.get(t.stepId)?.name,
       })),
       clientList,
       taskList,
     });
+    console.log(`[dashboard.admin] Route took ${Date.now() - t0}ms`);
   } catch (err) {
     console.error('[dashboard.admin] error:', err);
     res.status(500).json({ error: 'Internal server error' });

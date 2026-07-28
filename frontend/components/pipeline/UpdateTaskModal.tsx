@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
-import { X, Eye, Folder } from 'lucide-react';
+import { X, Eye, Folder, Check, CircleCheck } from 'lucide-react';
 import { LoadingSpinner, BtnSpinner } from '@/components/ui/LoadingSpinner';
 
 interface Props {
@@ -95,6 +95,38 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users,
     },
   });
 
+  const approveExtensionMut = useMutation({
+    mutationFn: async ({ approved }: { approved: boolean }) => {
+      return await apiFetch(`/api/tasks/${task.id}/approve-extension`, {
+        method: 'PATCH',
+        body: JSON.stringify({ approved }),
+      });
+    },
+    onSuccess: () => {
+      onSuccess();
+      onClose();
+    },
+    onError: (err: any) => {
+      setError(err.message || 'Failed to process extension');
+    }
+  });
+
+  const resolveMut = useMutation({
+    mutationFn: async () => {
+      return await apiFetch(`/api/tasks/${task.id}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'pending' }),
+      });
+    },
+    onSuccess: () => {
+      onSuccess();
+      onClose();
+    },
+    onError: (err: any) => {
+      setError(err.message || 'Failed to resolve issue');
+    }
+  });
+
   if (!open) return null;
 
   return (
@@ -136,6 +168,57 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users,
 
         {/* Modal body */}
         <div style={{ padding: '20px 24px', overflowY: 'auto', flex: 1 }}>
+          {task?.status === 'blocked' && task?.blockerNote && (
+            <div style={{ marginBottom: 16, padding: 14, background: 'var(--blocked-bg, #F0E8FA)', borderRadius: 8, border: '1px solid #E9D5FF' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--blocked, #6B3FA0)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Raised Hand (Blocker)</span>
+              </div>
+              <p style={{ margin: '0 0 12px 0', fontSize: 13.5, color: 'var(--ink)' }}>{task.blockerNote}</p>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => resolveMut.mutate()}
+                  disabled={resolveMut.isPending}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', opacity: resolveMut.isPending ? 0.6 : 1 }}
+                >
+                  {resolveMut.isPending ? <BtnSpinner /> : <CircleCheck size={14} />} Resolve This
+                </button>
+              )}
+            </div>
+          )}
+
+          {task?.status === 'extension_requested' && (
+            <div style={{ marginBottom: 16, padding: 14, background: 'var(--amber-bg)', borderRadius: 8, border: '1px solid #FDE68A' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Extension Requested</span>
+              </div>
+              <p style={{ margin: '0 0 12px 0', fontSize: 13.5, color: 'var(--ink)' }}>
+                <strong>Reason:</strong> {task.extensionReason || 'No reason provided'} <br />
+                <strong>Requested Due Date:</strong> {task.extensionRequestedDate ? new Date(task.extensionRequestedDate).toLocaleDateString() : 'Unknown'}
+              </p>
+              {isAdmin && (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    type="button"
+                    onClick={() => approveExtensionMut.mutate({ approved: true })}
+                    disabled={approveExtensionMut.isPending}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--green)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', opacity: approveExtensionMut.isPending ? 0.6 : 1 }}
+                  >
+                    {approveExtensionMut.isPending && approveExtensionMut.variables?.approved === true ? <BtnSpinner /> : <Check size={14} />} Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => approveExtensionMut.mutate({ approved: false })}
+                    disabled={approveExtensionMut.isPending}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', opacity: approveExtensionMut.isPending ? 0.6 : 1 }}
+                  >
+                    {approveExtensionMut.isPending && approveExtensionMut.variables?.approved === false ? <BtnSpinner /> : <X size={14} />} Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ marginBottom: 12 }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Task Title *</label>
             <input
@@ -204,13 +287,13 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users,
               <option value="pending">Pending</option>
               <option value="in_progress">In Progress</option>
               <option value="complete">Complete</option>
-              {isAdmin && <option value="blocked">Blocked</option>}
-              <option value="extension_requested">Extension Requested</option>
+              {(!isAdmin || form.status === 'blocked') && <option value="blocked">Raise Hand</option>}
+              {(!isAdmin || form.status === 'extension_requested') && <option value="extension_requested">Extension Requested</option>}
               <option value="cancelled">Cancelled</option>
               <option value="rejected">Rejected</option>
             </select>
           </div>
-          
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 5 }}>Time Spent (seconds)</label>

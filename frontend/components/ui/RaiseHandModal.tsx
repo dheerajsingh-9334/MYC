@@ -9,9 +9,10 @@ interface RaiseHandModalProps {
   onClose: () => void;
   clients: any[];
   preselectedTask?: any;
+  onSuccess?: () => void;
 }
 
-export default function RaiseHandModal({ open, onClose, clients, preselectedTask }: RaiseHandModalProps) {
+export default function RaiseHandModal({ open, onClose, clients, preselectedTask, onSuccess }: RaiseHandModalProps) {
   const qc = useQueryClient();
   const [clientId, setClientId] = useState('');
   const [title, setTitle] = useState('');
@@ -52,6 +53,7 @@ export default function RaiseHandModal({ open, onClose, clients, preselectedTask
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           clientId: clientId || null,
+          taskId: preselectedTask?.id || null,
           title: title.trim(),
           description: description.trim(),
         }),
@@ -64,6 +66,9 @@ export default function RaiseHandModal({ open, onClose, clients, preselectedTask
 
       // Refresh any problem lists
       qc.invalidateQueries({ queryKey: ['problems'] });
+
+      // Call onSuccess immediately to optimistically update the task status in UI
+      onSuccess?.();
 
       setTimeout(() => {
         onClose();
