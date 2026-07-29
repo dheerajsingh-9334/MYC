@@ -131,6 +131,7 @@ export default function StandupPageContent() {
     queryKey: ['standup'],
     queryFn: () => apiFetch('/api/standup'),
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 60_000,
     refetchOnWindowFocus: true,
     retry: false,
   });
@@ -378,29 +379,25 @@ export default function StandupPageContent() {
           <div
             onClick={() => setAlertTypeFilter('')}
             onMouseEnter={e => {
-              e.currentTarget.style.borderTopColor = 'var(--olive)';
-              e.currentTarget.style.borderRightColor = 'var(--olive)';
-              e.currentTarget.style.borderBottomColor = 'var(--olive)';
               e.currentTarget.style.transform = 'translateY(-2px)';
               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderTopColor = 'var(--border)';
-              e.currentTarget.style.borderRightColor = 'var(--border)';
-              e.currentTarget.style.borderBottomColor = 'var(--border)';
               e.currentTarget.style.transform = alertTypeFilter === '' ? 'translateY(-2px)' : 'translateY(0)';
               e.currentTarget.style.boxShadow = alertTypeFilter === '' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
             }}
             style={{ ...statCardStyle('var(--olive)', alertTypeFilter === ''), cursor: 'pointer' }}
           >
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ ...statCardHeaderStyle, color: 'var(--olive)' }}>
-                <Users size={14} style={{ color: 'var(--olive)' }} />
-                <span style={{ fontWeight: 800 }}>Total Alerts</span>
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
+              <div style={statCardHeaderStyle}>
+                <span style={{ fontWeight: 800, color: 'var(--muted)' }}>Total Alerts</span>
+                <div style={{ ...iconContainerStyle, background: 'var(--olive-50)' }}>
+                  <Users size={14} style={{ color: 'var(--olive)' }} />
+                </div>
               </div>
               <div style={statCardValueContainerStyle}>
-                <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{stats.total}</span>
-                <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Active alerts</span>
+                <span style={statCardValueStyle}>{stats.total}</span>
+                <span style={statCardSubtitleStyle}>Active alerts</span>
               </div>
             </div>
           </div>
@@ -408,29 +405,25 @@ export default function StandupPageContent() {
           <div
             onClick={() => setAlertTypeFilter('overdue')}
             onMouseEnter={e => {
-              e.currentTarget.style.borderTopColor = 'var(--red)';
-              e.currentTarget.style.borderRightColor = 'var(--red)';
-              e.currentTarget.style.borderBottomColor = 'var(--red)';
               e.currentTarget.style.transform = 'translateY(-2px)';
               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderTopColor = 'var(--border)';
-              e.currentTarget.style.borderRightColor = 'var(--border)';
-              e.currentTarget.style.borderBottomColor = 'var(--border)';
               e.currentTarget.style.transform = alertTypeFilter === 'overdue' ? 'translateY(-2px)' : 'translateY(0)';
               e.currentTarget.style.boxShadow = alertTypeFilter === 'overdue' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
             }}
             style={{ ...statCardStyle('var(--red)', alertTypeFilter === 'overdue'), cursor: 'pointer' }}
           >
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ ...statCardHeaderStyle, color: 'var(--red)' }}>
-                <TriangleAlert size={14} style={{ color: 'var(--red)' }} />
-                <span style={{ fontWeight: 800 }}>Overdue Tasks</span>
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
+              <div style={statCardHeaderStyle}>
+                <span style={{ fontWeight: 800, color: 'var(--muted)' }}>Overdue Tasks</span>
+                <div style={{ ...iconContainerStyle, background: 'var(--red-bg)' }}>
+                  <TriangleAlert size={14} style={{ color: 'var(--red)' }} />
+                </div>
               </div>
               <div style={statCardValueContainerStyle}>
-                <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{stats.overdue}</span>
-                <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Past due date</span>
+                <span style={statCardValueStyle}>{stats.overdue}</span>
+                <span style={statCardSubtitleStyle}>Past due date</span>
               </div>
             </div>
           </div>
@@ -438,29 +431,25 @@ export default function StandupPageContent() {
           <div
             onClick={() => setAlertTypeFilter('blocked')}
             onMouseEnter={e => {
-              e.currentTarget.style.borderTopColor = '#6B3FA0';
-              e.currentTarget.style.borderRightColor = '#6B3FA0';
-              e.currentTarget.style.borderBottomColor = '#6B3FA0';
               e.currentTarget.style.transform = 'translateY(-2px)';
               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderTopColor = 'var(--border)';
-              e.currentTarget.style.borderRightColor = 'var(--border)';
-              e.currentTarget.style.borderBottomColor = 'var(--border)';
               e.currentTarget.style.transform = alertTypeFilter === 'blocked' ? 'translateY(-2px)' : 'translateY(0)';
               e.currentTarget.style.boxShadow = alertTypeFilter === 'blocked' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
             }}
             style={{ ...statCardStyle('#6B3FA0', alertTypeFilter === 'blocked'), cursor: 'pointer' }}
           >
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ ...statCardHeaderStyle, color: '#6B3FA0' }}>
-                <Ban size={14} style={{ color: '#6B3FA0' }} />
-                <span style={{ fontWeight: 800 }}>Blocked Tasks</span>
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
+              <div style={statCardHeaderStyle}>
+                <span style={{ fontWeight: 800, color: 'var(--muted)' }}>Blocked Tasks</span>
+                <div style={{ ...iconContainerStyle, background: '#F0E8FA' }}>
+                  <Ban size={14} style={{ color: '#6B3FA0' }} />
+                </div>
               </div>
               <div style={statCardValueContainerStyle}>
-                <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{stats.blocked}</span>
-                <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Awaiting resolution</span>
+                <span style={statCardValueStyle}>{stats.blocked}</span>
+                <span style={statCardSubtitleStyle}>Awaiting resolution</span>
               </div>
             </div>
           </div>
@@ -468,29 +457,25 @@ export default function StandupPageContent() {
           <div
             onClick={() => setAlertTypeFilter('due_today')}
             onMouseEnter={e => {
-              e.currentTarget.style.borderTopColor = 'var(--amber)';
-              e.currentTarget.style.borderRightColor = 'var(--amber)';
-              e.currentTarget.style.borderBottomColor = 'var(--amber)';
               e.currentTarget.style.transform = 'translateY(-2px)';
               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderTopColor = 'var(--border)';
-              e.currentTarget.style.borderRightColor = 'var(--border)';
-              e.currentTarget.style.borderBottomColor = 'var(--border)';
               e.currentTarget.style.transform = alertTypeFilter === 'due_today' ? 'translateY(-2px)' : 'translateY(0)';
               e.currentTarget.style.boxShadow = alertTypeFilter === 'due_today' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
             }}
             style={{ ...statCardStyle('var(--amber)', alertTypeFilter === 'due_today'), cursor: 'pointer' }}
           >
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ ...statCardHeaderStyle, color: 'var(--amber)' }}>
-                <Clock size={14} style={{ color: 'var(--amber)' }} />
-                <span style={{ fontWeight: 800 }}>Due Today</span>
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
+              <div style={statCardHeaderStyle}>
+                <span style={{ fontWeight: 800, color: 'var(--muted)' }}>Due Today</span>
+                <div style={{ ...iconContainerStyle, background: 'var(--amber-bg)' }}>
+                  <Clock size={14} style={{ color: 'var(--amber)' }} />
+                </div>
               </div>
               <div style={statCardValueContainerStyle}>
-                <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{stats.dueToday}</span>
-                <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Due within 24h</span>
+                <span style={statCardValueStyle}>{stats.dueToday}</span>
+                <span style={statCardSubtitleStyle}>Due within 24h</span>
               </div>
             </div>
           </div>
@@ -821,16 +806,15 @@ export default function StandupPageContent() {
 
 const statCardStyle = (accent: string, isActive: boolean): React.CSSProperties => ({
   position: 'relative',
-  background: isActive ? 'var(--surface-2)' : 'var(--surface)',
-  borderTop: '1px solid var(--border)',
+  background: 'var(--surface)',
+  borderTop: `2px solid ${accent}`,
   borderRight: '1px solid var(--border)',
   borderBottom: '1px solid var(--border)',
-  borderLeft: `4px solid ${accent}`,
+  borderLeft: '1px solid var(--border)',
   borderRadius: 'var(--radius)',
   padding: '16px 20px',
   display: 'flex',
   flexDirection: 'column',
-  gap: 12,
   minHeight: 110,
   overflow: 'hidden',
   boxShadow: isActive ? 'var(--shadow-md)' : 'var(--shadow-sm)',
@@ -841,25 +825,33 @@ const statCardStyle = (accent: string, isActive: boolean): React.CSSProperties =
 const statCardHeaderStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
+  justifyContent: 'space-between',
   fontSize: 11.5,
-  fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.4px',
-  color: 'var(--muted)',
+};
+
+const iconContainerStyle: React.CSSProperties = {
+  width: 24,
+  height: 24,
+  borderRadius: 6,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 
 const statCardValueContainerStyle: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'baseline',
-  gap: 6,
+  flexDirection: 'column',
+  gap: 4,
   marginTop: 'auto',
 };
 
 const statCardValueStyle: React.CSSProperties = {
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
-  fontSize: 36,
-  lineHeight: 1,
+  fontSize: 28,
+  fontWeight: 700,
+  lineHeight: 1.1,
   color: 'var(--ink)',
 };
 

@@ -57,7 +57,13 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       where,
       include: {
         currentStep: true,
-        tasks: true,
+        tasks: {
+          select: {
+            id: true,
+            status: true,
+            dueDate: true,
+          }
+        },
         stepHistory: {
           orderBy: { createdAt: 'desc' },
           take: 1

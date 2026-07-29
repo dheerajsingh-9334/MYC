@@ -693,6 +693,7 @@ export default function AdminDashboard() {
               subtitle: 'Registered portfolio',
               path: '/clients',
               accent: 'var(--olive)',
+              bg: 'var(--olive-50)',
               icon: Users,
             },
             {
@@ -701,6 +702,7 @@ export default function AdminDashboard() {
               subtitle: 'Step 9+ / Completed',
               path: '/clients?filter=completed',
               accent: 'var(--green)',
+              bg: 'var(--green-bg)',
               icon: CheckCircle,
             },
             {
@@ -709,6 +711,7 @@ export default function AdminDashboard() {
               subtitle: 'Exceeded step SLA',
               path: '/clients?filter=overdue',
               accent: 'var(--red)',
+              bg: 'var(--red-bg)',
               icon: TriangleAlert,
             },
             {
@@ -717,6 +720,7 @@ export default function AdminDashboard() {
               subtitle: 'Past due date',
               path: '/tasks?filter=overdue',
               accent: 'var(--red)',
+              bg: 'var(--red-bg)',
               icon: Clock,
             },
             {
@@ -725,6 +729,7 @@ export default function AdminDashboard() {
               subtitle: 'Active employees',
               path: '/team',
               accent: 'var(--olive)',
+              bg: 'var(--olive-50)',
               icon: Users,
             },
           ].map((kpi, idx) => {
@@ -734,29 +739,25 @@ export default function AdminDashboard() {
                 key={idx}
                 onClick={() => router.push(kpi.path)}
                 onMouseEnter={e => {
-                  e.currentTarget.style.borderTopColor = kpi.accent;
-                  e.currentTarget.style.borderRightColor = kpi.accent;
-                  e.currentTarget.style.borderBottomColor = kpi.accent;
                   e.currentTarget.style.transform = 'translateY(-2px)';
                   e.currentTarget.style.boxShadow = 'var(--shadow-md)';
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.borderTopColor = 'var(--border)';
-                  e.currentTarget.style.borderRightColor = 'var(--border)';
-                  e.currentTarget.style.borderBottomColor = 'var(--border)';
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
                 }}
                 style={{ ...statCardStyle(kpi.accent), cursor: 'pointer' }}
               >
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  <div style={{ ...statCardHeaderStyle, color: kpi.accent }}>
-                    <Icon size={14} style={{ color: kpi.accent }} />
-                    <span style={{ fontWeight: 800 }}>{kpi.title}</span>
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
+                  <div style={statCardHeaderStyle}>
+                    <span style={{ fontWeight: 800, color: 'var(--muted)' }}>{kpi.title}</span>
+                    <div style={{ ...iconContainerStyle, background: kpi.bg }}>
+                      <Icon size={14} style={{ color: kpi.accent }} />
+                    </div>
                   </div>
                   <div style={statCardValueContainerStyle}>
-                    <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{kpi.value}</span>
-                    <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>{kpi.subtitle}</span>
+                    <span style={statCardValueStyle}>{kpi.value}</span>
+                    <span style={statCardSubtitleStyle}>{kpi.subtitle}</span>
                   </div>
                 </div>
               </div>
@@ -1755,15 +1756,14 @@ export default function AdminDashboard() {
 const statCardStyle = (accent: string): React.CSSProperties => ({
   position: 'relative',
   background: 'var(--surface)',
-  borderTop: '1px solid var(--border)',
+  borderTop: `2px solid ${accent}`,
   borderRight: '1px solid var(--border)',
   borderBottom: '1px solid var(--border)',
-  borderLeft: `4px solid ${accent}`,
+  borderLeft: '1px solid var(--border)',
   borderRadius: 'var(--radius)',
   padding: '16px 20px',
   display: 'flex',
   flexDirection: 'column',
-  gap: 12,
   minHeight: 110,
   overflow: 'hidden',
   boxShadow: 'var(--shadow-sm)',
@@ -1773,25 +1773,33 @@ const statCardStyle = (accent: string): React.CSSProperties => ({
 const statCardHeaderStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
+  justifyContent: 'space-between',
   fontSize: 11.5,
-  fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.4px',
-  color: 'var(--muted)',
+};
+
+const iconContainerStyle: React.CSSProperties = {
+  width: 24,
+  height: 24,
+  borderRadius: 6,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 
 const statCardValueContainerStyle: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'baseline',
-  gap: 6,
+  flexDirection: 'column',
+  gap: 4,
   marginTop: 'auto',
 };
 
 const statCardValueStyle: React.CSSProperties = {
-  fontFamily: 'Instrument Serif, serif',
-  fontSize: 36,
-  lineHeight: 1,
+  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+  fontSize: 28,
+  fontWeight: 700,
+  lineHeight: 1.1,
   color: 'var(--ink)',
 };
 

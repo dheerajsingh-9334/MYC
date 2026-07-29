@@ -368,27 +368,29 @@ export default function EnterpriseDashboard() {
           <div
             onClick={() => router.push('/clients')}
             onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'var(--olive)';
               e.currentTarget.style.transform = 'translateY(-2px)';
               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--border)';
               e.currentTarget.style.transform = 'translateY(0)';
               e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
             }}
             style={{
-              ...statCardStyle('var(--olive)'),
+              ...statCardStyle('var(--blue)'),
               cursor: 'pointer',
             }}
           >
-            <div style={{ ...statCardHeaderStyle, color: 'var(--olive)' }}>
-              <Users size={14} style={{ color: 'var(--olive)' }} />
-              <span style={{ fontWeight: 800 }}>Total Clients</span>
-            </div>
-            <div style={statCardValueContainerStyle}>
-              <span style={{ ...statCardValueStyle, color: 'var(--ink)' }}>{totalClientsCount}</span>
-              <span style={{ ...statCardSubtitleStyle, color: 'var(--muted)' }}>Registered</span>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
+              <div style={statCardHeaderStyle}>
+                <span style={{ fontWeight: 800, color: 'var(--muted)' }}>Total Clients</span>
+                <div style={{ ...iconContainerStyle, background: 'var(--blue-bg)' }}>
+                  <Users size={14} style={{ color: 'var(--blue)' }} />
+                </div>
+              </div>
+              <div style={statCardValueContainerStyle}>
+                <span style={statCardValueStyle}>{totalClientsCount}</span>
+                <span style={statCardSubtitleStyle}>Registered portfolio</span>
+              </div>
             </div>
           </div>
 
@@ -396,12 +398,10 @@ export default function EnterpriseDashboard() {
           <div
             onClick={() => router.push('/clients')}
             onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'var(--green)';
               e.currentTarget.style.transform = 'translateY(-2px)';
               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--border)';
               e.currentTarget.style.transform = 'translateY(0)';
               e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
             }}
@@ -410,26 +410,28 @@ export default function EnterpriseDashboard() {
               cursor: 'pointer',
             }}
           >
-            <div style={{ ...statCardHeaderStyle, color: 'var(--green)' }}>
-              <CheckCircle size={14} style={{ color: 'var(--green)' }} />
-              <span style={{ fontWeight: 800 }}>Launched Clients</span>
-            </div>
-            <div style={statCardValueContainerStyle}>
-              <span style={{ ...statCardValueStyle, color: 'var(--green)' }}>{launchedClientsCount}</span>
-              <span style={{ ...statCardSubtitleStyle, color: 'var(--green)', opacity: 0.8 }}>Completed Step 9</span>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
+              <div style={statCardHeaderStyle}>
+                <span style={{ fontWeight: 800, color: 'var(--muted)' }}>Launched Clients</span>
+                <div style={{ ...iconContainerStyle, background: 'var(--green-bg)' }}>
+                  <CheckCircle size={14} style={{ color: 'var(--green)' }} />
+                </div>
+              </div>
+              <div style={statCardValueContainerStyle}>
+                <span style={statCardValueStyle}>{launchedClientsCount}</span>
+                <span style={statCardSubtitleStyle}>Step 9+ / Completed</span>
+              </div>
             </div>
           </div>
 
-          {/* Card 3: Overdue - Clickable & Red Highlighted */}
+          {/* Card 3: Overdue */}
           <div
             onClick={() => router.push('/clients?filter=overdue')}
             onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'var(--red)';
               e.currentTarget.style.transform = 'translateY(-2px)';
               e.currentTarget.style.boxShadow = 'var(--shadow-md)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--border)';
               e.currentTarget.style.transform = 'translateY(0)';
               e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
             }}
@@ -438,13 +440,17 @@ export default function EnterpriseDashboard() {
               cursor: 'pointer',
             }}
           >
-            <div style={{ ...statCardHeaderStyle, color: 'var(--red)' }}>
-              <TriangleAlert size={14} style={{ color: 'var(--red)' }} />
-              <span style={{ fontWeight: 800 }}>Overdue</span>
-            </div>
-            <div style={statCardValueContainerStyle}>
-              <span style={{ ...statCardValueStyle, color: 'var(--red)' }}>{overdueClientsCount}</span>
-              <span style={{ ...statCardSubtitleStyle, color: 'var(--red)', opacity: 0.8 }}>Needs attention</span>
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
+              <div style={statCardHeaderStyle}>
+                <span style={{ fontWeight: 800, color: 'var(--muted)' }}>Overdue Clients</span>
+                <div style={{ ...iconContainerStyle, background: 'var(--red-bg)' }}>
+                  <TriangleAlert size={14} style={{ color: 'var(--red)' }} />
+                </div>
+              </div>
+              <div style={statCardValueContainerStyle}>
+                <span style={statCardValueStyle}>{overdueClientsCount}</span>
+                <span style={statCardSubtitleStyle}>Exceeded step SLA</span>
+              </div>
             </div>
           </div>
 
@@ -585,13 +591,14 @@ export default function EnterpriseDashboard() {
 const statCardStyle = (accent: string): React.CSSProperties => ({
   position: 'relative',
   background: 'var(--surface)',
-  border: '1px solid var(--border)',
-  borderLeft: `4px solid ${accent}`,
+  borderTop: `2px solid ${accent}`,
+  borderRight: '1px solid var(--border)',
+  borderBottom: '1px solid var(--border)',
+  borderLeft: '1px solid var(--border)',
   borderRadius: 'var(--radius)',
   padding: '16px 20px',
   display: 'flex',
   flexDirection: 'column',
-  gap: 12,
   minHeight: 110,
   overflow: 'hidden',
   boxShadow: 'var(--shadow-sm)',
@@ -601,25 +608,33 @@ const statCardStyle = (accent: string): React.CSSProperties => ({
 const statCardHeaderStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
+  justifyContent: 'space-between',
   fontSize: 11.5,
-  fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.4px',
-  color: 'var(--muted)',
+};
+
+const iconContainerStyle: React.CSSProperties = {
+  width: 24,
+  height: 24,
+  borderRadius: 6,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 
 const statCardValueContainerStyle: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'baseline',
-  gap: 6,
+  flexDirection: 'column',
+  gap: 4,
   marginTop: 'auto',
 };
 
 const statCardValueStyle: React.CSSProperties = {
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
-  fontSize: 36,
-  lineHeight: 1,
+  fontSize: 28,
+  fontWeight: 700,
+  lineHeight: 1.1,
   color: 'var(--ink)',
 };
 

@@ -33,6 +33,7 @@ import {
   Users,
   Filter,
   Hand,
+  Activity,
 } from 'lucide-react';
 import RaiseHandModal from '@/components/ui/RaiseHandModal';
 import { DashboardSkeleton } from '@/components/ui/SkeletonLoader';
@@ -111,6 +112,7 @@ export default function StaffDashboard() {
   const { data: liveClients = [] } = useQuery<any[]>({
     queryKey: ['clients'],
     queryFn: () => apiFetch('/api/clients'),
+    staleTime: 60_000,
     enabled: !USE_MOCK,
   });
 
@@ -141,6 +143,7 @@ export default function StaffDashboard() {
     queryKey: ['tasks'],
     queryFn: () => apiFetch('/api/tasks'),
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 60_000,
     refetchOnWindowFocus: true,
     retry: false,
     enabled: !USE_MOCK,
@@ -149,6 +152,7 @@ export default function StaffDashboard() {
   const { data: liveUsers = [] } = useQuery<any[]>({
     queryKey: ['users', user?.id, user?.role],
     queryFn: () => apiFetch('/api/users'),
+    staleTime: 300_000,
     enabled: !USE_MOCK && (user?.role === 'team_leader' || user?.role === 'admin'),
   });
 
@@ -156,6 +160,7 @@ export default function StaffDashboard() {
     queryKey: ['notifications'],
     queryFn: () => apiFetch('/api/notifications'),
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 60_000,
     refetchOnWindowFocus: true,
     retry: false,
     enabled: !USE_MOCK,
@@ -165,6 +170,7 @@ export default function StaffDashboard() {
     queryKey: ['problems'],
     queryFn: () => apiFetch('/api/problems'),
     refetchInterval: AUTO_REFRESH_MS,
+    staleTime: 60_000,
     enabled: !USE_MOCK && !!user,
     retry: false,
   });
@@ -548,21 +554,22 @@ export default function StaffDashboard() {
     return `${Math.round(avgMs / 1000)}s`;
   }, [grouped.completed]);
 
-  const tabs: { key: TabKey; label: string; count: number; icon: any; accent: string; bg: string }[] = useMemo(() => {
-    const list: { key: TabKey; label: string; count: number; icon: any; accent: string; bg: string }[] = [
-      { key: 'all', label: 'All Tasks', count: grouped.all.length, icon: ListChecks, accent: 'var(--ink-2)', bg: 'var(--surface-2)' },
-      { key: 'active', label: user?.role === 'team_leader' ? 'My Tasks' : 'Active Tasks', count: grouped.active.length, icon: ListChecks, accent: 'var(--olive)', bg: 'var(--olive-50)' },
-      { key: 'completed', label: 'Completed', count: grouped.completed.length, icon: CircleCheck, accent: 'var(--green)', bg: 'var(--green-bg)' },
-      { key: 'rejected', label: 'Rejected', count: grouped.rejected.length, icon: XCircle, accent: 'var(--rejected)', bg: 'var(--rejected-bg)' },
+  const tabs: { key: TabKey; label: string; subtitle: string; count: number; icon: any; accent: string; bg: string }[] = useMemo(() => {
+    const list: { key: TabKey; label: string; subtitle: string; count: number; icon: any; accent: string; bg: string }[] = [
+      { key: 'all', label: 'All Tasks', subtitle: 'Total assigned', count: grouped.all.length, icon: ListChecks, accent: 'var(--blue)', bg: 'var(--blue-bg)' },
+      { key: 'active', label: user?.role === 'team_leader' ? 'My Tasks' : 'Active Tasks', subtitle: 'In progress / pending', count: grouped.active.length, icon: Activity, accent: 'var(--green)', bg: 'var(--green-bg)' },
+      { key: 'completed', label: 'Completed', subtitle: 'Finished tasks', count: grouped.completed.length, icon: CircleCheck, accent: 'var(--red)', bg: 'var(--red-bg)' },
+      { key: 'rejected', label: 'Rejected', subtitle: 'Needs attention', count: grouped.rejected.length, icon: XCircle, accent: 'var(--amber)', bg: 'var(--amber-bg)' },
     ];
     if (user?.role === 'team_leader') {
       list.push({
         key: 'team_tasks',
         label: 'Team Tasks',
+        subtitle: 'Team workload',
         count: teamTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length,
         icon: Users,
-        accent: '#2860A1',
-        bg: '#EBF3FB'
+        accent: '#6B3FA0',
+        bg: '#F0E8FA'
       });
     }
     // Add problems tab if team_leader or team_member
@@ -570,6 +577,7 @@ export default function StaffDashboard() {
       list.push({
         key: 'problems',
         label: 'Problems',
+        subtitle: 'Raised blockers',
         count: problemsList.filter((p: any) => p.status === 'open').length,
         icon: Hand,
         accent: 'var(--red)',
@@ -799,6 +807,8 @@ export default function StaffDashboard() {
           </SectionCard>
         </div>
 
+
+
         {/* Bottom Split Layout: 70% Tasks (Left) and 30% Calendar (Right) */}
         <div className="dashboard-split-grid" style={{ alignItems: 'stretch', flex: 1, minHeight: 0 }}>
 
@@ -811,62 +821,7 @@ export default function StaffDashboard() {
               padding={0}
               action={
                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 8 }}>
-                  {/* Segmented Control for Quick Filters */}
-                  <div style={{ display: 'inline-flex', background: 'var(--surface-2)', padding: 2, borderRadius: 6, border: '1px solid var(--border)' }}>
-                    <button
-                      onClick={() => setTab('all')}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: 4,
-                        border: 'none',
-                        background: tab === 'all' ? 'var(--surface)' : 'transparent',
-                        color: tab === 'all' ? 'var(--ink)' : 'var(--muted)',
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        boxShadow: tab === 'all' ? 'var(--shadow-sm)' : 'none',
-                        transition: 'all 0.12s',
-                      }}
-                    >
-                      All Tasks
-                    </button>
-                    <button
-                      onClick={() => setTab('active')}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: 4,
-                        border: 'none',
-                        background: ['active', 'completed', 'rejected', 'problems'].includes(tab) ? 'var(--surface)' : 'transparent',
-                        color: ['active', 'completed', 'rejected', 'problems'].includes(tab) ? 'var(--ink)' : 'var(--muted)',
-                        fontSize: 11.5,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        boxShadow: ['active', 'completed', 'rejected', 'problems'].includes(tab) ? 'var(--shadow-sm)' : 'none',
-                        transition: 'all 0.12s',
-                      }}
-                    >
-                      {user?.role === 'team_leader' ? 'My Tasks' : 'Active Tasks'}
-                    </button>
-                    {user?.role === 'team_leader' && (
-                      <button
-                        onClick={() => setTab('team_tasks')}
-                        style={{
-                          padding: '4px 10px',
-                          borderRadius: 4,
-                          border: 'none',
-                          background: tab === 'team_tasks' ? 'var(--surface)' : 'transparent',
-                          color: tab === 'team_tasks' ? 'var(--ink)' : 'var(--muted)',
-                          fontSize: 11.5,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          boxShadow: tab === 'team_tasks' ? 'var(--shadow-sm)' : 'none',
-                          transition: 'all 0.12s',
-                        }}
-                      >
-                        Team Tasks
-                      </button>
-                    )}
-                  </div>
+
 
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 130 }}>
                     <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--muted)' }} />
@@ -923,7 +878,7 @@ export default function StaffDashboard() {
                             onChange={(val) => setTab((val || 'active') as any)}
                             placeholder={tabs.find(t => t.key === tab)?.label || (user?.role === 'team_leader' ? 'My Tasks' : 'Active Tasks')}
                             searchPlaceholder="Search statuses…"
-                            options={tabs.filter(t => !['all', 'active', 'team_tasks'].includes(t.key)).map(t => ({ id: t.key, label: `${t.label} (${t.count})` }))}
+                            options={tabs.map(t => ({ id: t.key, label: `${t.label} (${t.count})` }))}
                           />
                         </div>
                         <div>
