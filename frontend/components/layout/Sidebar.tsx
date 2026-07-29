@@ -24,7 +24,7 @@ const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard', section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   { label: 'Standup Brief', icon: Sun, href: '/standup', section: 'workspace', roles: ['admin'] },
   { label: 'Tasks', icon: CheckSquare, href: '/tasks', section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
-  { label: 'Clients', icon: GitBranch, href: '/clients', section: 'workspace', roles: ['admin'] },
+  { label: 'Clients', icon: GitBranch, href: '/clients', section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   { label: 'Vault', icon: FolderLock, href: '/vault', section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },
   { label: 'Workload', icon: Activity, href: '/workload', section: 'workspace', roles: ['admin', 'team_leader'] },
   { label: 'Notes', icon: StickyNote, href: '/notes', section: 'workspace', roles: ['admin', 'team_leader', 'team_member'] },

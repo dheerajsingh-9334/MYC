@@ -453,20 +453,6 @@ export default function ClientDetailPane({
   // Apply filters on computed tasks
   const filteredAndSearchedTasks = useMemo(() => {
     return processedTasks.filter((t: any) => {
-      // Team-scope enforcement: team leaders only see their team's tasks
-      if (!isAdmin && currentUser) {
-        const uTeam = currentUser.teamName || '';
-        const tTeam = t._teamName || '';
-        const isSameTeam = uTeam && tTeam && uTeam.toLowerCase() === tTeam.toLowerCase();
-        const isAssignedToMe = t.assignedToId === currentUser.id || t.assignedTo?.id === currentUser.id;
-        const isLead = currentUser.role === 'team_leader';
-
-        if (isLead) {
-          if (!isSameTeam) return false;
-        } else {
-          if (!isAssignedToMe) return false;
-        }
-      }
       const matchesSearch = t.title.toLowerCase().includes(taskSearch.toLowerCase());
       const matchesStatus = taskStatusFilter === 'all' || t._condition === taskStatusFilter;
       const matchesTeam = taskTeamFilter === 'all' || t._teamName.toLowerCase().includes(taskTeamFilter.toLowerCase());
@@ -474,7 +460,7 @@ export default function ClientDetailPane({
 
       return matchesSearch && matchesStatus && matchesTeam && matchesClient;
     });
-  }, [processedTasks, taskSearch, taskStatusFilter, taskTeamFilter, taskClientFilter, isAdmin, currentUser]);
+  }, [processedTasks, taskSearch, taskStatusFilter, taskTeamFilter, taskClientFilter]);
 
   // Reset limit when filters change
   useEffect(() => {
@@ -548,11 +534,8 @@ export default function ClientDetailPane({
       };
     });
 
-    if (isAdmin) return rawHistory;
-    return rawHistory.filter((item: any) => {
-      return item.toTeam === currentUser?.teamName || item.fromTeam === currentUser?.teamName;
-    });
-  }, [client, currentUser, isAdmin]);
+    return rawHistory;
+  }, [client]);
 
   const scrollableHistory = useMemo(() => {
     return history.slice(0, historyLimit);
@@ -1402,7 +1385,7 @@ export default function ClientDetailPane({
         </div>
 
         {/* ── DETAIL GRID ─────────────────────────────────────────────── */}
-        <div className="client-detail-grid" style={{ gridTemplateColumns: isAdmin ? undefined : '1fr' }}>
+        <div className="client-detail-grid">
 
           {/* Current step tasks */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>

@@ -31,19 +31,6 @@ export default function ClientsPage() {
   }, []);
   const isAdmin = mounted && user?.role === 'admin';
 
-  useEffect(() => {
-    if (mounted && user && user.role && user.role !== 'admin') {
-      router.push('/dashboard');
-    }
-  }, [mounted, user, router]);
-
-  if (mounted && user?.role && user.role !== 'admin') {
-    return (
-      <AppLayout>
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--muted)' }}>Redirecting...</div>
-      </AppLayout>
-    );
-  }
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');

@@ -719,8 +719,8 @@ export default function AdminDashboard() {
               value: overdueTasksCount,
               subtitle: 'Past due date',
               path: '/tasks?filter=overdue',
-              accent: 'var(--red)',
-              bg: 'var(--red-bg)',
+              accent: 'var(--orange)',
+              bg: 'var(--orange-bg)',
               icon: Clock,
             },
             {
@@ -746,7 +746,7 @@ export default function AdminDashboard() {
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
                 }}
-                style={{ ...statCardStyle(kpi.accent), cursor: 'pointer' }}
+                style={{ ...statCardStyle(kpi.accent, kpi.bg), cursor: 'pointer' }}
               >
                 <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
                   <div style={statCardHeaderStyle}>
@@ -1753,9 +1753,9 @@ export default function AdminDashboard() {
 
 // ── Inline Styles ────────────────────────────────────────────────────────
 
-const statCardStyle = (accent: string): React.CSSProperties => ({
+const statCardStyle = (accent: string, bg: string): React.CSSProperties => ({
   position: 'relative',
-  background: 'var(--surface)',
+  background: bg,
   borderTop: `2px solid ${accent}`,
   borderRight: '1px solid var(--border)',
   borderBottom: '1px solid var(--border)',

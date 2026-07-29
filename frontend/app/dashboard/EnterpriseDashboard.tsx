@@ -309,7 +309,7 @@ export default function EnterpriseDashboard() {
             {/* Total Alerts */}
             <div
               onClick={() => router.push('/standup')}
-              style={{ ...summaryCardStyle('var(--olive)'), cursor: 'pointer' }}
+              style={{ ...summaryCardStyle('var(--olive)', 'var(--olive-50)'), cursor: 'pointer' }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--olive)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
             >
@@ -322,12 +322,12 @@ export default function EnterpriseDashboard() {
             {/* Overdue Tasks */}
             <div
               onClick={() => router.push('/standup?filter=overdue')}
-              style={{ ...summaryCardStyle('var(--red)'), cursor: 'pointer' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--red)'; }}
+              style={{ ...summaryCardStyle('var(--orange)', 'var(--orange-bg)'), cursor: 'pointer' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--orange)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
             >
               <div style={summaryLabelStyle}>
-                <TriangleAlert size={13} style={{ color: 'var(--red)' }} />
+                <TriangleAlert size={13} style={{ color: 'var(--orange)' }} />
                 <span>Overdue Tasks</span>
               </div>
               <div style={summaryValueStyle}>{standupStats.overdue}</div>
@@ -335,7 +335,7 @@ export default function EnterpriseDashboard() {
             {/* Blocked Tasks */}
             <div
               onClick={() => router.push('/standup?filter=blocked')}
-              style={{ ...summaryCardStyle('#6B3FA0'), cursor: 'pointer' }}
+              style={{ ...summaryCardStyle('#6B3FA0', '#F0E8FA'), cursor: 'pointer' }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#6B3FA0'; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
             >
@@ -348,7 +348,7 @@ export default function EnterpriseDashboard() {
             {/* Due Today */}
             <div
               onClick={() => router.push('/standup?filter=due_today')}
-              style={{ ...summaryCardStyle('var(--amber)'), cursor: 'pointer' }}
+              style={{ ...summaryCardStyle('var(--amber)', 'var(--amber-bg)'), cursor: 'pointer' }}
               onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--amber)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
             >
@@ -376,7 +376,7 @@ export default function EnterpriseDashboard() {
               e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
             }}
             style={{
-              ...statCardStyle('var(--blue)'),
+              ...statCardStyle('var(--blue)', 'var(--blue-bg)'),
               cursor: 'pointer',
             }}
           >
@@ -406,7 +406,7 @@ export default function EnterpriseDashboard() {
               e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
             }}
             style={{
-              ...statCardStyle('var(--green)'),
+              ...statCardStyle('var(--green)', 'var(--green-bg)'),
               cursor: 'pointer',
             }}
           >
@@ -436,7 +436,7 @@ export default function EnterpriseDashboard() {
               e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
             }}
             style={{
-              ...statCardStyle('var(--red)'),
+              ...statCardStyle('var(--red)', 'var(--red-bg)'),
               cursor: 'pointer',
             }}
           >
@@ -588,9 +588,9 @@ export default function EnterpriseDashboard() {
 
 // ── Inline Styles ────────────────────────────────────────────────────────
 
-const statCardStyle = (accent: string): React.CSSProperties => ({
+const statCardStyle = (accent: string, bg: string): React.CSSProperties => ({
   position: 'relative',
-  background: 'var(--surface)',
+  background: bg,
   borderTop: `2px solid ${accent}`,
   borderRight: '1px solid var(--border)',
   borderBottom: '1px solid var(--border)',
@@ -684,8 +684,8 @@ const attentionButtonStyle = (color: string, bg: string): React.CSSProperties =>
   transition: 'all 0.12s',
 });
 
-const summaryCardStyle = (accent: string): React.CSSProperties => ({
-  background: 'var(--surface)',
+const summaryCardStyle = (accent: string, bg: string): React.CSSProperties => ({
+  background: bg,
   border: '1px solid var(--border)',
   borderRadius: 'var(--radius)',
   padding: '12px 16px',

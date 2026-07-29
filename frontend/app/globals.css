@@ -42,6 +42,8 @@
 
   /* Accent */
   --gold: #D97706;
+  --orange: #F97316;
+  --orange-bg: #FFEDD5;
 
   /* Layout */
   --sidebar-w: 240px;
@@ -98,6 +100,9 @@
   --pending: #E8C162;
   --pending-bg: #342D0F;
   --pending-border: #493E15;
+  --orange: #F28C38;
+  --orange-bg: #4A2810;
+  --orange-border: #6B3A18;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.25);

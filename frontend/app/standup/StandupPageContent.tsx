@@ -386,7 +386,7 @@ export default function StandupPageContent() {
               e.currentTarget.style.transform = alertTypeFilter === '' ? 'translateY(-2px)' : 'translateY(0)';
               e.currentTarget.style.boxShadow = alertTypeFilter === '' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
             }}
-            style={{ ...statCardStyle('var(--olive)', alertTypeFilter === ''), cursor: 'pointer' }}
+            style={{ ...statCardStyle('var(--olive)', 'var(--olive-50)', alertTypeFilter === ''), cursor: 'pointer' }}
           >
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
               <div style={statCardHeaderStyle}>
@@ -412,13 +412,13 @@ export default function StandupPageContent() {
               e.currentTarget.style.transform = alertTypeFilter === 'overdue' ? 'translateY(-2px)' : 'translateY(0)';
               e.currentTarget.style.boxShadow = alertTypeFilter === 'overdue' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
             }}
-            style={{ ...statCardStyle('var(--red)', alertTypeFilter === 'overdue'), cursor: 'pointer' }}
+            style={{ ...statCardStyle('var(--orange)', 'var(--orange-bg)', alertTypeFilter === 'overdue'), cursor: 'pointer' }}
           >
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
               <div style={statCardHeaderStyle}>
                 <span style={{ fontWeight: 800, color: 'var(--muted)' }}>Overdue Tasks</span>
-                <div style={{ ...iconContainerStyle, background: 'var(--red-bg)' }}>
-                  <TriangleAlert size={14} style={{ color: 'var(--red)' }} />
+                <div style={{ ...iconContainerStyle, background: 'var(--orange-bg)' }}>
+                  <TriangleAlert size={14} style={{ color: 'var(--orange)' }} />
                 </div>
               </div>
               <div style={statCardValueContainerStyle}>
@@ -438,7 +438,7 @@ export default function StandupPageContent() {
               e.currentTarget.style.transform = alertTypeFilter === 'blocked' ? 'translateY(-2px)' : 'translateY(0)';
               e.currentTarget.style.boxShadow = alertTypeFilter === 'blocked' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
             }}
-            style={{ ...statCardStyle('#6B3FA0', alertTypeFilter === 'blocked'), cursor: 'pointer' }}
+            style={{ ...statCardStyle('#6B3FA0', '#F0E8FA', alertTypeFilter === 'blocked'), cursor: 'pointer' }}
           >
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
               <div style={statCardHeaderStyle}>
@@ -464,7 +464,7 @@ export default function StandupPageContent() {
               e.currentTarget.style.transform = alertTypeFilter === 'due_today' ? 'translateY(-2px)' : 'translateY(0)';
               e.currentTarget.style.boxShadow = alertTypeFilter === 'due_today' ? 'var(--shadow-md)' : 'var(--shadow-sm)';
             }}
-            style={{ ...statCardStyle('var(--amber)', alertTypeFilter === 'due_today'), cursor: 'pointer' }}
+            style={{ ...statCardStyle('var(--amber)', 'var(--amber-bg)', alertTypeFilter === 'due_today'), cursor: 'pointer' }}
           >
             <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%', gap: 12 }}>
               <div style={statCardHeaderStyle}>
@@ -804,9 +804,9 @@ export default function StandupPageContent() {
 
 // ── Inline Styles ────────────────────────────────────────────────────────
 
-const statCardStyle = (accent: string, isActive: boolean): React.CSSProperties => ({
+const statCardStyle = (accent: string, bg: string, isActive: boolean): React.CSSProperties => ({
   position: 'relative',
-  background: 'var(--surface)',
+  background: bg,
   borderTop: `2px solid ${accent}`,
   borderRight: '1px solid var(--border)',
   borderBottom: '1px solid var(--border)',

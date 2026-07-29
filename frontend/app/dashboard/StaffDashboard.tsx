@@ -1313,7 +1313,7 @@ export default function StaffDashboard() {
                   </div>
 
                   <div style={{ background: 'var(--surface-2)', padding: '10px 8px', borderRadius: 8, textAlign: 'center', border: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--red)' }}>
+                    <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--orange)' }}>
                       {teamStats.overdue}
                     </div>
                     <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--muted)', letterSpacing: '0.3px', textTransform: 'uppercase', marginTop: 4 }}>Overdue</div>
