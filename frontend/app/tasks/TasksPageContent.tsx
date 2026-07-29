@@ -392,11 +392,38 @@ export default function TasksPage() {
   const rejectMut = useMutation({
     mutationFn: ({ id, note }: { id: string; note: string }) =>
       apiFetch(`/api/tasks/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ rejectionNote: note }) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); setRejectTaskId(null); setRejectionNote(''); },
+    onMutate: async ({ id, note }) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => t.id === id ? { ...t, status: 'rejected', rejectionNote: note } : t);
+      });
+      return { previousTasks };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousTasks) qc.setQueryData(['tasks'], context.previousTasks);
+      alert(err.message || 'Failed to reject task');
+    },
+    onSuccess: () => { setRejectTaskId(null); setRejectionNote(''); },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); }
   });
   const reopenMut = useMutation({
     mutationFn: (id: string) => apiFetch(`/api/tasks/${id}/reopen`, { method: 'PATCH' }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => t.id === id ? { ...t, status: 'pending' } : t);
+      });
+      return { previousTasks };
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousTasks) qc.setQueryData(['tasks'], context.previousTasks);
+      alert(err.message || 'Failed to reopen task');
+    },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); }
   });
   const pinMut = useMutation({
     mutationFn: ({ id, pin }: { id: string; pin: boolean }) =>
@@ -434,19 +461,60 @@ export default function TasksPage() {
         method: 'PATCH',
         body: JSON.stringify({ proofLink, proofDescription })
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+    onMutate: async ({ id }) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => t.id === id ? { ...t, status: 'complete' } : t);
+      });
+      return { previousTasks };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousTasks) qc.setQueryData(['tasks'], context.previousTasks);
+      alert(err.message || 'Failed to complete task');
+    },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); }
   });
 
   const blockMut = useMutation({
     mutationFn: ({ id, note }: { id: string; note: string }) =>
       apiFetch(`/api/tasks/${id}/blocker`, { method: 'PATCH', body: JSON.stringify({ blockerNote: note }) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); setBlockerTaskId(null); setBlockerNote(''); },
+    onMutate: async ({ id, note }) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => t.id === id ? { ...t, status: 'blocked', blockerNote: note } : t);
+      });
+      return { previousTasks };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousTasks) qc.setQueryData(['tasks'], context.previousTasks);
+      alert(err.message || 'Failed to raise hand');
+    },
+    onSuccess: () => { setBlockerTaskId(null); setBlockerNote(''); },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); }
   });
 
   const extendMut = useMutation({
     mutationFn: ({ id, date, reason }: { id: string; date: string; reason: string }) =>
       apiFetch(`/api/tasks/${id}/extension`, { method: 'PATCH', body: JSON.stringify({ extensionRequestedDate: date, extensionReason: reason }) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); setExtendTaskId(null); setExtensionDate(''); setExtensionReason(''); },
+    onMutate: async ({ id, date, reason }) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => t.id === id ? { ...t, status: 'extension_requested', extensionRequestedDate: date, extensionReason: reason } : t);
+      });
+      return { previousTasks };
+    },
+    onError: (err, variables, context: any) => {
+      if (context?.previousTasks) qc.setQueryData(['tasks'], context.previousTasks);
+      alert(err.message || 'Failed to request extension');
+    },
+    onSuccess: () => { setExtendTaskId(null); setExtensionDate(''); setExtensionReason(''); },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); }
   });
 
   const startTimerMut = useMutation({

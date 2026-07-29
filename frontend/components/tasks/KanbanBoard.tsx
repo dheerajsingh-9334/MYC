@@ -92,6 +92,11 @@ export default function KanbanBoard({
     const draggedTask = localTasks.find((t: any) => t.id === taskId);
     if (!draggedTask) return;
 
+    // Admins cannot drag tasks into Raise Hand or Extension columns
+    if (isAdmin && (status === 'blocked' || status === 'extension_requested')) {
+      return;
+    }
+
     if (draggedTask.status !== status && status === 'blocked' && typeof onRaiseHand === 'function') {
       onRaiseHand(draggedTask);
       return;
@@ -99,11 +104,6 @@ export default function KanbanBoard({
 
     if (draggedTask.status !== status && status === 'extension_requested') {
       onStatusChange(taskId, status); // This triggers the extension modal in TasksPageContent
-      return;
-    }
-
-    // Admins cannot drag tasks into Raise Hand or Extension columns
-    if (isAdmin && (status === 'blocked' || status === 'extension_requested')) {
       return;
     }
 

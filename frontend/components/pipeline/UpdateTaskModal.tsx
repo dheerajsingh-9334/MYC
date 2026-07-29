@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiFetch } from '@/lib/api';
 import { X, Eye, Folder, Check, CircleCheck } from 'lucide-react';
 import { LoadingSpinner, BtnSpinner } from '@/components/ui/LoadingSpinner';
@@ -27,6 +27,7 @@ type UpdateTaskData = {
 };
 
 export default function UpdateTaskModal({ open, onClose, onSuccess, task, users, isAdmin }: Props) {
+  const qc = useQueryClient();
   const [form, setForm] = useState<UpdateTaskData>({
     title: '',
     description: '',
@@ -86,11 +87,36 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users,
         }),
       });
     },
+    onMutate: async (data: UpdateTaskData) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => {
+          if (t.id === task.id) {
+            return {
+              ...t,
+              title: data.title,
+              description: data.description,
+              priority: data.priority,
+              dueDate: data.dueDate,
+              assignedToId: data.assignedToId,
+              status: data.status,
+              timeSpentSeconds: data.timeSpentSeconds,
+              isTimerRunning: data.isTimerRunning,
+            };
+          }
+          return t;
+        });
+      });
+      return { previousTasks };
+    },
     onSuccess: () => {
       onSuccess();
       onClose();
     },
-    onError: (err: any) => {
+    onError: (err: any, variables, context: any) => {
+      if (context?.previousTasks) qc.setQueryData(['tasks'], context.previousTasks);
       setError(err.message || 'Failed to update task');
     },
   });
@@ -102,11 +128,21 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users,
         body: JSON.stringify({ approved }),
       });
     },
+    onMutate: async ({ approved }) => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => t.id === task.id ? { ...t, status: approved ? 'in_progress' : 'pending' } : t); // approximate UI state for feedback
+      });
+      return { previousTasks };
+    },
     onSuccess: () => {
       onSuccess();
       onClose();
     },
-    onError: (err: any) => {
+    onError: (err: any, variables, context: any) => {
+      if (context?.previousTasks) qc.setQueryData(['tasks'], context.previousTasks);
       setError(err.message || 'Failed to process extension');
     }
   });
@@ -118,11 +154,21 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users,
         body: JSON.stringify({ status: 'pending' }),
       });
     },
+    onMutate: async () => {
+      await qc.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = qc.getQueryData(['tasks']);
+      qc.setQueryData(['tasks'], (old: any) => {
+        if (!old) return old;
+        return old.map((t: any) => t.id === task.id ? { ...t, status: 'pending', blockerNote: null } : t);
+      });
+      return { previousTasks };
+    },
     onSuccess: () => {
       onSuccess();
       onClose();
     },
-    onError: (err: any) => {
+    onError: (err: any, variables, context: any) => {
+      if (context?.previousTasks) qc.setQueryData(['tasks'], context.previousTasks);
       setError(err.message || 'Failed to resolve issue');
     }
   });

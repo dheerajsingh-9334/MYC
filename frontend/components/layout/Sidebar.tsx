@@ -157,7 +157,7 @@ export default function Sidebar() {
             MYC OS
           </div>
         </div>
-        
+
         {/* Toggle Collapse Desktop */}
         <button
           onClick={toggleCollapse}
@@ -226,21 +226,21 @@ export default function Sidebar() {
       )}
 
       {/* Footer / User profile */}
-      <div className="sidebar-footer" style={{ marginTop: 'auto', padding: '10px 16px', borderTop: '1px solid var(--border)', transition: 'padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+      <div className="sidebar-footer" style={{ marginTop: 'auto', padding: '4px 8px', borderTop: '1px solid var(--border)', transition: 'padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10, padding: '6px 8px',
+          display: 'flex', alignItems: 'center', gap: 6, padding: '4px',
           borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'background 0.15s',
         }}
           onClick={() => setShowProfileModal(true)}
           onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--olive-50)')}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
-          <div style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
+          <div style={{ position: 'relative', width: 22, height: 22, flexShrink: 0 }}>
             {user?.avatarUrl ? (
               <img
                 src={user.avatarUrl}
                 alt={user.fullName || 'User'}
                 style={{
-                  width: 32, height: 32, borderRadius: '50%',
+                  width: 22, height: 22, borderRadius: '50%',
                   objectFit: 'cover', border: role === 'team_member' ? '1.5px solid var(--border)' : 'none',
                 }}
                 onError={(e) => {
@@ -251,25 +251,30 @@ export default function Sidebar() {
               />
             ) : null}
             <div style={{
-              width: 32, height: 32, borderRadius: '50%',
+              width: 22, height: 22, borderRadius: '50%',
               background: role === 'admin' ? 'linear-gradient(135deg, var(--olive), var(--olive-light))'
                 : role === 'team_leader' ? 'linear-gradient(135deg, #2860A1, #5B9BD5)'
                   : 'var(--surface-2)',
               color: '#fff', display: user?.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 700, fontSize: 12, border: role === 'team_member' ? '1.5px solid var(--border)' : 'none',
+              fontWeight: 700, fontSize: 9, border: role === 'team_member' ? '1.5px solid var(--border)' : 'none',
             }}>
               {initials}
             </div>
           </div>
           <div className="sidebar-user-details" style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.fullName || 'Guest'}</div>
-            <div style={{ fontSize: 10, display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 2, padding: '1px 6px', borderRadius: 6, background: roleBadge.bg, color: roleBadge.color, fontWeight: 600 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.fullName || 'Guest'}</div>
+            <div style={{ fontSize: 8.5, display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 1, padding: '1px 4px', borderRadius: 4, background: roleBadge.bg, color: roleBadge.color, fontWeight: 600 }}>
               {roleBadge.label}
             </div>
           </div>
-          <button className="sidebar-logout-btn" onClick={(e) => { e.stopPropagation(); handleLogout(); }} title="Logout" style={{ color: 'var(--soft)', background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
-            <LogOut size={14} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+            <button className="sidebar-settings-btn" onClick={(e) => { e.stopPropagation(); setShowProfileModal(true); }} title="Settings" style={{ color: 'var(--soft)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}>
+              <Settings size={12} />
+            </button>
+            <button className="sidebar-logout-btn" onClick={(e) => { e.stopPropagation(); handleLogout(); }} title="Logout" style={{ color: 'var(--soft)', background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}>
+              <LogOut size={12} />
+            </button>
+          </div>
         </div>
       </div>
       <ProfileModal

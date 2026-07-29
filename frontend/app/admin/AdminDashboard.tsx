@@ -1262,7 +1262,7 @@ export default function AdminDashboard() {
                       placeholder="Select Year"
                     />
                   </div>
-                  <div style={{ width: 110 }}>
+                  <div style={{ width: 140 }}>
                     <ClientCombobox
                       value={chartMonthFilter}
                       onChange={(v) => setChartMonthFilter(v || 'all')}

@@ -63,6 +63,9 @@ let stepsCache: any[] | null = null;
 let lastCacheTime = 0;
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+const adminDashboardCache = new Map<string, { data: any, timestamp: number, isFetching: boolean }>();
+const ADMIN_DASHBOARD_TTL = 15 * 1000; // 15 seconds
+
 router.get('/admin', requireAuth, async (req: Request, res: Response) => {
   try {
     if (req.user.role !== 'admin' && req.user.role !== 'team_leader') {
@@ -82,6 +85,23 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
     }
 
     const t0 = Date.now();
+    const cacheKey = `${orgId}_${isAdmin}`;
+    const cached = adminDashboardCache.get(cacheKey);
+    let hasResponded = false;
+
+    if (cached && cached.data) {
+      res.json(cached.data);
+      hasResponded = true;
+      if (Date.now() - cached.timestamp < ADMIN_DASHBOARD_TTL) {
+        console.log(`[dashboard.admin] Route took ${Date.now() - t0}ms (fresh cache)`);
+        return;
+      }
+      console.log(`[dashboard.admin] Route took ${Date.now() - t0}ms (stale cache returned instantly, refreshing in background...)`);
+      if (cached.isFetching) return;
+      cached.isFetching = true;
+    } else {
+      adminDashboardCache.set(cacheKey, { data: null, timestamp: 0, isFetching: true });
+    }
     
     // Refresh cache if needed
     if (!usersCache || !stepsCache || Date.now() - lastCacheTime > CACHE_TTL) {
@@ -412,7 +432,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       assignedTo: userMap.get(t.assignedToId) || null,
     }));
 
-    res.json({
+    const responseData = {
       orgStats: {
         totalClients,
         activeClients,
@@ -444,11 +464,28 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       })),
       clientList,
       taskList,
-    });
-    console.log(`[dashboard.admin] Route took ${Date.now() - t0}ms`);
+    };
+
+    adminDashboardCache.set(cacheKey, { data: responseData, timestamp: Date.now(), isFetching: false });
+    
+    if (!hasResponded) {
+      res.json(responseData);
+      console.log(`[dashboard.admin] Route took ${Date.now() - t0}ms (first load)`);
+    } else {
+      console.log(`[dashboard.admin] Background refresh completed in ${Date.now() - t0}ms`);
+    }
+
   } catch (err) {
+    const { orgId, role } = req.user;
+    const cacheKey = `${orgId}_${role === 'admin'}`;
+    const cached = adminDashboardCache.get(cacheKey);
+    if (cached) cached.isFetching = false;
+    
     console.error('[dashboard.admin] error:', err);
-    res.status(500).json({ error: 'Internal server error' });
+    // Don't send error response if we already responded with stale cache
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
   }
 });
 
