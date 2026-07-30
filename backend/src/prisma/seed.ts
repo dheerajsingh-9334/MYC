@@ -94,6 +94,22 @@ async function main() {
     console.log(`✅ Team leader created: ${leader.email} (${l.teamName})`);
   }
 
+  // Create Default Service
+  let defaultService = await prisma.service.findFirst({
+    where: { organisationId: org.id, name: 'Default Service' }
+  });
+
+  if (!defaultService) {
+    defaultService = await prisma.service.create({
+      data: {
+        organisationId: org.id,
+        name: 'Default Service',
+        description: 'Standard pipeline service',
+      }
+    });
+  }
+  console.log('✅ Default Service ensured:', defaultService.name);
+
   // 9 Steps
   const stepsData = [
     {
@@ -221,6 +237,7 @@ async function main() {
           owningTeamName: s.owningTeamName,
           slaDays: s.slaDays,
           isActive: true,
+          serviceId: defaultService.id,
         },
       });
       for (const t of s.templates) {
@@ -281,6 +298,7 @@ async function main() {
           dateJoined: c.dateJoined,
           status: 'active',
           createdById: admin.id,
+          serviceId: defaultService.id,
         },
       });
       console.log(`✅ Client created: ${client.brandName}`);
