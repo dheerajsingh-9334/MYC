@@ -17,7 +17,7 @@ import CSVImportModal from '@/components/ui/CSVImportModal';
 import ActionDropdown from '@/components/ui/ActionDropdown';
 import { ClientCombobox } from '@/components/ui/ClientCombobox';
 import { TableRowsSkeleton, ClientCardSkeleton } from '@/components/ui/SkeletonLoader';
-import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 
 export default function ClientsPage() {
