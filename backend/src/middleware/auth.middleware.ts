@@ -30,22 +30,10 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
     
-    // Fetch fresh user data from DB to ensure roles/teams are always up to date!
-    const dbUser = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: { role: true, teamName: true, isActive: true }
-    });
-    
-    if (!dbUser || !dbUser.isActive) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    req.user = {
-      ...payload,
-      role: dbUser.role,
-      teamName: dbUser.teamName ?? undefined
-    };
+    // Optimized: Rely entirely on the stateless JWT payload instead of hitting the DB
+    // on every single request. If role/team changes need immediate reflection, 
+    // the client should request a fresh token via login/refresh.
+    req.user = payload;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid token' });
