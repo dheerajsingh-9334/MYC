@@ -32,6 +32,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { USE_MOCK } from '@/lib/mockData';
 import ActionDropdown from '@/components/ui/ActionDropdown';
 import { ClientCombobox } from '@/components/ui/ClientCombobox';
+import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
 
 const TEAMS = ['Intake Team', 'Sales Team', 'Design Team', 'Tech Team', 'Creative Team', 'Media Buyer', 'Automation Team', 'Event Team', 'Account Manager', 'Content Team'];
 const AUTO_REFRESH_MS = 30_000;
@@ -58,6 +59,9 @@ const TYPE_STYLES: Record<string, { color: string; bg: string; Icon: any; label:
 export default function StandupPageContent() {
   const router = useRouter();
   const qc = useQueryClient();
+  const [user, setUser] = useState<any>(null);
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const isAdmin = user?.role === 'admin';
 
   const [search, setSearch] = useState('');
   const [alertTypeFilter, setAlertTypeFilter] = useState('');
@@ -80,7 +84,7 @@ export default function StandupPageContent() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  const [user, setUser] = useState<any>(null);
+
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -134,6 +138,13 @@ export default function StandupPageContent() {
     staleTime: 60_000,
     refetchOnWindowFocus: true,
     retry: false,
+  });
+
+  const { data: liveUsers = [] } = useQuery<any[]>({
+    queryKey: ['users'],
+    queryFn: () => apiFetch('/api/users'),
+    staleTime: 300_000,
+    enabled: !USE_MOCK,
   });
 
   const highlightMut = useMutation({
@@ -672,7 +683,7 @@ export default function StandupPageContent() {
                                 const isClientPinned = localClientPinned[clientId] !== undefined ? localClientPinned[clientId] : !!clientPinned;
                                 return (
                                   <button
-                                    onClick={(e) => { e.stopPropagation(); handlePinClient(clientId, isClientPinned); }}
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handlePinClient(clientId, isClientPinned); }}
                                     style={{ border: 'none', background: 'none', padding: 2, cursor: 'pointer', color: isClientPinned ? 'var(--olive)' : 'var(--muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'color 0.15s', flexShrink: 0 }}
                                     title={isClientPinned ? 'Unpin client' : 'Pin client'}
                                   >
@@ -774,7 +785,7 @@ export default function StandupPageContent() {
                                       {
                                         label: 'Update',
                                         icon: <Edit2 size={13} />,
-                                        onClick: () => alert('Update functionality coming soon.'),
+                                        onClick: () => setEditingTask(item),
                                       },
                                       {
                                         label: 'Dismiss',
@@ -796,6 +807,20 @@ export default function StandupPageContent() {
               </div>
             </SectionCard>
           </div>
+        )}
+
+        {editingTask && isAdmin && (
+          <UpdateTaskModal
+            open={!!editingTask}
+            onClose={() => setEditingTask(null)}
+            onSuccess={() => {
+              qc.invalidateQueries({ queryKey: ['standup'] });
+              qc.invalidateQueries({ queryKey: ['tasks'] });
+            }}
+            task={editingTask}
+            users={liveUsers || []}
+            isAdmin={isAdmin}
+          />
         )}
       </div>
     </AppLayout>

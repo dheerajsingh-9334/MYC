@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import ActionDropdown from '@/components/ui/ActionDropdown';
 import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
-import RaiseHandModal from '@/components/ui/RaiseHandModal';
 import { TableSkeleton } from '@/components/ui/SkeletonLoader';
 import { LoadingSpinner, BtnSpinner } from '@/components/ui/LoadingSpinner';
 import { useViewPreference } from '@/lib/useViewPreference';
@@ -38,8 +37,6 @@ export default function TasksPage() {
   const [showCSVModal, setShowCSVModal] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
-  const [showRaiseHandModal, setShowRaiseHandModal] = useState(false);
-  const [selectedTaskForProblem, setSelectedTaskForProblem] = useState<any | null>(null);
 
   // Filters alert
   const [search, setSearch] = useState('');
@@ -100,10 +97,6 @@ export default function TasksPage() {
   const [vaultLinkNotes, setVaultLinkNotes] = useState('');
   const [vaultLinkErr, setVaultLinkErr] = useState('');
 
-  // Blocker modal
-  const [blockerTaskId, setBlockerTaskId] = useState<string | null>(null);
-  const [blockerNote, setBlockerNote] = useState('');
-
   // Extend modal
   const [extendTaskId, setExtendTaskId] = useState<string | null>(null);
   const [extensionDate, setExtensionDate] = useState('');
@@ -155,7 +148,7 @@ export default function TasksPage() {
   const { data: liveClients = [] } = useQuery({
     queryKey: ['clients'],
     queryFn: () => apiFetch('/api/clients'),
-    enabled: !USE_MOCK && (showRaiseHandModal || showAddTask),
+    enabled: !USE_MOCK && (showAddTask),
     retry: false,
   });
 
@@ -477,25 +470,6 @@ export default function TasksPage() {
     onSettled: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); }
   });
 
-  const blockMut = useMutation({
-    mutationFn: ({ id, note }: { id: string; note: string }) =>
-      apiFetch(`/api/tasks/${id}/blocker`, { method: 'PATCH', body: JSON.stringify({ blockerNote: note }) }),
-    onMutate: async ({ id, note }) => {
-      await qc.cancelQueries({ queryKey: ['tasks'] });
-      const previousTasks = qc.getQueryData(['tasks']);
-      qc.setQueryData(['tasks'], (old: any) => {
-        if (!old) return old;
-        return old.map((t: any) => t.id === id ? { ...t, status: 'blocked', blockerNote: note } : t);
-      });
-      return { previousTasks };
-    },
-    onError: (err, variables, context: any) => {
-      if (context?.previousTasks) qc.setQueryData(['tasks'], context.previousTasks);
-      alert(err.message || 'Failed to raise hand');
-    },
-    onSuccess: () => { setBlockerTaskId(null); setBlockerNote(''); },
-    onSettled: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); }
-  });
 
   const extendMut = useMutation({
     mutationFn: ({ id, date, reason }: { id: string; date: string; reason: string }) =>
@@ -757,7 +731,7 @@ export default function TasksPage() {
 
   return (
     <AppLayout>
-      {(deleteTaskMut.isPending || completeMut.isPending || rejectMut.isPending || blockMut.isPending || extendMut.isPending || reopenMut.isPending) && (
+      {(deleteTaskMut.isPending || completeMut.isPending || rejectMut.isPending || extendMut.isPending || reopenMut.isPending) && (
         <LoadingSpinner
           fullPage
           size={40}
@@ -766,7 +740,6 @@ export default function TasksPage() {
             deleteTaskMut.isPending ? 'Deleting task...' :
               completeMut.isPending ? 'Completing task...' :
                 rejectMut.isPending ? 'Rejecting task...' :
-                  blockMut.isPending ? 'Blocking task...' :
                     extendMut.isPending ? 'Requesting extension...' :
                       reopenMut.isPending ? 'Reopening task...' :
                         'Processing...'
@@ -922,10 +895,6 @@ export default function TasksPage() {
                     onPinToggle={(id: string, pin: boolean) => pinMut.mutate({ id, pin })}
                     onAlertToggle={(id: string, alert: boolean) => alertMut.mutate({ id, alert })}
                     onReorder={(taskIds: string[]) => reorderMut.mutate(taskIds)}
-                    onRaiseHand={(task: any) => {
-                      setSelectedTaskForProblem(task);
-                      setShowRaiseHandModal(true);
-                    }}
                   />
                 </div>
               ) : (
@@ -1041,17 +1010,12 @@ export default function TasksPage() {
                               onReopen={() => reopenMut.mutate(t.id)}
                               reopenPending={reopenMut.isPending && reopenMut.variables === t.id}
                               onOpenVault={() => setVaultTask(t)}
-                              onBlock={() => setBlockerTaskId(t.id)}
                               onExtend={() => setExtendTaskId(t.id)}
                               onStartTimer={() => startTimerMut.mutate(t.id)}
                               onStopTimer={() => stopTimerMut.mutate(t.id)}
                               onStatusChange={(id, status) => statusMut.mutate({ id, status })}
                               onUpdateTask={(task) => setEditingTask(task)}
                               onDeleteTask={(id) => { const t = clientTasks.find(t => t.id === id); setDeleteConfirm({ id, title: t?.title || 'this task' }); }}
-                              onRaiseHand={() => {
-                                setSelectedTaskForProblem(t);
-                                setShowRaiseHandModal(true);
-                              }}
                             />
                           ))}
                         </tbody>
@@ -1237,42 +1201,7 @@ export default function TasksPage() {
         </div>
       )}
 
-      {/* Blocker modal (staff or leader) */}
-      {blockerTaskId && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
-          onClick={(e) => { if (e.target === e.currentTarget) { setBlockerTaskId(null); setBlockerNote(''); } }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* Modal header */}
-            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
-              <div>
-                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Raise Blocker</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Why is this task blocked?</div>
-              </div>
-              <button onClick={() => { setBlockerTaskId(null); setBlockerNote(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
-            </div>
-            {/* Modal body */}
-            <div style={{ padding: '20px 24px', flex: 1 }}>
-              <textarea value={blockerNote} onChange={(e) => setBlockerNote(e.target.value)} autoFocus rows={4}
-                placeholder="e.g. Waiting on client response for branding assets."
-                style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
-            </div>
-            {/* Modal footer */}
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 var(--radius-lg) var(--radius-lg)', flexShrink: 0 }}>
-              <button onClick={() => { setBlockerTaskId(null); setBlockerNote(''); }}
-                style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={() => blockMut.mutate({ id: blockerTaskId, note: blockerNote })}
-                disabled={!blockerNote || blockMut.isPending}
-                style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--olive)', color: '#fff', cursor: !blockerNote ? 'not-allowed' : 'pointer', opacity: !blockerNote ? 0.5 : 1 }}>
-                {blockMut.isPending ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Submitting…</span>
-                ) : 'Submit Blocker'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Extend modal (staff or leader) */}
       {extendTaskId && (
@@ -1557,22 +1486,7 @@ export default function TasksPage() {
           isAdmin={isAdmin}
         />
       )}
-      {showRaiseHandModal && (
-        <RaiseHandModal
-          open={showRaiseHandModal}
-          onClose={() => {
-            setShowRaiseHandModal(false);
-            setSelectedTaskForProblem(null);
-          }}
-          onSuccess={() => {
-            if (selectedTaskForProblem) {
-              statusMut.mutate({ id: selectedTaskForProblem.id, status: 'blocked' });
-            }
-          }}
-          clients={USE_MOCK ? MOCK_CLIENTS : liveClients}
-          preselectedTask={selectedTaskForProblem}
-        />
-      )}
+
     </AppLayout>
   );
 }
@@ -1580,7 +1494,7 @@ export default function TasksPage() {
 // ── Staff / admin task row ────────────────────────────────────────────────
 
 function StaffTaskRow({
-  task: t, isAdmin, isLeader, isNested, taskIndex, totalTasks, onPinToggle, onAlertToggle, onComplete, onReject, onReopen, reopenPending, onOpenVault, onBlock, onExtend, onStartTimer, onStopTimer, onStatusChange, onUpdateTask, onDeleteTask, onRaiseHand,
+  task: t, isAdmin, isLeader, isNested, taskIndex, totalTasks, onPinToggle, onAlertToggle, onComplete, onReject, onReopen, reopenPending, onOpenVault, onExtend, onStartTimer, onStopTimer, onStatusChange, onUpdateTask, onDeleteTask,
 }: {
   task: any; isAdmin: boolean; isLeader?: boolean; isNested?: boolean;
   taskIndex?: number; totalTasks?: number;
@@ -1591,14 +1505,13 @@ function StaffTaskRow({
   onReopen: () => void;
   reopenPending: boolean;
   onOpenVault: () => void;
-  onBlock?: () => void;
   onExtend?: () => void;
   onStartTimer?: () => void;
   onStopTimer?: () => void;
   onStatusChange?: (id: string, status: string) => void;
   onUpdateTask?: (task: any) => void;
   onDeleteTask?: (id: string) => void;
-  onRaiseHand?: () => void;
+
 }) {
   const done = t.status === 'complete';
   const rej = t.status === 'rejected' || t.status === 'cancelled';
@@ -1645,7 +1558,7 @@ function StaffTaskRow({
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {isAdmin && !hidePin ? (
             <button
-              onClick={(e) => { e.stopPropagation(); onPinToggle?.(t.id, !t.isPinned); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onPinToggle?.(t.id, !t.isPinned); }}
               style={{
                 border: 'none',
                 background: 'none',
@@ -1669,7 +1582,7 @@ function StaffTaskRow({
 
           {(isAdmin || isLeader) && !hidePin ? (
             <button
-              onClick={(e) => { e.stopPropagation(); onAlertToggle?.(t.id, !t.isAlerted); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAlertToggle?.(t.id, !t.isAlerted); }}
               style={{
                 border: 'none',
                 background: 'none',
@@ -1795,22 +1708,9 @@ function StaffTaskRow({
                 onClick: () => onExtend?.(),
               });
             }
-            dropdownActions.push({
-              label: 'Raise Hand',
-              icon: <Hand size={13} />,
-              onClick: onRaiseHand,
-            });
           }
 
           // Admin actions
-          if (isAdmin && !done && t.status !== 'blocked') {
-            dropdownActions.push({
-              label: 'Block Task',
-              icon: <Ban size={13} />,
-              onClick: () => onBlock?.(),
-              danger: true,
-            });
-          }
           if (isAdmin && !done && t.status === 'extension_requested') {
             dropdownActions.push({
               label: 'Reject Extension',

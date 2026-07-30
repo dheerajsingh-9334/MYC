@@ -80,15 +80,20 @@ router.post(
             .filter(Boolean)
         : [];
 
-      if (assigneeTeams.length === 0) {
+      if (assigneeTeams.length === 0 && req.user.role !== 'admin') {
         res.status(400).json({ error: "Assignee does not belong to any team" });
         return;
       }
 
       // Find a step where owningTeamName matches one of assignee's teams
-      const matchedStep = clientSteps.find((s) =>
+      let matchedStep = clientSteps.find((s) =>
         assigneeTeams.includes(s.owningTeamName.toLowerCase())
       );
+      
+      // If admin and no matched step, fallback to client's current step
+      if (!matchedStep && req.user.role === 'admin') {
+        matchedStep = clientSteps.find((s) => s.id === client.currentStepId);
+      }
 
       if (!matchedStep) {
         res.status(400).json({
@@ -108,7 +113,7 @@ router.post(
         return;
       }
 
-      if (!assigneeTeams.includes(finalStep.owningTeamName.toLowerCase())) {
+      if (req.user.role !== 'admin' && !assigneeTeams.includes(finalStep.owningTeamName.toLowerCase())) {
         res.status(400).json({
           error: `The step '${finalStep.name}' is owned by '${finalStep.owningTeamName}', but the assignee belongs to '${assignee.teamName}'`,
         });

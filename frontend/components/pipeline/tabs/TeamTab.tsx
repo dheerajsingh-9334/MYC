@@ -5,59 +5,14 @@ import { autoBox, infoBox, Card, TaskItem } from '../PipelineUI';
 import { format, isToday, isPast } from 'date-fns';
 import { useState } from 'react';
 
-// Per-task blocker editor. Owns its own draft so the typed note
-// survives tab switches and reloads.
-function BlockerEditor({ taskId, onSubmit, onCancel, isPending }: {
-  taskId: string;
-  onSubmit: (note: string) => void;
-  onCancel: () => void;
-  isPending: boolean;
-}) {
-  const draft = useFormDraft<{ blockerNote: string }>({
-    kind: 'raise_blocker',
-    contextId: taskId,
-    initialData: { blockerNote: '' },
-  });
-  return (
-    <div style={{ marginTop: 8 }}>
-      <textarea
-        value={draft.data.blockerNote}
-        onChange={e => draft.setData(p => ({ ...p, blockerNote: e.target.value }))}
-        placeholder="What's blocking this task?"
-        style={{ width: '100%', padding: '8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, minHeight: 56, fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', outline: 'none', resize: 'vertical' }}
-      />
-      <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-        <button
-          onClick={async () => {
-            onSubmit(draft.data.blockerNote);
-            await draft.clear();
-          }}
-          disabled={!draft.data.blockerNote || isPending}
-          style={{ padding: '5px 12px', background: '#6B3FA0', color: '#fff', border: 'none', borderRadius: 5, fontSize: 12, fontWeight: 500, cursor: !draft.data.blockerNote || isPending ? 'not-allowed' : 'pointer', opacity: !draft.data.blockerNote ? 0.6 : 1 }}
-        >
-          Raise blocker
-        </button>
-        <button onClick={onCancel} style={{ padding: '5px 12px', background: 'none', border: '1px solid var(--border)', borderRadius: 5, fontSize: 12, cursor: 'pointer', color: 'var(--ink-2)' }}>Cancel</button>
-      </div>
-    </div>
-  );
-}
+
 
 export default function TeamTab({ tasks }: { tasks: any[] }) {
   const qc = useQueryClient();
-  const [blockerTask, setBlockerTask] = useState<string | null>(null);
-
   const completeMut = useMutation({
     mutationFn: (id: string) => apiFetch(`/api/tasks/${id}/complete`, { method: 'PATCH' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
   });
-
-  const blockerMut = useMutation({
-    mutationFn: ({ id, note }: { id: string; note: string }) =>
-      apiFetch(`/api/tasks/${id}/blocker`, { method: 'PATCH', body: JSON.stringify({ blockerNote: note }) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tasks'] }); setBlockerTask(null); },
-  });
-
   const active = tasks.filter(t => !['complete', 'cancelled'].includes(t.status));
   const completed = tasks.filter(t => t.status === 'complete');
   const overdue = active.filter(t => isPast(new Date(t.dueDate)) && !isToday(new Date(t.dueDate)));
@@ -68,7 +23,7 @@ export default function TeamTab({ tasks }: { tasks: any[] }) {
     const late = isPast(new Date(task.dueDate)) && !isToday(new Date(task.dueDate));
     const today = isToday(new Date(task.dueDate));
     return (
-      <div key={task.id} style={{ background: 'var(--surface)', border: `1px solid ${task.status === 'blocked' ? 'var(--border)' : late ? '#F5D0CC' : 'var(--border)'}`, borderLeft: `3px solid ${task.status === 'blocked' ? '#6B3FA0' : late ? 'var(--red)' : today ? 'var(--amber)' : 'var(--green)'}`, borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: 8 }}>
+      <div key={task.id} style={{ background: 'var(--surface)', border: `1px solid ${late ? '#F5D0CC' : 'var(--border)'}`, borderLeft: `3px solid ${late ? 'var(--red)' : today ? 'var(--amber)' : 'var(--green)'}`, borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginBottom: 8 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <button onClick={() => { if (task.status !== 'complete') completeMut.mutate(task.id); }}
             style={{ width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 1, border: task.status === 'complete' ? 'none' : '1.5px solid var(--border)', background: task.status === 'complete' ? 'var(--olive)' : 'var(--surface)', color: '#fff', fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -82,21 +37,10 @@ export default function TeamTab({ tasks }: { tasks: any[] }) {
                 · {late ? `Overdue ${Math.floor((Date.now() - new Date(task.dueDate).getTime()) / 86400000)}d` : today ? 'Due today' : `Due ${format(new Date(task.dueDate), 'd MMM')}`}
               </span>
             </div>
-            {task.blockerNote && <div style={{ marginTop: 6, fontSize: 12, color: '#6B3FA0', background: '#F0E8FA', padding: '4px 10px', borderRadius: 4 }}>Blocked: {task.blockerNote}</div>}
-
-            {blockerTask === task.id && (
-              <BlockerEditor
-                taskId={task.id}
-                onSubmit={note => blockerMut.mutate({ id: task.id, note })}
-                onCancel={() => setBlockerTask(null)}
-                isPending={blockerMut.isPending}
-              />
-            )}
           </div>
           {task.status !== 'complete' && (
             <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
               <button onClick={() => completeMut.mutate(task.id)} style={{ padding: '4px 10px', border: '1px solid var(--border)', borderRadius: 5, fontSize: 11.5, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>Done</button>
-              <button onClick={() => setBlockerTask(task.id === blockerTask ? null : task.id)} style={{ padding: '4px 10px', border: '1px solid var(--border)', borderRadius: 5, fontSize: 11.5, background: 'var(--surface)', cursor: 'pointer', color: '#6B3FA0' }}>Block</button>
             </div>
           )}
         </div>
@@ -138,7 +82,7 @@ export default function TeamTab({ tasks }: { tasks: any[] }) {
           {[
             { state: 'Overdue', desc: 'Past due date — manager alerted by cron', bg: 'var(--red-bg)', color: 'var(--red)' },
             { state: 'Due today', desc: 'Final day of SLA window', bg: 'var(--amber-bg)', color: 'var(--amber)' },
-            { state: 'Blocked', desc: 'Team member raised a blocker — admin notified instantly', bg: '#F0E8FA', color: '#6B3FA0' },
+
             { state: 'Complete', desc: 'Timestamped with who completed it', bg: 'var(--green-bg)', color: 'var(--green)' },
           ].map(s => (
             <div key={s.state} style={{ padding: '10px 14px', background: s.bg, borderRadius: 'var(--radius-sm)' }}>

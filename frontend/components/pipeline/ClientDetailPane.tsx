@@ -65,8 +65,7 @@ export default function ClientDetailPane({
   const [editStepForm, setEditStepForm] = useState({ name: '', owningTeamName: '', slaDays: '3', description: '' });
   const [editStepError, setEditStepError] = useState('');
   const [checkedTasks, setCheckedTasks] = useState<Set<string>>(new Set());
-  const [blockerTaskId, setBlockerTaskId] = useState<string | null>(null);
-  const [blockerNote, setBlockerNote] = useState('');
+
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [proofLink, setProofLink] = useState('');
   const [proofDescription, setProofDescription] = useState('');
@@ -83,6 +82,8 @@ export default function ClientDetailPane({
   const [expAssignedToId, setExpAssignedToId] = useState('');
   const [expPriority, setExpPriority] = useState('');
   const [expCompleted, setExpCompleted] = useState('all');
+
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   // Queries for export dropdown filters
   const { data: stepsList = [] } = useQuery({
@@ -189,17 +190,6 @@ export default function ClientDetailPane({
       qc.invalidateQueries({ queryKey: ['clients'] });
       qc.invalidateQueries({ queryKey: ['notifications'] });
       qc.invalidateQueries({ queryKey: ['notif-count'] });
-    },
-  });
-  const blockerMut = useMutation({
-    mutationFn: ({ taskId, note }: { taskId: string; note: string }) =>
-      apiFetch(`/api/tasks/${taskId}/blocker`, { method: 'PATCH', body: JSON.stringify({ blockerNote: note }) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['client', id] });
-      qc.invalidateQueries({ queryKey: ['notifications'] });
-      qc.invalidateQueries({ queryKey: ['notif-count'] });
-      setBlockerTaskId(null);
-      setBlockerNote('');
     },
   });
 
@@ -889,11 +879,7 @@ export default function ClientDetailPane({
       {
         label: 'Delete',
         icon: <Trash2 size={13} />,
-        onClick: () => {
-          if (confirm(`Are you sure you want to delete client "${client.brandName || client.fullName}"? This will delete all associated steps, tasks, documents, and history. This action cannot be undone.`)) {
-            deleteClientMut.mutate();
-          }
-        },
+        onClick: () => setShowConfirmDelete(true),
         danger: true,
       }
     ] : []),
@@ -1547,37 +1533,6 @@ export default function ClientDetailPane({
                               </div>
                             )}
 
-                            {blockerTaskId === task.id && (
-                              <div style={{ marginTop: 10, display: 'flex', gap: 8, paddingLeft: 13 }}>
-                                <input
-                                  autoFocus
-                                  value={blockerNote}
-                                  onChange={e => setBlockerNote(e.target.value)}
-                                  placeholder="Describe the blocker..."
-                                  style={{ flex: 1, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, outline: 'none' }}
-                                />
-                                <button
-                                  onClick={() => blockerMut.mutate({ taskId: task.id, note: blockerNote })}
-                                  disabled={!blockerNote || blockerMut.isPending}
-                                  style={{ padding: '7px 12px', background: 'var(--red)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 12, cursor: 'pointer', fontWeight: 600 }}
-                                >
-                                  {blockerMut.isPending ? (
-                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                      <LoadingSpinner size={12} color="#fff" />
-                                      <span>Raising...</span>
-                                    </div>
-                                  ) : (
-                                    'Raise'
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => { setBlockerTaskId(null); setBlockerNote(''); }}
-                                  style={{ padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, cursor: 'pointer', background: 'var(--surface)', color: 'var(--ink-2)' }}
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            )}
                           </td>
                           <td style={{ ...tdStyle, verticalAlign: 'top', width: '20%' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -1663,14 +1618,6 @@ export default function ClientDetailPane({
                                   });
                                 }
 
-                                if (task.status !== 'blocked' && task.status !== 'extension_requested') {
-                                  dropdownActions.push({
-                                    label: 'Raise Blocker',
-                                    icon: <TriangleAlert size={13} />,
-                                    onClick: () => setBlockerTaskId(task.id),
-                                    danger: true,
-                                  });
-                                }
                               }
 
                               if (isAdmin) {
@@ -2392,6 +2339,16 @@ export default function ClientDetailPane({
           onClose={() => setShowAssignService(false)}
           clientId={id as string}
           existingServiceIds={client.clientServices?.map((cs: any) => cs.serviceId) || (client.serviceId ? [client.serviceId] : [])}
+        />
+        <ConfirmModal
+          open={showConfirmDelete}
+          title="Delete Client"
+          message={`Are you sure you want to delete client "${client?.brandName || client?.fullName}"? This will delete all associated steps, tasks, documents, and history. This action cannot be undone.`}
+          confirmText="Delete"
+          isDanger={true}
+          isLoading={deleteClientMut.isPending}
+          onConfirm={() => deleteClientMut.mutate()}
+          onCancel={() => setShowConfirmDelete(false)}
         />
       </div>
   );

@@ -333,7 +333,6 @@ export default function UpdateTaskModal({ open, onClose, onSuccess, task, users,
               <option value="pending">Pending</option>
               <option value="in_progress">In Progress</option>
               <option value="complete">Complete</option>
-              {(!isAdmin || form.status === 'blocked') && <option value="blocked">Raise Hand</option>}
               {(!isAdmin || form.status === 'extension_requested') && <option value="extension_requested">Extension Requested</option>}
               <option value="cancelled">Cancelled</option>
               <option value="rejected">Rejected</option>

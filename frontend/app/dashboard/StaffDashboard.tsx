@@ -35,7 +35,6 @@ import {
   Hand,
   Activity,
 } from 'lucide-react';
-import RaiseHandModal from '@/components/ui/RaiseHandModal';
 import { DashboardSkeleton } from '@/components/ui/SkeletonLoader';
 import {
   differenceInCalendarDays,
@@ -97,8 +96,6 @@ export default function StaffDashboard() {
   const [tab, setTab] = useState<TabKey>('active');
   const [memberSearch, setMemberSearch] = useState('');
   const [showDueDrawer, setShowDueDrawer] = useState(false);
-  const [blockerTask, setBlockerTask] = useState<any | null>(null);
-  const [blockerNote, setBlockerNote] = useState('');
   const [extensionTask, setExtensionTask] = useState<any | null>(null);
   const [extensionReason, setExtensionReason] = useState('');
   const [extensionDate, setExtensionDate] = useState(format(addDays(new Date(), 2), 'yyyy-MM-dd'));
@@ -106,8 +103,6 @@ export default function StaffDashboard() {
   const [activeTooltipDate, setActiveTooltipDate] = useState<string | null>(null);
 
   const [localTasks, setLocalTasks] = useState<any[]>([]);
-  const [showRaiseHandModal, setShowRaiseHandModal] = useState(false);
-  const [selectedTaskForProblem, setSelectedTaskForProblem] = useState<any | null>(null);
 
   const { data: liveClients = [] } = useQuery<any[]>({
     queryKey: ['clients'],
@@ -367,15 +362,7 @@ export default function StaffDashboard() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
   });
 
-  const blockerMut = useMutation({
-    mutationFn: ({ id, note }: { id: string; note: string }) =>
-      apiFetch(`/api/tasks/${id}/blocker`, { method: 'PATCH', body: JSON.stringify({ blockerNote: note }) }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tasks'] });
-      setBlockerTask(null);
-      setBlockerNote('');
-    },
-  });
+
 
   const extensionMut = useMutation({
     mutationFn: ({ id, requestedDate, reason }: { id: string; requestedDate: string; reason: string }) =>
@@ -1223,9 +1210,6 @@ export default function StaffDashboard() {
                                         statusMut.mutate({ id: t.id, status: 'pending' });
                                       } else if (val === 'complete') {
                                         completeMut.mutate(t.id);
-                                      } else if (val === 'blocked') {
-                                        setBlockerTask(t);
-                                        setBlockerNote('');
                                       } else if (val === 'extension_requested') {
                                         setExtensionTask(t);
                                         setExtensionReason('');
@@ -1247,7 +1231,6 @@ export default function StaffDashboard() {
                                     <option value="pending">Pending</option>
                                     <option value="in_progress">In Progress</option>
                                     <option value="complete">Complete...</option>
-                                    <option value="blocked">Blocked...</option>
                                     <option value="extension_requested">Request Extension...</option>
                                   </select>
                                   {t.status !== 'extension_requested' && t.status !== 'blocked' && t.status !== 'complete' && (
@@ -1727,19 +1710,7 @@ export default function StaffDashboard() {
           />
         )}
 
-        {blockerTask && (
-          <TaskNoteModal
-            title="Raise blocker"
-            subtitle={`${blockerTask.title} · ${blockerTask.client?.brandName || blockerTask.client?.fullName || 'Client'}`}
-            textareaLabel="What is blocking this task?"
-            textareaValue={blockerNote}
-            onTextareaChange={setBlockerNote}
-            confirmLabel={blockerMut.isPending ? 'Raising...' : 'Raise blocker'}
-            confirmDisabled={!blockerNote.trim() || blockerMut.isPending}
-            onCancel={() => { setBlockerTask(null); setBlockerNote(''); }}
-            onConfirm={() => blockerMut.mutate({ id: blockerTask.id, note: blockerNote })}
-          />
-        )}
+
 
         {extensionTask && (
           <TaskNoteModal

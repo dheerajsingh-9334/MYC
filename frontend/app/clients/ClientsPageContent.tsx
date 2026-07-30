@@ -691,7 +691,7 @@ export default function ClientsPage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                           {isAdmin && (
                             <button
-                              onClick={(e) => togglePinClient(client.id, e)}
+                              onClick={(e) => { e.preventDefault(); togglePinClient(client.id, e); }}
                               style={{
                                 border: 'none',
                                 background: 'none',
@@ -838,7 +838,7 @@ export default function ClientsPage() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                             {isAdmin && (
                               <button
-                                onClick={(e) => togglePinClient(client.id, e)}
+                                onClick={(e) => { e.preventDefault(); togglePinClient(client.id, e); }}
                                 style={{
                                   border: 'none',
                                   background: 'none',

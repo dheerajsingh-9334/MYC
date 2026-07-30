@@ -35,7 +35,6 @@ export default function KanbanBoard({
   onPinToggle,
   onAlertToggle,
   onReorder,
-  onRaiseHand,
 }: any) {
   // Track per-column search filters
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
@@ -50,7 +49,7 @@ export default function KanbanBoard({
     setLocalTasks(tasks);
   }, [tasks]);
 
-  const activeStatuses = ['pending', 'in_progress', 'complete', 'rejected', 'cancelled', 'extension_requested', 'blocked'];
+  const activeStatuses = ['pending', 'in_progress', 'complete', 'rejected', 'cancelled', 'extension_requested'];
 
   // Group and sort tasks by status (most recent first)
   const groupedTasks = useMemo(() => {
@@ -97,10 +96,7 @@ export default function KanbanBoard({
       return;
     }
 
-    if (draggedTask.status !== status && status === 'blocked' && typeof onRaiseHand === 'function') {
-      onRaiseHand(draggedTask);
-      return;
-    }
+
 
     if (draggedTask.status !== status && status === 'extension_requested') {
       onStatusChange(taskId, status); // This triggers the extension modal in TasksPageContent
