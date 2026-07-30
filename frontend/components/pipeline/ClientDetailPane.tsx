@@ -84,6 +84,7 @@ export default function ClientDetailPane({
   const [expCompleted, setExpCompleted] = useState('all');
 
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<{id: string, title: string} | null>(null);
 
   // Queries for export dropdown filters
   const { data: stepsList = [] } = useQuery({
@@ -887,7 +888,7 @@ export default function ClientDetailPane({
 
   const content = (
     <div style={{ padding: '16px 20px', flex: 1 }}>
-      {(deleteClientMut.isPending || deleteTaskMut.isPending) && (
+      {false && (
         <LoadingSpinner
           fullPage
           size={40}
@@ -1630,9 +1631,7 @@ export default function ClientDetailPane({
                                   label: 'Delete',
                                   icon: <Trash2 size={13} />,
                                   onClick: () => {
-                                    if (confirm(`Are you sure you want to delete task "${task.title}"?`)) {
-                                      deleteTaskMut.mutate(task.id);
-                                    }
+                                    setTaskToDelete({ id: task.id, title: task.title });
                                   },
                                   danger: true,
                                 });
@@ -2349,6 +2348,19 @@ export default function ClientDetailPane({
           isLoading={deleteClientMut.isPending}
           onConfirm={() => deleteClientMut.mutate()}
           onCancel={() => setShowConfirmDelete(false)}
+        />
+        <ConfirmModal
+          open={!!taskToDelete}
+          title="Delete Task"
+          message={`Are you sure you want to delete task "${taskToDelete?.title}"? This action cannot be undone.`}
+          confirmText="Delete"
+          isDanger={true}
+          isLoading={deleteTaskMut.isPending}
+          onConfirm={() => taskToDelete && deleteTaskMut.mutate(taskToDelete.id, {
+            onSuccess: () => setTaskToDelete(null),
+            onError: () => setTaskToDelete(null)
+          })}
+          onCancel={() => setTaskToDelete(null)}
         />
       </div>
   );

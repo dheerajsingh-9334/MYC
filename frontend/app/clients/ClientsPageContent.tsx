@@ -17,7 +17,8 @@ import CSVImportModal from '@/components/ui/CSVImportModal';
 import ActionDropdown from '@/components/ui/ActionDropdown';
 import { ClientCombobox } from '@/components/ui/ClientCombobox';
 import { TableRowsSkeleton, ClientCardSkeleton } from '@/components/ui/SkeletonLoader';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 export default function ClientsPage() {
   const router = useRouter();
@@ -372,14 +373,14 @@ export default function ClientsPage() {
 
   return (
     <AppLayout>
-      {/* Global loading spinner for delete */}
-      {deleteClientMut.isPending && (
+      {/* Global loading spinner for delete */
+      /* Removed single-client fullPage spinner to rely on ConfirmModal BtnSpinner */
+      false && (
         <LoadingSpinner
           fullPage
-          size={44}
+          size={40}
           color="#fff"
           label="Deleting client..."
-          subLabel="Please wait, this may take a moment"
         />
       )}
 
@@ -490,47 +491,21 @@ export default function ClientsPage() {
       )}
 
       {/* Delete confirmation modal */}
-      {deletingClient && !deleteClientMut.isPending && (
-        <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 20 }}
-          onClick={(e) => { if (e.target === e.currentTarget) setDeletingClient(null); }}
-        >
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 440, boxShadow: 'var(--shadow-lg)', overflow: 'hidden', animation: 'modalIn 0.2s ease-out' }}>
-            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between' }}>
-              <div>
-                <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 22, color: 'var(--ink)' }}>Delete Client</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>This action cannot be undone.</div>
-              </div>
-              <button onClick={() => setDeletingClient(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}>
-                <X size={18} />
-              </button>
-            </div>
-            <div style={{ padding: '20px 24px' }}>
-              <div style={{ padding: '12px 16px', background: 'var(--red-bg, #FDF2F2)', border: '1px solid var(--red, #E53E3E)22', borderRadius: 8, fontSize: 13.5, color: 'var(--ink)', lineHeight: 1.5 }}>
-                Are you sure you want to permanently delete <strong>{deletingClient.brandName || deletingClient.fullName}</strong>? All tasks, documents, and history will be removed.
-              </div>
-            </div>
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px' }}>
-              <button
-                onClick={() => setDeletingClient(null)}
-                style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  const id = deletingClient.id;
-                  setDeletingClient(null);
-                  deleteClientMut.mutate(id);
-                }}
-                style={{ padding: '8px 18px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: '#C53030', color: '#fff', cursor: 'pointer' }}
-              >
-                Yes, Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={!!deletingClient}
+        title="Delete Client"
+        message={`Are you sure you want to permanently delete ${deletingClient?.brandName || deletingClient?.fullName}? All tasks, documents, and history will be removed.`}
+        confirmText="Yes, Delete"
+        isDanger={true}
+        isLoading={deleteClientMut.isPending}
+        onConfirm={() => {
+          if (deletingClient) deleteClientMut.mutate(deletingClient.id, {
+            onSuccess: () => setDeletingClient(null),
+            onError: () => setDeletingClient(null),
+          });
+        }}
+        onCancel={() => setDeletingClient(null)}
+      />
       <Topbar
         title="Clients"
       // subtitle={`${allClients.filter((c: any) => c.status === 'active').length} active clients · ${allClients.length} total`}
