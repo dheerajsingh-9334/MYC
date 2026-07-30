@@ -75,9 +75,31 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
     const { orgId, role } = req.user;
     const isAdmin = role === 'admin';
 
-    const clientFilter: any = { organisationId: orgId };
-    const taskFilter: any = { organisationId: orgId };
-    const stepHistoryFilter: any = { organisationId: orgId };
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const clientFilter: any = { 
+      organisationId: orgId,
+      OR: [
+        { status: 'active' },
+        { stepEnteredAt: { gte: thirtyDaysAgo } },
+        { createdAt: { gte: thirtyDaysAgo } }
+      ]
+    };
+    const taskFilter: any = { 
+      organisationId: orgId,
+      OR: [
+        { status: { notIn: ['complete', 'cancelled', 'rejected'] } },
+        { completedAt: { gte: thirtyDaysAgo } },
+        { createdAt: { gte: thirtyDaysAgo } }, { rejectedAt: { gte: thirtyDaysAgo } } // in case they were recently updated
+      ]
+    };
+    const stepHistoryFilter: any = { 
+      organisationId: orgId,
+      createdAt: { gte: ninetyDaysAgo }
+    };
 
     if (!isAdmin) {
       clientFilter.tasks = { none: { status: 'blocked' } };
@@ -160,9 +182,11 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       })
     ]);
 
-    const totalClients = allClientsList.length;
+    const [totalClients, completedClients] = await Promise.all([
+      prisma.client.count({ where: { organisationId: orgId } }),
+      prisma.client.count({ where: { organisationId: orgId, status: 'completed' } })
+    ]);
     const activeClients = allClientsList.filter(c => c.status === 'active').length;
-    const completedClients = allClientsList.filter(c => c.status === 'completed').length;
     const completedClientsList = allClientsList.filter(c => c.status === 'completed');
     const dashboardClientList = allClientsList;
 
