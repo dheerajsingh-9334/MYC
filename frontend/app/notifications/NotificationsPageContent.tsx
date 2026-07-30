@@ -396,12 +396,12 @@ export default function NotificationsPageContent() {
                                   style={{
                                     display: 'inline-flex', alignItems: 'center', gap: 4,
                                     padding: '12px 16px', borderRadius: 'var(--radius-sm)',
-                                    background: '#FBEEF1', border: '1px solid #F3D0D7',
+                                    background: 'var(--rejected-bg)', border: '1px solid #F3D0D7',
                                     color: 'var(--red)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                                     transition: 'all 0.15s',
                                   }}
                                   onMouseEnter={e => { e.currentTarget.style.background = '#F9DFE2'; }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = '#FBEEF1'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--rejected-bg)'; }}
                                 >
                                   <X size={12} /> Reject
                                 </button>

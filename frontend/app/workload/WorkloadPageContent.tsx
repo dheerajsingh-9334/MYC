@@ -591,7 +591,7 @@ export default function AdminDashboard() {
                               const avgTasksPerMember = t.activeTasks / Math.max(t.memberCount, 1);
                               const overloaded = t.overdue > 2 || avgTasksPerMember > 3;
                               const loadStatus = overloaded
-                                ? { label: 'High Load', bg: '#FBEEF1', color: 'var(--red)', dot: 'var(--red)' }
+                                ? { label: 'High Load', bg: 'var(--rejected-bg)', color: 'var(--red)', dot: 'var(--red)' }
                                 : t.activeTasks > 0
                                   ? { label: 'Normal', bg: 'var(--olive-50)', color: 'var(--olive)', dot: 'var(--olive)' }
                                   : { label: 'Idle', bg: 'var(--surface-2)', color: 'var(--muted)', dot: 'var(--soft)' };
@@ -627,7 +627,7 @@ export default function AdminDashboard() {
                                   </td>
                                   <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{t.activeTasks}</td>
                                   <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 500, color: t.overdue > 0 ? 'var(--red)' : 'var(--muted)' }}>{t.overdue}</td>
-                                  <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 500, color: t.blocked > 0 ? '#6B3FA0' : 'var(--muted)' }}>{t.blocked}</td>
+                                  <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 500, color: t.blocked > 0 ? 'var(--blocked)' : 'var(--muted)' }}>{t.blocked}</td>
                                   <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', fontSize: 13, fontWeight: 500, color: 'var(--green)' }}>{t.completedLast7d}</td>
                                 </tr>
                               );
@@ -917,7 +917,7 @@ export default function AdminDashboard() {
 
                                   const statusColor: Record<string, string> = {
                                     pending: 'var(--muted)', in_progress: '#EC4899', complete: 'var(--green)',
-                                    blocked: '#6B3FA0', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--red)',
+                                    blocked: 'var(--blocked)', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--red)',
                                   };
                                   const statusLabel: Record<string, string> = {
                                     pending: 'Pending', in_progress: 'In Progress', complete: 'Complete',
@@ -1011,10 +1011,10 @@ export default function AdminDashboard() {
                                           padding: '3px 9px', borderRadius: 999,
                                           fontSize: 11.5, fontWeight: 600,
                                           background: t.status === 'complete' ? 'var(--green-bg)'
-                                            : t.status === 'blocked' ? '#F0E8FA'
-                                              : t.status === 'rejected' ? '#FBEEF1'
+                                            : t.status === 'blocked' ? 'var(--blocked-bg)'
+                                              : t.status === 'rejected' ? 'var(--rejected-bg)'
                                                 : t.status === 'extension_requested' ? 'var(--amber-bg)'
-                                                  : t.status === 'in_progress' ? '#FCE7F3'
+                                                  : t.status === 'in_progress' ? 'var(--blue-bg)'
                                                     : 'var(--surface-2)',
                                           color: statusColor[t.status] || 'var(--muted)',
                                         }}>

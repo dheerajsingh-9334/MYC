@@ -301,7 +301,7 @@ export default function EnterpriseDashboard() {
         )}
       />
 
-      <div style={{ padding: '16px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {/* Daily Standup Brief Summary Bar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -335,12 +335,12 @@ export default function EnterpriseDashboard() {
             {/* Blocked Tasks */}
             <div
               onClick={() => router.push('/standup?filter=blocked')}
-              style={{ ...summaryCardStyle('#6B3FA0', '#F0E8FA'), cursor: 'pointer' }}
-              onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#6B3FA0'; }}
+              style={{ ...summaryCardStyle('var(--blocked)', 'var(--blocked-bg)'), cursor: 'pointer' }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--blocked)'; }}
               onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
             >
               <div style={summaryLabelStyle}>
-                <Ban size={13} style={{ color: '#6B3FA0' }} />
+                <Ban size={13} style={{ color: 'var(--blocked)' }} />
                 <span>Blocked Tasks</span>
               </div>
               <div style={summaryValueStyle}>{standupStats.blocked}</div>

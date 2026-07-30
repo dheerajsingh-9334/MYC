@@ -211,7 +211,7 @@ export default function Sidebar() {
 
       {/* Workspace Nav */}
       <div className="sidebar-section-title" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', color: 'var(--soft)', padding: '0 20px 6px', textTransform: 'uppercase' }}>Workspace</div>
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 12px' }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '0 12px' }}>
         {workspaceItems.map((item, idx) => <NavLink key={item.href} item={item} index={idx} />)}
       </nav>
 
@@ -219,7 +219,7 @@ export default function Sidebar() {
       {manageItems.length > 0 && (
         <>
           <div className="sidebar-section-title" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '1.2px', color: 'var(--soft)', padding: '20px 20px 6px', textTransform: 'uppercase' }}>Manage</div>
-          <nav style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 12px' }}>
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '0 12px' }}>
             {manageItems.map((item, idx) => <NavLink key={item.href} item={item} index={workspaceItems.length + idx} />)}
           </nav>
         </>

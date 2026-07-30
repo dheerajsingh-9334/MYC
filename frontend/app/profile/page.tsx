@@ -15,7 +15,7 @@ import { BtnSpinner } from '@/components/ui/LoadingSpinner';
 const GRADIENTS = [
   { id: 'olive', label: 'Olive Forest', value: 'linear-gradient(135deg, var(--olive), var(--olive-light))' },
   { id: 'blue', label: 'Deep Blue', value: 'linear-gradient(135deg, #2860A1, #5B9BD5)' },
-  { id: 'purple', label: 'Sunset Purple', value: 'linear-gradient(135deg, #6B3FA0, #9A6FCA)' },
+  { id: 'purple', label: 'Sunset Purple', value: 'linear-gradient(135deg, var(--blocked), #9A6FCA)' },
   { id: 'amber', label: 'Golden Amber', value: 'linear-gradient(135deg, #D97706, #F59E0B)' },
   { id: 'green', label: 'Emerald Green', value: 'linear-gradient(135deg, #059669, #10B981)' },
 ];

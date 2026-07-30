@@ -555,8 +555,8 @@ export default function StaffDashboard() {
         subtitle: 'Team workload',
         count: teamTasks.filter((t: any) => t.status !== 'complete' && t.status !== 'rejected' && t.status !== 'cancelled').length,
         icon: Users,
-        accent: '#6B3FA0',
-        bg: '#F0E8FA'
+        accent: 'var(--blocked)',
+        bg: 'var(--blocked-bg)'
       });
     }
     // Add problems tab if team_leader or team_member
@@ -1517,7 +1517,7 @@ export default function StaffDashboard() {
                         const hasComplete = dayTasks.some(t => t.status === 'complete');
 
                         if (hasOverdue) dots.push({ color: 'var(--red)', label: 'Overdue' });
-                        if (hasBlocked) dots.push({ color: 'var(--blocked, #6B3FA0)', label: 'Blocked' });
+                        if (hasBlocked) dots.push({ color: 'var(--blocked, var(--blocked))', label: 'Blocked' });
                         if (hasRejected) dots.push({ color: 'var(--rejected, #EF4444)', label: 'Rejected' });
                         if (hasPending) dots.push({ color: 'var(--olive)', label: 'Pending' });
                         if (hasExtension) dots.push({ color: 'var(--blue, #3B82F6)', label: 'Extension Requested' });

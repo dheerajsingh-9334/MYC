@@ -102,6 +102,9 @@ export default function TasksPage() {
   const [extensionDate, setExtensionDate] = useState('');
   const [extensionReason, setExtensionReason] = useState('');
 
+  const [blockTaskId, setBlockTaskId] = useState<string | null>(null);
+  const [blockerNote, setBlockerNote] = useState('');
+
   // Complete proof modal
   const [completeTaskId, setCompleteTaskId] = useState<string | null>(null);
   const [proofLink, setProofLink] = useState('');
@@ -204,6 +207,24 @@ export default function TasksPage() {
     },
     onError: (err: any) => {
       alert(err.message || 'Failed to delete task');
+    }
+  });
+
+
+  const blockMut = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      apiFetch(`/api/tasks/${id}/blocker`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blockerNote: reason }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks'] });
+      setBlockTaskId(null);
+      setBlockerNote('');
+    },
+    onError: (err: any) => {
+      alert(err.message || 'Failed to raise hand');
     }
   });
 
@@ -884,6 +905,8 @@ export default function TasksPage() {
                     onStatusChange={(id: string, status: string) => {
                       if (status === 'extension_requested') {
                         setExtendTaskId(id);
+                      } else if (status === 'blocked') {
+                        setBlockTaskId(id);
                       } else {
                         statusMut.mutate({ id, status });
                       }
@@ -1013,7 +1036,11 @@ export default function TasksPage() {
                               onExtend={() => setExtendTaskId(t.id)}
                               onStartTimer={() => startTimerMut.mutate(t.id)}
                               onStopTimer={() => stopTimerMut.mutate(t.id)}
-                              onStatusChange={(id, status) => statusMut.mutate({ id, status })}
+                              onStatusChange={(id, status) => {
+                                if (status === 'extension_requested') setExtendTaskId(id);
+                                else if (status === 'blocked') setBlockTaskId(id);
+                                else statusMut.mutate({ id, status });
+                              }}
                               onUpdateTask={(task) => setEditingTask(task)}
                               onDeleteTask={(id) => { const t = clientTasks.find(t => t.id === id); setDeleteConfirm({ id, title: t?.title || 'this task' }); }}
                             />
@@ -1243,6 +1270,43 @@ export default function TasksPage() {
                 {extendMut.isPending ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Submitting…</span>
                 ) : 'Submit Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Block/Raise Hand modal */}
+      {blockTaskId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(20,25,12,0.45)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setBlockTaskId(null); setBlockerNote(''); } }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 460, boxShadow: 'var(--shadow-lg)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'start', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <div style={{ fontFamily: 'Instrument Serif, serif', fontSize: 22, color: 'var(--ink)' }}>Raise Hand</div>
+                <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 4 }}>Are you blocked on this task? Provide a reason.</div>
+              </div>
+              <button onClick={() => { setBlockTaskId(null); setBlockerNote(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--soft)', padding: 4 }}><X size={18} /></button>
+            </div>
+            <div style={{ padding: '20px 24px', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--ink-2)', marginBottom: 6 }}>Blocker Reason</label>
+                <textarea value={blockerNote} onChange={(e) => setBlockerNote(e.target.value)} rows={3}
+                  placeholder="e.g. Waiting on client to provide onboarding assets..."
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13.5, color: 'var(--ink)', background: 'var(--surface)', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }} />
+              </div>
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface-2)', borderRadius: '0 0 12px 12px', flexShrink: 0 }}>
+              <button onClick={() => { setBlockTaskId(null); setBlockerNote(''); }}
+                style={{ padding: '8px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 500, background: 'var(--surface)', cursor: 'pointer', color: 'var(--ink-2)' }}>
+                Cancel
+              </button>
+              <button onClick={() => blockMut.mutate({ id: blockTaskId, reason: blockerNote })}
+                disabled={!blockerNote || blockMut.isPending}
+                style={{ padding: '8px 16px', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: 13, fontWeight: 600, background: 'var(--blocked)', color: '#fff', cursor: (!blockerNote) ? 'not-allowed' : 'pointer', opacity: (!blockerNote) ? 0.5 : 1 }}>
+                {blockMut.isPending ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BtnSpinner /> Submitting…</span>
+                ) : 'Raise Hand'}
               </button>
             </div>
           </div>
@@ -1530,7 +1594,7 @@ function StaffTaskRow({
 
   const statusColor: Record<string, string> = {
     pending: 'var(--muted)', in_progress: '#EC4899', complete: 'var(--green)',
-    blocked: '#6B3FA0', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--red)',
+    blocked: 'var(--blocked)', extension_requested: 'var(--amber)', rejected: '#B0436A', cancelled: 'var(--red)',
   };
   const statusLabel: Record<string, string> = {
     pending: 'Pending', in_progress: 'In Progress', complete: 'Complete',
@@ -1631,10 +1695,10 @@ function StaffTaskRow({
             padding: '3px 9px', borderRadius: 999,
             fontSize: 11.5, fontWeight: 600,
             background: t.status === 'complete' ? 'var(--green-bg)'
-              : t.status === 'blocked' ? '#F0E8FA'
-                : t.status === 'rejected' ? '#FBEEF1'
+              : t.status === 'blocked' ? 'var(--blocked-bg)'
+                : t.status === 'rejected' ? 'var(--rejected-bg)'
                   : t.status === 'extension_requested' ? 'var(--amber-bg)'
-                    : t.status === 'in_progress' ? '#FCE7F3'
+                    : t.status === 'in_progress' ? 'var(--blue-bg)'
                       : 'var(--surface-2)',
             color: statusColor[t.status],
           }}>
@@ -1706,6 +1770,13 @@ function StaffTaskRow({
                 label: 'Request Extension',
                 icon: <Clock size={13} />,
                 onClick: () => onExtend?.(),
+              });
+            }
+            if (t.status === 'pending' || t.status === 'in_progress') {
+              dropdownActions.push({
+                label: 'Raise Hand',
+                icon: <Hand size={13} />,
+                onClick: () => onStatusChange?.(t.id, 'blocked'),
               });
             }
           }
@@ -1881,7 +1952,7 @@ const pageBtnStyle: React.CSSProperties = {
 const statusBadgeStyle = (status: string): React.CSSProperties => {
   const colors: Record<string, { bg: string; color: string }> = {
     pending: { bg: 'var(--pending-bg)', color: 'var(--pending)' },
-    in_progress: { bg: '#FCE7F3', color: '#EC4899' },
+    in_progress: { bg: 'var(--blue-bg)', color: 'var(--blue)' },
     complete: { bg: 'var(--green-bg)', color: 'var(--green)' },
     blocked: { bg: 'var(--blocked-bg)', color: 'var(--blocked)' },
     extension_requested: { bg: 'var(--amber-bg)', color: 'var(--amber)' },

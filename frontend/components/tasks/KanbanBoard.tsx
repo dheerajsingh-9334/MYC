@@ -15,7 +15,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
   pending: { bg: 'var(--pending-bg)', color: 'var(--pending)' },
-  in_progress: { bg: '#FCE7F3', color: '#EC4899' },
+  in_progress: { bg: 'var(--pink-bg)', color: 'var(--pink)' },
   blocked: { bg: 'var(--blocked-bg)', color: 'var(--blocked)' },
   extension_requested: { bg: 'var(--amber-bg)', color: 'var(--amber)' },
   complete: { bg: 'var(--green-bg)', color: 'var(--green)' },
@@ -49,7 +49,9 @@ export default function KanbanBoard({
     setLocalTasks(tasks);
   }, [tasks]);
 
-  const activeStatuses = ['pending', 'in_progress', 'complete', 'rejected', 'cancelled', 'extension_requested'];
+  const activeStatuses = isAdmin
+    ? ['pending', 'in_progress', 'blocked', 'complete', 'rejected', 'extension_requested']
+    : ['pending', 'in_progress', 'blocked', 'complete', 'rejected', 'cancelled', 'extension_requested'];
 
   // Group and sort tasks by status (most recent first)
   const groupedTasks = useMemo(() => {
@@ -96,10 +98,16 @@ export default function KanbanBoard({
       return;
     }
 
+    // Only team-leader and member can raise hand on pending or in progress tasks, not completed tasks
+    if (!isAdmin && status === 'blocked') {
+      if (draggedTask.status !== 'pending' && draggedTask.status !== 'in_progress') {
+        alert("You can only raise hand on To Do or In Progress tasks.");
+        return;
+      }
+    }
 
-
-    if (draggedTask.status !== status && status === 'extension_requested') {
-      onStatusChange(taskId, status); // This triggers the extension modal in TasksPageContent
+    if (draggedTask.status !== status && (status === 'extension_requested' || status === 'blocked')) {
+      onStatusChange(taskId, status); // This triggers the modal in TasksPageContent
       return;
     }
 
@@ -201,7 +209,7 @@ export default function KanbanBoard({
             </button>
             <div style={{
               fontSize: 11,
-              color: '#fff',
+              color: 'var(--bg)',
               background: STATUS_STYLE[status]?.color || 'var(--muted)',
               padding: '3px 10px',
               borderRadius: 99,
@@ -236,7 +244,7 @@ export default function KanbanBoard({
           </div>
         )}
 
-        <div 
+        <div
           ref={(el) => {
             if (el && !el.dataset.autoAnimated) {
               autoAnimate(el, { duration: 250, easing: 'ease-in-out' });
@@ -261,9 +269,9 @@ export default function KanbanBoard({
                 <div
                   draggable
                   onDragStart={(e) => handleDragStart(e, t.id)}
-                  onDragEnd={() => { 
-                    setDraggedTaskId(null); 
-                    setDragOverTaskId(null); 
+                  onDragEnd={() => {
+                    setDraggedTaskId(null);
+                    setDragOverTaskId(null);
                     setTimeout(() => { isClickPrevented.current = false; }, 100);
                   }}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverTaskId(t.id); }}

@@ -347,7 +347,7 @@ export default function ClientsPage() {
     on_track: { bg: 'var(--green-bg)', color: 'var(--green)', dot: 'var(--green)', label: 'On track' },
     due_today: { bg: 'var(--amber-bg)', color: 'var(--amber)', dot: 'var(--amber)', label: 'Due today' },
     overdue: { bg: 'var(--red-bg)', color: 'var(--red)', dot: 'var(--red)', label: 'Overdue' },
-    blocked: { bg: '#F0E8FA', color: '#6B3FA0', dot: '#6B3FA0', label: 'Blocked' },
+    blocked: { bg: 'var(--blocked-bg)', color: 'var(--blocked)', dot: 'var(--blocked)', label: 'Blocked' },
   };
 
   const chips = [
