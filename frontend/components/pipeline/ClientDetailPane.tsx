@@ -17,6 +17,7 @@ import UpdateTaskModal from '@/components/pipeline/UpdateTaskModal';
 import AssignServiceModal from '@/components/pipeline/AssignServiceModal';
 import { ClientDetailSkeleton } from '@/components/ui/SkeletonLoader';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 
 // Short step labels for the pipeline track
 const STEP_LABELS = [
