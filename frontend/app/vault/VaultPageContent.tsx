@@ -375,9 +375,8 @@ export default function VaultPage() {
                     <tbody key={client.id}>
                       {/* Client row */}
                       <tr onClick={() => toggleClient(client.id)}
-                        className="standup-row"
                         style={{ background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                       >
                         <td colSpan={5} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 18px', fontWeight: 600, color: 'var(--ink)', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
@@ -406,9 +405,8 @@ export default function VaultPage() {
                         return (
                           <Fragment key={step.id}>
                             <tr onClick={() => toggleStep(step.id)}
-                              className="standup-row"
                               style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
-                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }}
                               onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                             >
                               <td colSpan={5} style={{ padding: '8px 18px 8px 40px', fontWeight: 500, color: 'var(--ink-2)', position: 'relative' }}>
@@ -447,9 +445,8 @@ export default function VaultPage() {
                                 return (
                                   <Fragment key={child.id}>
                                     <tr onClick={() => toggleStep(child.id)}
-                                      className="standup-row"
                                       style={{ background: 'var(--surface-2)', cursor: 'pointer', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
-                                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }}
                                       onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                                     >
                                       <td colSpan={5} style={{ padding: '8px 18px 8px 62px', fontWeight: 500, color: 'var(--ink-2)', position: 'relative' }}>

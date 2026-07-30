@@ -243,7 +243,7 @@ export default function TasksPage() {
 
   const addTaskTeamOptions = useMemo(() => {
     let availableTeams = new Set<string>();
-    
+
     // If a client is selected, restrict to teams that own steps in their pipeline
     if (addTaskForm.clientId && (addTaskClientSteps as any[]).length > 0) {
       (addTaskClientSteps as any[]).forEach((s) => { if (s.owningTeamName) availableTeams.add(s.owningTeamName); });
@@ -251,7 +251,7 @@ export default function TasksPage() {
       // Fallback: all active teams from users
       (liveUsers as any[]).forEach((u) => { if (u.teamName && u.isActive !== false) availableTeams.add(u.teamName); });
     }
-    
+
     // Non-admins can only assign tasks to their own teams
     if (!isAdmin && userTeams.length > 0) {
       const restricted = new Set<string>();
@@ -263,7 +263,7 @@ export default function TasksPage() {
       });
       return Array.from(restricted).sort();
     }
-    
+
     return Array.from(availableTeams).sort();
   }, [liveUsers, addTaskForm.clientId, addTaskClientSteps, isAdmin, userTeams]);
 
@@ -761,9 +761,9 @@ export default function TasksPage() {
             deleteTaskMut.isPending ? 'Deleting task...' :
               completeMut.isPending ? 'Completing task...' :
                 rejectMut.isPending ? 'Rejecting task...' :
-                    extendMut.isPending ? 'Requesting extension...' :
-                      reopenMut.isPending ? 'Reopening task...' :
-                        'Processing...'
+                  extendMut.isPending ? 'Requesting extension...' :
+                    reopenMut.isPending ? 'Reopening task...' :
+                      'Processing...'
           }
         />
       )}
@@ -969,7 +969,7 @@ export default function TasksPage() {
                               userSelect: 'none',
                               transition: 'background 0.15s'
                             }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                           >
                             <td colSpan={5} style={{ position: 'sticky', top: 40, zIndex: 9, background: 'inherit', padding: '10px 18px', fontWeight: 600, borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
@@ -1604,7 +1604,7 @@ function StaffTaskRow({
   return (
     <tr className={`standup-row ${t.isAlerted || t.isPinned ? 'highlighted' : ''}`}
       style={{ borderBottom: taskIndex !== undefined && taskIndex === (totalTasks ?? 1) - 1 ? '2px solid var(--border)' : '1px solid var(--surface-2)' }}>
-      <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'middle', minWidth: 240, width: '35%', position: 'relative' }}>
+      <td style={{ padding: '10px 18px 10px 40px', verticalAlign: 'top', minWidth: 240, width: '35%', position: 'relative' }}>
         {/* Tree connector lines */}
         {isNested && (
           <>
@@ -1682,13 +1682,13 @@ function StaffTaskRow({
           </div>
         </div>
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '15%' }}>
+      <td style={{ padding: '10px 18px', verticalAlign: 'top', width: '15%' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--muted)' }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--olive-light)' }} />
           {t.step?.owningTeamName || t.assignedTo?.teamName || '—'}
         </span>
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle', width: '15%' }}>
+      <td style={{ padding: '10px 18px', verticalAlign: 'top', width: '15%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
@@ -1735,12 +1735,12 @@ function StaffTaskRow({
           )}
         </div>
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: whenColor, fontWeight: overdue ? 600 : 400, whiteSpace: 'nowrap', width: '15%' }}>
+      <td style={{ padding: '10px 18px', verticalAlign: 'top', fontSize: 12, fontFamily: 'JetBrains Mono, monospace', color: whenColor, fontWeight: overdue ? 600 : 400, whiteSpace: 'nowrap', width: '15%' }}>
         {done && <CircleCheck size={11} style={{ display: 'inline', marginRight: 4 }} />}
         {!done && !rej && (overdue ? <TriangleAlert size={11} style={{ display: 'inline', marginRight: 4 }} /> : today ? <Clock size={11} style={{ display: 'inline', marginRight: 4 }} /> : null)}
         {whenLabel}
       </td>
-      <td style={{ padding: '10px 18px', verticalAlign: 'middle', textAlign: 'center', width: '15%' }}>
+      <td style={{ padding: '10px 18px', verticalAlign: 'top', textAlign: 'center', width: '15%' }}>
         {(() => {
           const dropdownActions = [];
 

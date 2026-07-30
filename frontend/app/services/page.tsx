@@ -148,7 +148,7 @@ export default function ServicesPage() {
                             userSelect: 'none',
                             transition: 'background 0.15s'
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                         >
                           <td colSpan={4} style={{ position: 'sticky', top: 38, zIndex: 9, background: 'inherit', padding: '10px 18px', fontWeight: 600, borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>

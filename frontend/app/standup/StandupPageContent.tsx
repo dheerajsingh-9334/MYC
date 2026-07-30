@@ -668,7 +668,7 @@ export default function StandupPageContent() {
                             background: 'var(--surface-2)',
                             cursor: 'pointer', userSelect: 'none',
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}
                         >
                           <td colSpan={5} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>

@@ -928,11 +928,13 @@ export default function StaffDashboard() {
                             gridTemplateColumns: '3px 1fr auto',
                             gap: 14,
                             padding: '12px 20px',
+                            height: 80,
+                            alignItems: 'start',
                             borderBottom: idx === scrollableProblems.length - 1 ? 'none' : '1px solid var(--surface-2)',
                             transition: 'background 0.15s',
                             background: rowBg,
                           }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = isOpen ? 'rgba(239, 68, 68, 0.05)' : 'var(--olive-50)'; }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = isOpen ? 'rgba(239, 68, 68, 0.05)' : 'var(--olive-100)'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = rowBg; }}
                         >
                           <div style={{ background: stripe, borderRadius: 3 }} />
@@ -947,7 +949,7 @@ export default function StaffDashboard() {
                                   <span
                                     onClick={() => router.push(`/clients/${problem.client.id}`)}
                                     style={{ fontSize: 10.5, fontWeight: 600, color: 'var(--olive-dark)', background: 'var(--olive-50)', padding: '1px 6px', borderRadius: 4, cursor: 'pointer', transition: 'background 0.15s' }}
-                                    onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-100)'}
+                                    onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-200)'}
                                     onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.background = 'var(--olive-50)'}
                                   >
                                     {problem.client.brandName || problem.client.fullName}
@@ -1058,12 +1060,14 @@ export default function StaffDashboard() {
                             gridTemplateColumns: '3px 1fr auto',
                             gap: 14,
                             padding: '12px 20px',
+                            height: 80,
+                            alignItems: 'start',
                             borderBottom: idx === scrollableTasks.length - 1 ? 'none' : '1px solid var(--surface-2)',
                             cursor: 'pointer',
                             transition: 'background 0.15s',
                             background: rowBg,
                           }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = isAlerted ? 'rgba(220, 38, 38, 0.08)' : 'var(--olive-50)'; }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = isAlerted ? 'rgba(220, 38, 38, 0.08)' : 'var(--olive-100)'; }}
                           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = rowBg; }}
                         >
                           <div style={{ background: stripe, borderRadius: 3 }} />

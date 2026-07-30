@@ -360,7 +360,7 @@ export default function ClientsPage() {
     { key: 'on_track', label: 'On Track', count: allClients.filter((c: any) => c.computedStatus === 'on_track').length },
   ];
 
-  const thStyleBase: React.CSSProperties = { textAlign: 'left', fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', textTransform: 'uppercase', color: 'var(--muted)', padding: '10px 18px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' };
+  const thStyleBase: React.CSSProperties = { whiteSpace: 'nowrap' };
   const colStyles = {
     client: { width: '25%', minWidth: '140px' } as React.CSSProperties,
     step: { width: '15%', minWidth: '110px' } as React.CSSProperties,
@@ -368,21 +368,21 @@ export default function ClientsPage() {
     status: { width: '12%', minWidth: '90px' } as React.CSSProperties,
     daysInStep: { width: '10%', minWidth: '85px' } as React.CSSProperties,
     duration: { width: '16%', minWidth: '120px' } as React.CSSProperties,
-    actions: { width: '8%', minWidth: '70px', textAlign: 'right', paddingRight: '20px' } as React.CSSProperties,
+    actions: { width: '8%', minWidth: '70px', textAlign: 'right' } as React.CSSProperties,
   };
 
   return (
     <AppLayout>
       {/* Global loading spinner for delete */
-      /* Removed single-client fullPage spinner to rely on ConfirmModal BtnSpinner */
-      false && (
-        <LoadingSpinner
-          fullPage
-          size={40}
-          color="#fff"
-          label="Deleting client..."
-        />
-      )}
+        /* Removed single-client fullPage spinner to rely on ConfirmModal BtnSpinner */
+        false && (
+          <LoadingSpinner
+            fullPage
+            size={40}
+            color="#fff"
+            label="Deleting client..."
+          />
+        )}
 
       {/* Global loading spinner for bulk delete */}
       {bulkDeleteClientsMut.isPending && (

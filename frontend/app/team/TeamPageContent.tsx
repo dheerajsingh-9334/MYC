@@ -475,7 +475,7 @@ export default function TeamPage() {
                     <tbody key="Administrators">
                       <tr onClick={() => toggle('Administrators')}
                         style={{ background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s', userSelect: 'none' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}>
                         <td colSpan={isAdmin ? 8 : 7} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -601,7 +601,7 @@ export default function TeamPage() {
                       <tbody key={teamName}>
                         <tr onClick={() => toggle(teamName)}
                           style={{ background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s', userSelect: 'none' }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}>
                           <td colSpan={isAdmin ? 8 : 7} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -770,7 +770,7 @@ export default function TeamPage() {
                     <tbody key="Deactivated">
                       <tr onClick={() => toggle('Deactivated')}
                         style={{ background: 'var(--surface-2)', cursor: 'pointer', transition: 'background 0.15s', userSelect: 'none' }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-50)'; }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-2)'; }}>
                         <td colSpan={isAdmin ? 8 : 7} style={{ position: 'sticky', top: 36, zIndex: 9, background: 'inherit', padding: '10px 16px', verticalAlign: 'middle', borderBottom: '1px solid var(--border)', boxShadow: '0 1px 0 var(--border)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

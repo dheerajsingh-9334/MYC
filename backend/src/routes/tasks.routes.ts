@@ -75,9 +75,9 @@ router.post(
 
       const assigneeTeams = assignee.teamName
         ? assignee.teamName
-            .split(",")
-            .map((t) => t.trim().toLowerCase())
-            .filter(Boolean)
+          .split(",")
+          .map((t) => t.trim().toLowerCase())
+          .filter(Boolean)
         : [];
 
       if (assigneeTeams.length === 0 && req.user.role !== 'admin') {
@@ -89,7 +89,7 @@ router.post(
       let matchedStep = clientSteps.find((s) =>
         assigneeTeams.includes(s.owningTeamName.toLowerCase())
       );
-      
+
       // If admin and no matched step, fallback to client's current step
       if (!matchedStep && req.user.role === 'admin') {
         matchedStep = clientSteps.find((s) => s.id === client.currentStepId);
@@ -165,9 +165,9 @@ router.get("/", requireAuth, async (req: Request, res: Response) => {
 
     const teamNames = teamName
       ? teamName
-          .split(",")
-          .map((name) => name.trim())
-          .filter(Boolean)
+        .split(",")
+        .map((name) => name.trim())
+        .filter(Boolean)
       : [];
 
     if (role === "team_leader" || role === "team_member") {
@@ -311,7 +311,7 @@ router.patch(
             const elapsed = Math.floor(
               (new Date().getTime() -
                 new Date(existing.timerStartedAt).getTime()) /
-                1000,
+              1000,
             );
             finalTimeSpentSeconds += Math.max(0, elapsed);
           }
@@ -330,10 +330,10 @@ router.patch(
         } else if (status !== "in_progress" && existing.isTimerRunning) {
           const elapsed = existing.timerStartedAt
             ? Math.floor(
-                (new Date().getTime() -
-                  new Date(existing.timerStartedAt).getTime()) /
-                  1000,
-              )
+              (new Date().getTime() -
+                new Date(existing.timerStartedAt).getTime()) /
+              1000,
+            )
             : 0;
           data.isTimerRunning = false;
           data.timerStartedAt = null;
@@ -341,7 +341,7 @@ router.patch(
             existing.timeSpentSeconds + Math.max(0, elapsed);
         }
       }
-      
+
       // Allow manual override for timer by admin/owner
       if (timeSpentSeconds !== undefined) {
         data.timeSpentSeconds = parseInt(timeSpentSeconds, 10) || 0;
@@ -357,7 +357,7 @@ router.patch(
           data.timerStartedAt = null;
         }
       }
-      
+
       if (assignedToId !== undefined) {
         if (assignedToId === null || assignedToId === "") {
           data.assignedToId = null;
@@ -510,9 +510,9 @@ router.patch(
           const now = new Date();
           const elapsed = task.timerStartedAt
             ? Math.floor(
-                (now.getTime() - new Date(task.timerStartedAt).getTime()) /
-                  1000,
-              )
+              (now.getTime() - new Date(task.timerStartedAt).getTime()) /
+              1000,
+            )
             : 0;
           data.isTimerRunning = false;
           data.timerStartedAt = null;
@@ -621,8 +621,8 @@ router.patch(
       const now = new Date();
       const elapsed = task.timerStartedAt
         ? Math.floor(
-            (now.getTime() - new Date(task.timerStartedAt).getTime()) / 1000,
-          )
+          (now.getTime() - new Date(task.timerStartedAt).getTime()) / 1000,
+        )
         : 0;
 
       const updated = await prisma.task.update({
@@ -673,7 +673,7 @@ router.patch(
       if (task.isTimerRunning && task.timerStartedAt) {
         const elapsed = Math.floor(
           (completedAt.getTime() - new Date(task.timerStartedAt).getTime()) /
-            1000,
+          1000,
         );
         finalTimeSpentSeconds += Math.max(0, elapsed);
       }
