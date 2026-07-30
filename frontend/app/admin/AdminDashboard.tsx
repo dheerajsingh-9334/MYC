@@ -535,7 +535,7 @@ export default function AdminDashboard() {
     if (allTasks.length === 100 && allClients.length === 0) {
       return { labels: ['Jan', 'Feb', 'Mar', 'Apr'], data: [10, 20, 30, 40], clientsByMonth: {} };
     }
-    
+
     let sorted = [...allClients].map((c: any) => {
       const date = new Date(c.dateJoined || c.createdAt || c.addedAt || new Date());
       return { ...c, parsedDate: date };
@@ -699,7 +699,7 @@ export default function AdminDashboard() {
             {
               title: 'Launched Clients',
               value: launchedClientsCount,
-              subtitle: 'Step 9+ / Completed',
+              subtitle: 'Completed',
               path: '/clients?filter=completed',
               accent: 'var(--green)',
               bg: 'var(--green-bg)',
@@ -1327,28 +1327,29 @@ export default function AdminDashboard() {
                           // Show a short label like "Jan" instead of "January 2026" if possible
                           const shortLabel = p.label.split(' ')[0].substring(0, 3);
                           return (
-                          <g key={idx}>
-                            <rect x={p.x} y={displayY} width={p.barWidth} height={displayHeight} rx={4}
-                              fill={growthTooltip?.label === p.label ? 'url(#barGradientHover)' : 'url(#barGradient)'}
-                              style={{ 
-                                transition: 'fill 0.2s, height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), y 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)', 
-                                cursor: 'pointer' 
-                              }}
-                              onMouseEnter={() => setGrowthTooltip({ x: p.x + p.barWidth/2, y: displayY, label: p.label, val: p.val })}
-                              onMouseLeave={() => setGrowthTooltip(null)}
-                            />
-                            <text 
-                              x={p.x + p.barWidth / 2} 
-                              y={height - 15} 
-                              textAnchor="middle" 
-                              fontSize="10" 
-                              fill="var(--muted)" 
-                              fontWeight="600"
-                            >
-                              {shortLabel}
-                            </text>
-                          </g>
-                        )})}
+                            <g key={idx}>
+                              <rect x={p.x} y={displayY} width={p.barWidth} height={displayHeight} rx={4}
+                                fill={growthTooltip?.label === p.label ? 'url(#barGradientHover)' : 'url(#barGradient)'}
+                                style={{
+                                  transition: 'fill 0.2s, height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), y 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                                  cursor: 'pointer'
+                                }}
+                                onMouseEnter={() => setGrowthTooltip({ x: p.x + p.barWidth / 2, y: displayY, label: p.label, val: p.val })}
+                                onMouseLeave={() => setGrowthTooltip(null)}
+                              />
+                              <text
+                                x={p.x + p.barWidth / 2}
+                                y={height - 15}
+                                textAnchor="middle"
+                                fontSize="10"
+                                fill="var(--muted)"
+                                fontWeight="600"
+                              >
+                                {shortLabel}
+                              </text>
+                            </g>
+                          )
+                        })}
 
                       </svg>
 

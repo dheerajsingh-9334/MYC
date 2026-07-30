@@ -302,7 +302,7 @@ export default function EnterpriseDashboard() {
       />
 
       <div style={{ padding: '16px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
-        
+
         {/* Daily Standup Brief Summary Bar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
@@ -363,7 +363,7 @@ export default function EnterpriseDashboard() {
 
         {/* 3 Stat Cards in a row */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-          
+
           {/* Card 1: Total Clients */}
           <div
             onClick={() => router.push('/clients')}
@@ -419,7 +419,7 @@ export default function EnterpriseDashboard() {
               </div>
               <div style={statCardValueContainerStyle}>
                 <span style={statCardValueStyle}>{launchedClientsCount}</span>
-                <span style={statCardSubtitleStyle}>Step 9+ / Completed</span>
+                <span style={statCardSubtitleStyle}>Completed</span>
               </div>
             </div>
           </div>
@@ -474,7 +474,7 @@ export default function EnterpriseDashboard() {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            
+
             {/* Critical Row */}
             <div style={attentionRowStyle}>
               <span style={badgeStyle('var(--red-bg)', 'var(--red)', 'CRITICAL')}>CRITICAL</span>
@@ -516,7 +516,7 @@ export default function EnterpriseDashboard() {
 
         {/* Client Risk Section (Full Width) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          
+
           {/* Client Risk */}
           <SectionCard
             title="Client Risk Analysis"
