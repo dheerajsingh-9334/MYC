@@ -69,6 +69,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
       const hasPinnedOrAlerted = client.isPinned || client.tasks.some(t => t.isPinned || t.isAlerted);
       if (status === 'on_track' && !hasPinnedOrAlerted) continue;
 
+      let clientAlertCount = 0;
+      let clientPinAdded = false;
+
       for (const task of client.tasks) {
         const taskStatus = task.status;
         let alertType: string | null = null;
@@ -85,9 +88,9 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
             alertType = 'due_today';
           } else if (task.isAlerted || task.isPinned) {
             alertType = 'highlighted';
-          } else if (client.isPinned && task.stepId === client.currentStepId) {
-            // Only highlight the task for the client's current step to prevent counting as multiple
+          } else if (client.isPinned && !clientPinAdded) {
             alertType = 'highlighted';
+            clientPinAdded = true;
           }
         }
 
@@ -109,7 +112,18 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
             alertType,
             daysLate,
           });
+          clientAlertCount++;
         }
+      }
+
+      if (client.isPinned && clientAlertCount === 0) {
+        alertItems.push({
+          client: { id: client.id, fullName: client.fullName, brandName: client.brandName, isPinned: client.isPinned },
+          step: client.currentStep,
+          task: null,
+          alertType: 'highlighted',
+          daysLate: 0,
+        });
       }
     }
 
