@@ -53,8 +53,8 @@ export default function KanbanBoard({
   }, [tasks]);
 
   const activeStatuses = isAdmin
-    ? ['pending', 'in_progress', 'blocked', 'complete', 'rejected', 'extension_requested']
-    : ['pending', 'in_progress', 'blocked', 'complete', 'rejected', 'cancelled', 'extension_requested'];
+    ? ['pending', 'in_progress', 'complete', 'blocked', 'extension_requested', 'rejected']
+    : ['pending', 'in_progress', 'complete', 'blocked', 'extension_requested', 'rejected', 'cancelled'];
 
   // Group and sort tasks by status (most recent first)
   const groupedTasks = useMemo(() => {
@@ -98,7 +98,7 @@ export default function KanbanBoard({
 
     // Admins cannot drag tasks into Raise Hand or Extension columns
     if (isAdmin && (status === 'blocked' || status === 'extension_requested')) {
-      toast.error(`Admins cannot move tasks directly to ${STATUS_LABELS[status]}.`);
+      toast.error('Admins cannot move tasks to Raise Hand or Extension.', { style: { maxWidth: '500px' } });
       return;
     }
 
@@ -204,30 +204,31 @@ export default function KanbanBoard({
           background: STATUS_STYLE[status]?.bg || 'var(--surface)',
           borderBottom: !openFilters[status] ? `2px solid ${STATUS_STYLE[status]?.color || 'var(--border)'}` : 'none',
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
+          flexDirection: 'column',
+          gap: 6
         }}>
-          <div style={{ fontWeight: 800, fontSize: 13, color: STATUS_STYLE[status]?.color || 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            {STATUS_LABELS[status]}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <div style={{ fontWeight: 800, fontSize: 13, color: STATUS_STYLE[status]?.color || 'var(--ink)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              {STATUS_LABELS[status]}
+            </div>
             <button
               onClick={(e) => { e.stopPropagation(); setOpenFilters(prev => ({ ...prev, [status]: !prev[status] })) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: STATUS_STYLE[status]?.color || 'var(--muted)', opacity: 0.8, padding: 0, display: 'flex', alignItems: 'center' }}
             >
               <Search size={14} />
             </button>
-            <div style={{
-              fontSize: 11,
-              color: 'var(--bg)',
-              background: STATUS_STYLE[status]?.color || 'var(--muted)',
-              padding: '3px 10px',
-              borderRadius: 99,
-              fontWeight: 800,
-              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
-            }}>
-              {colTasks.length} {colTasks.length === 1 ? 'Issue' : 'Issues'}
-            </div>
+          </div>
+          <div style={{
+            fontSize: 11,
+            color: 'var(--bg)',
+            background: STATUS_STYLE[status]?.color || 'var(--muted)',
+            padding: '3px 10px',
+            borderRadius: 99,
+            fontWeight: 800,
+            alignSelf: 'flex-start',
+            boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+          }}>
+            {colTasks.length} {colTasks.length === 1 ? 'Issue' : 'Issues'}
           </div>
         </div>
 

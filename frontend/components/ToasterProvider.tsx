@@ -2,5 +2,5 @@
 import { Toaster } from 'react-hot-toast';
 
 export default function ToasterProvider() {
-  return <Toaster position="top-center" />;
+  return <Toaster position="top-center" containerStyle={{ top: 30 }} />;
 }
