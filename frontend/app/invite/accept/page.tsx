@@ -232,7 +232,7 @@ function AcceptInviteContent() {
                 style={{
                   ...inputStyle,
                   paddingLeft: 38,
-                  ...(whatsappNumber.trim() && !isValidPhone(whatsappNumber) ? { borderColor: 'var(--red, #B23B2D)', background: 'var(--red-bg, #FDF3F2)' } : {})
+                  ...(whatsappNumber.trim() && !isValidPhone(whatsappNumber) ? { border: '1px solid var(--red, #B23B2D)', background: 'var(--red-bg, #FDF3F2)' } : {})
                 }}
               />
 
@@ -339,19 +339,19 @@ const containerStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  background: '#FAFAF7',
+  background: 'var(--bg, #FAFAF7)',
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
   padding: 20,
 };
 
 const cardStyle: React.CSSProperties = {
-  background: '#ffffff',
+  background: 'var(--surface, #ffffff)',
   border: '1px solid var(--border, #E5E4DC)',
   borderRadius: 16,
   padding: '36px 32px',
   width: '100%',
   maxWidth: 460,
-  boxShadow: '0 8px 30px rgba(20, 25, 12, 0.04)',
+  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.08)',
 };
 
 const logoIconStyle: React.CSSProperties = {
@@ -423,7 +423,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 8,
   fontSize: 14.5,
   color: 'var(--ink, #1A1A1A)',
-  background: '#ffffff',
+  background: 'var(--surface, #ffffff)',
   outline: 'none',
   fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
 };

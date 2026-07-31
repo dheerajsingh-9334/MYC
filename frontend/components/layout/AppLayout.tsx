@@ -18,6 +18,7 @@ export default function AppLayout({ children, withHeader }: { children: React.Re
 
   useEffect(() => {
     if (USE_MOCK) return; // skip auth check in demo mode
+    if (pathname.startsWith('/invite')) return; // skip auth check for invite pages
     const token = localStorage.getItem('access_token');
     if (!token) {
       router.push('/login');
@@ -29,7 +30,7 @@ export default function AppLayout({ children, withHeader }: { children: React.Re
         window.dispatchEvent(new Event('user-updated'));
       }).catch(err => console.error('Failed to refresh user:', err));
     }
-  }, [router]);
+  }, [router, pathname]);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -40,7 +41,7 @@ export default function AppLayout({ children, withHeader }: { children: React.Re
     }
   }, []);
 
-  if (pathname === '/login') {
+  if (pathname === '/login' || pathname.startsWith('/invite')) {
     return <LayoutContext.Provider value={true}>{children}</LayoutContext.Provider>;
   }
 
