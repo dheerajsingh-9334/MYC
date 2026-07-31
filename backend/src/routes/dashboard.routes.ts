@@ -105,19 +105,19 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
     const cached = adminDashboardCache.get(cacheKey);
     let hasResponded = false;
 
-    if (cached && cached.data) {
-      res.json(cached.data);
-      hasResponded = true;
-      if (Date.now() - cached.timestamp < ADMIN_DASHBOARD_TTL) {
-        console.log(`[dashboard.admin] Route took ${Date.now() - t0}ms (fresh cache)`);
-        return;
-      }
-      console.log(`[dashboard.admin] Route took ${Date.now() - t0}ms (stale cache returned instantly, refreshing in background...)`);
-      if (cached.isFetching) return;
-      cached.isFetching = true;
-    } else {
-      adminDashboardCache.set(cacheKey, { data: null, timestamp: 0, isFetching: true });
-    }
+    // if (cached && cached.data) {
+    //   res.json(cached.data);
+    //   hasResponded = true;
+    //   if (Date.now() - cached.timestamp < ADMIN_DASHBOARD_TTL) {
+    //     console.log(`[dashboard.admin] Route took ${Date.now() - t0}ms (fresh cache)`);
+    //     return;
+    //   }
+    //   console.log(`[dashboard.admin] Route took ${Date.now() - t0}ms (stale cache returned instantly, refreshing in background...)`);
+    //   if (cached.isFetching) return;
+    //   cached.isFetching = true;
+    // } else {
+    //   adminDashboardCache.set(cacheKey, { data: null, timestamp: 0, isFetching: true });
+    // }
 
     const promises: Promise<any>[] = [
       prisma.client.findMany({
@@ -145,7 +145,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       })
     ];
 
-    const needsCacheRefresh = !usersCache || !stepsCache || Date.now() - lastCacheTime > CACHE_TTL;
+    const needsCacheRefresh = true; // !usersCache || !stepsCache || Date.now() - lastCacheTime > CACHE_TTL;
     if (needsCacheRefresh) {
       promises.push(
         prisma.user.findMany({
@@ -423,7 +423,7 @@ router.get('/admin', requireAuth, async (req: Request, res: Response) => {
       taskList,
     };
 
-    adminDashboardCache.set(cacheKey, { data: responseData, timestamp: Date.now(), isFetching: false });
+    // adminDashboardCache.set(cacheKey, { data: responseData, timestamp: Date.now(), isFetching: false });
 
     if (!hasResponded) {
       res.json(responseData);
