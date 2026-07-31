@@ -863,7 +863,7 @@ export default function TasksPage() {
                   }}
                   title={allExpanded ? 'Collapse all' : 'Expand all'}
                   style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px',
+                    alignItems: 'center', gap: 4, padding: '5px 10px',
                     border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
                     fontSize: 11.5, fontWeight: 600, background: 'var(--surface)',
                     color: 'var(--ink-2)', cursor: viewType === 'list' ? 'pointer' : 'default',
