@@ -38,7 +38,7 @@ const navItems = [
 
 const ROLE_BADGE: Record<string, { label: string; color: string; bg: string }> = {
   admin: { label: 'Admin', color: 'var(--olive)', bg: 'var(--olive-50)' },
-  team_leader: { label: 'Team Leader', color: '#2860A1', bg: '#EBF3FB' },
+  team_leader: { label: 'Team Leader', color: 'var(--blue)', bg: 'var(--blue-bg)' },
   team_member: { label: 'Team', color: 'var(--muted)', bg: 'var(--surface-2)' },
 };
 
@@ -253,7 +253,7 @@ export default function Sidebar() {
             <div style={{
               width: 22, height: 22, borderRadius: '50%',
               background: role === 'admin' ? 'linear-gradient(135deg, var(--olive), var(--olive-light))'
-                : role === 'team_leader' ? 'linear-gradient(135deg, #2860A1, #5B9BD5)'
+                : role === 'team_leader' ? 'linear-gradient(135deg, var(--blue), var(--blue-border))'
                   : 'var(--surface-2)',
               color: '#fff', display: user?.avatarUrl ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
               fontWeight: 700, fontSize: 9, border: role === 'team_member' ? '1.5px solid var(--border)' : 'none',

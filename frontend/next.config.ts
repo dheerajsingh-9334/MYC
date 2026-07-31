@@ -8,7 +8,7 @@ const PROD_API_HOSTS: string[] = [
 
 
 const nextConfig: NextConfig = {
-  reactStrictMode: true,
+  reactStrictMode: false,
 
   // Production-only hardening. The frontend talks to the backend over HTTPS,
   // so we tell Next it's safe to upgrade any stray http:// image/asset refs.

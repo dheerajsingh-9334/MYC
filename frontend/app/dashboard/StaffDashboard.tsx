@@ -808,8 +808,44 @@ export default function StaffDashboard() {
               padding={0}
               action={
                 <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 8 }}>
-
-
+                  {user?.role === 'team_leader' && (
+                    <div style={{ display: 'flex', background: 'var(--surface-2)', padding: 3, borderRadius: 8, gap: 2 }}>
+                      <button
+                        onClick={() => setTab('team_tasks')}
+                        style={{
+                          padding: '5px 12px',
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: tab === 'team_tasks' ? 'var(--surface)' : 'transparent',
+                          color: tab === 'team_tasks' ? 'var(--ink)' : 'var(--muted)',
+                          border: 'none',
+                          boxShadow: tab === 'team_tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        All Tasks
+                      </button>
+                      <button
+                        onClick={() => setTab('active')}
+                        style={{
+                          padding: '5px 12px',
+                          borderRadius: 6,
+                          fontSize: 12,
+                          fontWeight: 600,
+                          background: tab === 'active' ? 'var(--surface)' : 'transparent',
+                          color: tab === 'active' ? 'var(--ink)' : 'var(--muted)',
+                          border: 'none',
+                          boxShadow: tab === 'active' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        My Tasks
+                      </button>
+                    </div>
+                  )}
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: 130 }}>
                     <Search size={13} style={{ position: 'absolute', left: 8, color: 'var(--muted)' }} />
                     <input

@@ -474,4 +474,3 @@ const checkContainerStyle: React.CSSProperties = {
   justifyContent: 'center',
   margin: '0 auto 20px',
 };
-
