@@ -64,18 +64,12 @@ export default function LoginPage() {
         animation: 'modalIn 0.3s ease',
       }}>
         {/* Brand */}
-        <div style={{ textAlign: 'center', marginBottom: 36 }}>
-          <div style={{
-            width: 52, height: 52, background: 'var(--olive)', borderRadius: 12,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 700, fontSize: 22,
-            fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', margin: '0 auto 16px',
-          }}>M</div>
-          <div style={{ fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 28, color: 'var(--ink)', letterSpacing: '-0.3px' }}>
-            My<span style={{ color: 'var(--olive)', fontStyle: 'italic' }}>C</span>Ops
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ margin: '0 auto', display: 'flex', justifyContent: 'center' }}>
+            <img src="/logo.png" alt="MYC Services" style={{ width: 260, height: 'auto', objectFit: 'contain' }} />
           </div>
-          <div style={{ fontSize: 13.5, color: 'var(--muted)', marginTop: 6 }}>
-            Operations Platform — Sign in to continue
+          <div style={{ fontSize: 15, color: 'var(--muted)', marginTop: -30 }}>
+            Sign in to continue
           </div>
         </div>
 

@@ -1,0 +1,7 @@
+<svg viewBox="0 0 270 100" width="270" height="100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="10,80 28,80 10,62" fill="#6366F1" />
+  <path d="M10,20 L28,20 L48,50 L68,20 L86,20 L86,80 L68,80 L68,45 L48,75 L28,45 L28,75 L10,57 Z" fill="#0F172A" />
+  <path d="M104,20 L124,20 L143,45 L162,20 L182,20 L152,60 L152,80 L134,80 L134,60 Z" fill="#0F172A" />
+  <path d="M255,25 A34,34 0 1,0 255,75 L242,62 A16,16 0 1,1 242,38 Z" fill="#0F172A" />
+  <text x="140" y="96" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" fill="#0F172A" letter-spacing="8" text-anchor="middle">SERVICES</text>
+</svg>

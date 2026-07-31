@@ -72,18 +72,7 @@ export default function StandupPageContent() {
   const [localClientPinned, setLocalClientPinned] = useState<Record<string, boolean>>({});
   const [ignoredItems, setIgnoredItems] = useState<Set<string>>(new Set());
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const [showFilters, setShowFilters] = useState(false);
-  const filterRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
-        setShowFilters(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const [mounted, setMounted] = useState(false);
 
@@ -506,52 +495,54 @@ export default function StandupPageContent() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minHeight: 0 }}>
             {/* Toolbar — active filter pills on left, controls on right */}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 6,
               background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-              padding: '8px 14px',
-            }}>
-              {/* Active filter pills — left side */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' }}>
-                {alertTypeFilter && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>
-                    {alertTypeFilter === 'overdue' ? 'Overdue' : alertTypeFilter === 'blocked' ? 'Blocked' : 'Due Today'}
-                    <X size={10} style={{ cursor: 'pointer' }} onClick={() => setAlertTypeFilter('')} />
-                  </span>
-                )}
-                {teamFilter && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>
-                    {teamFilter}
-                    <X size={10} style={{ cursor: 'pointer' }} onClick={() => setTeamFilter('')} />
-                  </span>
-                )}
-                {clientFilter && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 4, background: 'var(--olive-50)', color: 'var(--olive-dark)', fontSize: 11, fontWeight: 600 }}>
-                    {clientFilter}
-                    <X size={10} style={{ cursor: 'pointer' }} onClick={() => setClientFilter('')} />
-                  </span>
+              padding: '8px 14px', boxSizing: 'border-box', overflowX: 'auto',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'nowrap'
+            }} className="custom-scrollbar">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'nowrap' }}>
+                {/* Search */}
+                <div style={{ position: 'relative', flex: '0 0 50%', minWidth: 200 }}>
+                  <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
+                  <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)}
+                    style={{ width: '100%', padding: '6px 10px 6px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }} />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 110 }}>
+                  <ClientCombobox
+                    value={alertTypeFilter}
+                    onChange={setAlertTypeFilter}
+                    placeholder="Alert Type"
+                    options={[
+                      { id: 'overdue', label: 'Overdue' },
+                      { id: 'blocked', label: 'Blocked' },
+                      { id: 'due_today', label: 'Due Today' },
+                    ]}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 110 }}>
+                  {user?.role !== 'team_leader' ? (
+                    <ClientCombobox
+                      value={teamFilter}
+                      onChange={setTeamFilter}
+                      placeholder="Team"
+                      options={TEAMS.map(team => ({ id: team, label: team }))}
+                    />
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '7px 10px', borderRadius: 'var(--radius-sm)' }}>{user.teamName}</div>
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 110 }}>
+                  <ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="Client" />
+                </div>
+
+                {(alertTypeFilter || teamFilter || clientFilter || search) && (
+                  <button onClick={() => { setAlertTypeFilter(''); setTeamFilter(''); setClientFilter(''); setSearch(''); }}
+                    style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 11, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>Clear all</button>
                 )}
               </div>
 
-              {/* Right-side controls: Search | Expand | Collapse | Filters */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 'auto' }}>
-                {/* Search */}
-                <div style={{ position: 'relative', width: 180 }}>
-                  <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    style={{
-                      width: '100%', padding: '5px 10px 5px 28px', border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--ink)',
-                      outline: 'none', boxSizing: 'border-box',
-                    }}
-                  />
-                </div>
-
-                <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-
+              {/* Right: Controls */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                 <button
                   title={allExpanded ? 'Collapse all' : 'Expand all'}
                   onClick={toggleAllGroups}
@@ -567,76 +558,6 @@ export default function StandupPageContent() {
                   {allExpanded ? <ChevronsUp size={13} /> : <ChevronsDown size={13} />}
                   {allExpanded ? 'Collapse all' : 'Expand all'}
                 </button>
-
-                <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
-
-                {/* Filters dropdown */}
-                <div ref={filterRef} style={{ position: 'relative' }}>
-                  <button
-                    onClick={() => setShowFilters(prev => !prev)}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5,
-                      padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                      fontSize: 11.5, fontWeight: 600,
-                      background: (alertTypeFilter || teamFilter || clientFilter || showFilters) ? 'var(--olive-50)' : 'var(--surface)',
-                      color: (alertTypeFilter || teamFilter || clientFilter || showFilters) ? 'var(--olive-dark)' : 'var(--ink-2)',
-                      cursor: 'pointer', whiteSpace: 'nowrap',
-                    }}
-                  >
-                    <Filter size={13} /> Filters
-                    {(alertTypeFilter || teamFilter || clientFilter) && (
-                      <span style={{ background: 'var(--olive)', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700, padding: '1px 5px', marginLeft: 2 }}>
-                        {[alertTypeFilter, teamFilter, clientFilter].filter(Boolean).length}
-                      </span>
-                    )}
-                    <ChevronDown size={11} style={{ opacity: 0.6, transform: showFilters ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
-                  </button>
-                  {showFilters && (
-                    <div style={{
-                      position: 'absolute', top: '100%', right: 0, marginTop: 6,
-                      width: 260, background: 'var(--surface)', border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-lg)', zIndex: 999,
-                      padding: 16, display: 'flex', flexDirection: 'column', gap: 12,
-                    }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Alert Type</label>
-                        <ClientCombobox
-                          value={alertTypeFilter}
-                          onChange={setAlertTypeFilter}
-                          placeholder="All Alerts"
-                          options={[
-                            { id: 'overdue', label: 'Overdue' },
-                            { id: 'blocked', label: 'Blocked' },
-                            { id: 'due_today', label: 'Due Today' },
-                          ]}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Team</label>
-                        {user?.role !== 'team_leader' ? (
-                          <ClientCombobox
-                            value={teamFilter}
-                            onChange={setTeamFilter}
-                            placeholder="All Teams"
-                            options={TEAMS.map(team => ({ id: team, label: team }))}
-                          />
-                        ) : (
-                          <div style={{ fontSize: 12, color: 'var(--muted)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '7px 10px', borderRadius: 'var(--radius-sm)' }}>{user.teamName}</div>
-                        )}
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: 'var(--muted)', marginBottom: 6 }}>Client</label>
-                        <ClientCombobox value={clientFilter} onChange={setClientFilter} options={clientOptions} placeholder="All Clients" />
-                      </div>
-                      {(alertTypeFilter || teamFilter || clientFilter) && (
-                        <button onClick={() => { setAlertTypeFilter(''); setTeamFilter(''); setClientFilter(''); }}
-                          style={{ padding: '6px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface-2)', color: 'var(--muted)', cursor: 'pointer' }}>
-                          Clear all filters
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
 

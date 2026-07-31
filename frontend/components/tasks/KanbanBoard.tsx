@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { isPast, isToday, differenceInDays, format } from 'date-fns';
 import { Clock, TriangleAlert, CircleCheck, Play, Pause, AlertCircle, Pin, Eye, Edit2, Trash2, Search, Hand } from 'lucide-react';
 import autoAnimate from '@formkit/auto-animate';
+import toast from 'react-hot-toast';
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'To Do',
@@ -97,13 +98,14 @@ export default function KanbanBoard({
 
     // Admins cannot drag tasks into Raise Hand or Extension columns
     if (isAdmin && (status === 'blocked' || status === 'extension_requested')) {
+      toast.error(`Admins cannot move tasks directly to ${STATUS_LABELS[status]}.`);
       return;
     }
 
     // Only team-leader and member can raise hand on pending or in progress tasks, not completed tasks
     if (!isAdmin && status === 'blocked') {
       if (draggedTask.status !== 'pending' && draggedTask.status !== 'in_progress') {
-        alert("You can only raise hand on To Do or In Progress tasks.");
+        toast.error("You can only raise hand on To Do or In Progress tasks.");
         return;
       }
     }

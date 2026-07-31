@@ -151,11 +151,8 @@ export default function Sidebar() {
         justifyContent: 'space-between',
         transition: 'padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 36, height: 36, background: 'var(--olive)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', letterSpacing: '0.5px' }}>M</div>
-          <div className="sidebar-brand-text" style={{ fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', fontSize: 19, color: 'var(--ink)', letterSpacing: '0.3px', whiteSpace: 'nowrap' }}>
-            MYC OS
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+          <img src="/logo.png" alt="MYC Services" style={{ width: 150, height: 'auto', objectFit: 'contain', margin: '-1px 0 -10px -5px' }} />
         </div>
 
         {/* Toggle Collapse Desktop */}
