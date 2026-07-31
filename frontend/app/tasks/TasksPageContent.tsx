@@ -730,6 +730,8 @@ export default function TasksPage() {
     };
   }, [tasks]);
 
+  const visibleTaskIds = useMemo(() => new Set(filtered.map((t: any) => t.id)), [filtered]);
+
   const chips: { key: ChipKind; label: string; count: number; color?: string }[] = [
     { key: '', label: 'All', count: counts.total },
     { key: 'overdue', label: 'Overdue', count: counts.overdue, color: 'var(--red)' },
@@ -752,14 +754,13 @@ export default function TasksPage() {
 
   return (
     <AppLayout>
-      {(deleteTaskMut.isPending || completeMut.isPending || rejectMut.isPending || extendMut.isPending || reopenMut.isPending) && (
+      {(deleteTaskMut.isPending || rejectMut.isPending || extendMut.isPending || reopenMut.isPending) && (
         <LoadingSpinner
           fullPage
           size={40}
           color="#fff"
           label={
             deleteTaskMut.isPending ? 'Deleting task...' :
-              completeMut.isPending ? 'Completing task...' :
                 rejectMut.isPending ? 'Rejecting task...' :
                   extendMut.isPending ? 'Requesting extension...' :
                     reopenMut.isPending ? 'Reopening task...' :
@@ -899,7 +900,8 @@ export default function TasksPage() {
               {viewType === 'board' ? (
                 <div style={{ flex: 1, minHeight: 0, padding: '16px 20px', overflowY: 'hidden' }}>
                   <KanbanBoard
-                    tasks={filtered}
+                    tasks={tasks || []}
+                    visibleTaskIds={visibleTaskIds}
                     isAdmin={isAdmin}
                     isLeader={isLeader}
                     onStatusChange={(id: string, status: string) => {
@@ -907,6 +909,12 @@ export default function TasksPage() {
                         setExtendTaskId(id);
                       } else if (status === 'blocked') {
                         setBlockTaskId(id);
+                      } else if (status === 'complete') {
+                        if (isAdmin) {
+                          completeMut.mutate({ id: id, proofLink: '', proofDescription: '' });
+                        } else {
+                          setCompleteTaskId(id);
+                        }
                       } else {
                         statusMut.mutate({ id, status });
                       }

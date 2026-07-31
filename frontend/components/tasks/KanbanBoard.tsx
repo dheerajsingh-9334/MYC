@@ -25,6 +25,7 @@ const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
 
 export default function KanbanBoard({
   tasks,
+  visibleTaskIds,
   isAdmin,
   isLeader,
   onStatusChange,
@@ -43,6 +44,7 @@ export default function KanbanBoard({
   const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [draggedHeight, setDraggedHeight] = useState<number>(64);
+  const [recentlyMovedTaskIds, setRecentlyMovedTaskIds] = useState<Set<string>>(new Set());
   const isClickPrevented = React.useRef(false);
 
   React.useEffect(() => {
@@ -106,7 +108,8 @@ export default function KanbanBoard({
       }
     }
 
-    if (draggedTask.status !== status && (status === 'extension_requested' || status === 'blocked')) {
+    const isModalStatus = status === 'extension_requested' || status === 'blocked' || (!isAdmin && status === 'complete');
+    if (draggedTask.status !== status && isModalStatus) {
       onStatusChange(taskId, status); // This triggers the modal in TasksPageContent
       return;
     }
@@ -143,6 +146,7 @@ export default function KanbanBoard({
     });
 
     setLocalTasks(newLocal);
+    setRecentlyMovedTaskIds(prev => new Set(prev).add(taskId));
 
     if (draggedTask.status !== status) {
       onStatusChange(taskId, status);
@@ -166,7 +170,10 @@ export default function KanbanBoard({
   const renderColumn = (status: string) => {
     const allColTasks = groupedTasks[status] || [];
     const filterTerm = (colFilters[status] || '').toLowerCase();
-    const colTasks = allColTasks.filter((t: any) => !filterTerm || t.title.toLowerCase().includes(filterTerm) || t.client?.brandName?.toLowerCase().includes(filterTerm) || t.client?.fullName?.toLowerCase().includes(filterTerm));
+    const colTasks = allColTasks.filter((t: any) => {
+      if (visibleTaskIds && !visibleTaskIds.has(t.id) && !recentlyMovedTaskIds.has(t.id)) return false;
+      return !filterTerm || t.title.toLowerCase().includes(filterTerm) || t.client?.brandName?.toLowerCase().includes(filterTerm) || t.client?.fullName?.toLowerCase().includes(filterTerm);
+    });
 
     if (allColTasks.length === 0 && (status === 'rejected' || status === 'cancelled')) return null;
 
@@ -216,7 +223,7 @@ export default function KanbanBoard({
               fontWeight: 800,
               boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
             }}>
-              {allColTasks.length} {allColTasks.length === 1 ? 'Issue' : 'Issues'}
+              {colTasks.length} {colTasks.length === 1 ? 'Issue' : 'Issues'}
             </div>
           </div>
         </div>

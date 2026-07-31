@@ -678,38 +678,35 @@ router.patch(
         finalTimeSpentSeconds += Math.max(0, elapsed);
       }
 
-      const updated = await prisma.$transaction(async (tx) => {
-        const up = await tx.task.update({
-          where: { id: req.params.id },
-          data: {
-            status: "complete",
-            blockerNote: null,
-            completedAt,
-            completedById: req.user.userId,
-            isTimerRunning: false,
-            timerStartedAt: null,
-            timeSpentSeconds: finalTimeSpentSeconds,
+      const data: any = {
+        status: "complete",
+        blockerNote: null,
+        completedAt,
+        completedById: req.user.userId,
+        isTimerRunning: false,
+        timerStartedAt: null,
+        timeSpentSeconds: finalTimeSpentSeconds,
+      };
+
+      if (proofLink && proofLink.trim()) {
+        data.documents = {
+          create: {
+            organisationId: req.user.orgId,
+            clientId: task.clientId,
+            stepId: task.stepId,
+            title: `Proof of Work: ${task.title}`,
+            docType: "drive_link",
+            driveUrl: proofLink.trim(),
+            description: proofDescription?.trim() || null,
+            notes: proofDescription?.trim() || null,
+            uploadedById: req.user.userId,
           },
-        });
+        };
+      }
 
-        if (proofLink && proofLink.trim()) {
-          await tx.document.create({
-            data: {
-              organisationId: req.user.orgId,
-              clientId: task.clientId,
-              stepId: task.stepId,
-              taskId: task.id,
-              title: `Proof of Work: ${task.title}`,
-              docType: "drive_link",
-              driveUrl: proofLink.trim(),
-              description: proofDescription?.trim() || null,
-              notes: proofDescription?.trim() || null,
-              uploadedById: req.user.userId,
-            },
-          });
-        }
-
-        return up;
+      const updated = await prisma.task.update({
+        where: { id: req.params.id },
+        data,
       });
 
       // Fire-and-forget admin/lead notification. We don't want to slow the
