@@ -12,4 +12,3 @@
 # Allow .env.example in any subdirectory but ignore everything else starting with .env
 .env*
 !**/.env.example
-*.png

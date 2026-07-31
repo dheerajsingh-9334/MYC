@@ -761,10 +761,10 @@ export default function TasksPage() {
           color="#fff"
           label={
             deleteTaskMut.isPending ? 'Deleting task...' :
-                rejectMut.isPending ? 'Rejecting task...' :
-                  extendMut.isPending ? 'Requesting extension...' :
-                    reopenMut.isPending ? 'Reopening task...' :
-                      'Processing...'
+              rejectMut.isPending ? 'Rejecting task...' :
+                extendMut.isPending ? 'Requesting extension...' :
+                  reopenMut.isPending ? 'Reopening task...' :
+                    'Processing...'
           }
         />
       )}
@@ -788,9 +788,9 @@ export default function TasksPage() {
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
           padding: '8px 14px', marginBottom: 14, boxSizing: 'border-box', overflowX: 'auto',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'nowrap'
-        }} className="custom-scrollbar">
+        }} className="custom-scrollbar tasks-filter-container">
           {/* Filters (Explicit as in Jira Kanban) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'nowrap' }}>
+          <div className="tasks-filter-inner" style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'nowrap' }}>
 
             <div style={{ position: 'relative', flex: 1, minWidth: 140, maxWidth: 220 }}>
               <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
@@ -868,8 +868,7 @@ export default function TasksPage() {
                     fontSize: 11.5, fontWeight: 600, background: 'var(--surface)',
                     color: 'var(--ink-2)', cursor: viewType === 'list' ? 'pointer' : 'default',
                     whiteSpace: 'nowrap',
-                    visibility: viewType === 'list' ? 'visible' : 'hidden',
-                    pointerEvents: viewType === 'list' ? 'auto' : 'none'
+                    display: viewType === 'list' ? 'inline-flex' : 'none',
                   }}
                   onMouseEnter={e => { if (viewType === 'list') { e.currentTarget.style.borderColor = 'var(--olive)'; e.currentTarget.style.color = 'var(--olive)'; } }}
                   onMouseLeave={e => { if (viewType === 'list') { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-2)'; } }}

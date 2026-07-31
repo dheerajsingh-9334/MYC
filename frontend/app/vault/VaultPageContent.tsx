@@ -289,13 +289,13 @@ export default function VaultPage() {
       <Topbar title="Vault"
       // subtitle={`${vault.totalDocs} item${vault.totalDocs !== 1 ? 's' : ''} across all clients — Proof of work organised by client → step`} 
       />
-      <div className="dashboard-mobile-scroll" style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, boxSizing: 'border-box' }}>
+      <div className="dashboard-mobile-scroll" style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, boxSizing: 'border-box' }}>
         {/* Toolbar — count left, controls right */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 6,
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
           padding: '8px 14px', marginBottom: 16, boxSizing: 'border-box',
-        }}>
+        }} className="mobile-toolbar">
           {/* Left: count + active search pill */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
             {/* <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', background: 'var(--surface-2)', padding: '3px 9px', borderRadius: 6, border: '1px solid var(--border)', fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif', whiteSpace: 'nowrap' }}>
@@ -310,13 +310,13 @@ export default function VaultPage() {
           </div>
 
           {/* Right: Search | Toggle Expand/Collapse | Add Drive Link */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-            <div style={{ position: 'relative', width: 200 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }} className="mobile-toolbar-right">
+            <div style={{ position: 'relative', width: 200 }} className="mobile-toolbar-search">
               <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search clients, steps, files…"
                 style={{ width: '100%', padding: '5px 10px 5px 28px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 12, background: 'var(--surface-2)', color: 'var(--ink)', outline: 'none', boxSizing: 'border-box' }} />
             </div>
-            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+            <div style={{ width: 1, height: 20, background: 'var(--border)' }} className="mobile-toolbar-divider" />
             <button
               onClick={toggleAll}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', fontSize: 11.5, fontWeight: 600, background: 'var(--surface)', color: 'var(--ink-2)', cursor: 'pointer', whiteSpace: 'nowrap' }}
@@ -325,7 +325,7 @@ export default function VaultPage() {
               {allExpanded ? <ChevronsUp size={13} /> : <ChevronsDown size={13} />}
               {allExpanded ? 'Collapse all' : 'Expand all'}
             </button>
-            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+            <div style={{ width: 1, height: 20, background: 'var(--border)' }} className="mobile-toolbar-divider" />
             <button onClick={() => setShowAddModal(true)}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 5, height: 30, padding: '0 12px', borderRadius: 'var(--radius-sm)', background: 'var(--olive)', color: '#fff', border: 'none', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--olive-light)'; }}

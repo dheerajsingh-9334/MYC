@@ -182,6 +182,7 @@ export default function KanbanBoard({
     return (
       <div
         key={status}
+        className="kanban-column"
         onDrop={(e) => handleDrop(e, status)}
         onDragOver={(e) => handleDragOver(e, status)}
         style={{

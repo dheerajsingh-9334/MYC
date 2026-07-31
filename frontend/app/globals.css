@@ -604,7 +604,7 @@ body.sidebar-collapsed .sidebar-footer>div {
 
 @media (max-width: 480px) {
   .grid-responsive-5 {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 }
 
@@ -632,7 +632,7 @@ body.sidebar-collapsed .sidebar-footer>div {
   gap: 20px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1300px) {
   .grid-responsive-2 {
     grid-template-columns: 1fr;
   }
@@ -719,6 +719,19 @@ body.sidebar-collapsed .sidebar-footer>div {
   }
 }
 
+@media (max-width: 480px) {
+  .topbar-header {
+    padding: 0 10px !important;
+    gap: 8px !important;
+  }
+  .topbar-header .topbar-search {
+    display: none !important;
+  }
+  .topbar-header > div:last-child {
+    gap: 8px !important;
+  }
+}
+
 /* Tab rows should wrap on narrow viewports */
 .tabs-scrollable {
   display: flex;
@@ -774,8 +787,63 @@ body.sidebar-collapsed .sidebar-footer>div {
   }
 }
 
+/* Mobile & Tablet Specific Overrides for Tasks Page */
+@media (max-width: 1024px) {
+  .tasks-filter-container {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    overflow-x: visible !important;
+  }
+  .tasks-filter-inner {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    gap: 10px !important;
+    min-width: 100% !important;
+  }
+  .tasks-filter-inner > div {
+    max-width: none !important;
+    min-width: 0 !important;
+  }
+  .tasks-filter-inner > button {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+  .tasks-filter-container > div:last-child {
+    justify-content: center !important;
+    width: 100% !important;
+    flex-wrap: wrap !important;
+  }
+  .kanban-column {
+    min-width: min(300px, 85vw) !important;
+  }
+  
+  /* Safe Mobile Overrides that don't disrupt PC HTML structures */
+  .mobile-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+    overflow-x: visible !important;
+  }
+  .mobile-toolbar-right {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    width: 100% !important;
+    gap: 10px !important;
+  }
+  .mobile-toolbar-search {
+    width: 100% !important;
+    min-width: 100% !important;
+    flex: 1 1 100% !important;
+    margin-bottom: 4px;
+  }
+  .mobile-toolbar-divider {
+    display: none !important;
+  }
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
-}
+}/* force css reload */

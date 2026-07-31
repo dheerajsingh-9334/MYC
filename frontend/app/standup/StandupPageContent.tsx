@@ -374,7 +374,7 @@ export default function StandupPageContent() {
       <div className="dashboard-mobile-scroll" style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', gap: 16, minHeight: 0, boxSizing: 'border-box' }}>
 
         {/* Overhead Summary Bar */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        <div className="grid-responsive-4">
 
           <div
             onClick={() => setAlertTypeFilter('')}
@@ -496,10 +496,10 @@ export default function StandupPageContent() {
             {/* Toolbar — active filter pills on left, controls on right */}
             <div style={{
               background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-              padding: '8px 14px', boxSizing: 'border-box', overflowX: 'auto',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'nowrap'
+              padding: '12px 14px', boxSizing: 'border-box', overflowX: 'auto',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap'
             }} className="custom-scrollbar">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'nowrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap' }}>
                 {/* Search */}
                 <div style={{ position: 'relative', flex: '0 0 50%', minWidth: 200 }}>
                   <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
@@ -563,7 +563,7 @@ export default function StandupPageContent() {
 
             <SectionCard style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }} padding={0}>
               <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', margin: '16px 20px 20px', background: 'var(--surface)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1000 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface-2)', textAlign: 'left' }}>
                       <th style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)', padding: '10px 18px', fontSize: 11.5, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.4px', width: '35%' }}>TASK & DETAILS</th>

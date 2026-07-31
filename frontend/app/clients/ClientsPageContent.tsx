@@ -529,9 +529,9 @@ export default function ClientsPage() {
           background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
           padding: '8px 14px', boxSizing: 'border-box', overflowX: 'auto', marginBottom: 16,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'nowrap'
-        }} className="custom-scrollbar">
+        }} className="custom-scrollbar tasks-filter-container">
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'nowrap' }}>
+          <div className="tasks-filter-inner" style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'nowrap' }}>
             {/* Search */}
             <div style={{ position: 'relative', flex: '0 0 50%', minWidth: 200 }}>
               <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
@@ -787,7 +787,7 @@ export default function ClientsPage() {
                 background: 'var(--surface)',
               }}
             >
-              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 1000 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface-2)', position: 'sticky', top: 0, zIndex: 10 }}>
                     <th style={{ ...thStyleBase, ...colStyles.client }}>Client</th>

@@ -489,15 +489,15 @@ export default function AdminDashboard() {
         title="Workload Management"
       // subtitle={`Manage team workload, assignments, and alerts · Org Avg Completion Time: ${data.orgStats.avgCompletionTimeDays || 0} days`}
       />
-      <div className="dashboard-mobile-scroll" style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, boxSizing: 'border-box' }}>
+      <div className="dashboard-mobile-scroll" style={{ padding: 'var(--page-pad)', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0, boxSizing: 'border-box' }}>
 
         {/* ── Main Dashboard Body ── */}
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', flex: 1, minHeight: 0, minWidth: 0 }}>
 
-          <div style={{ flex: '1 1 100%', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ flex: '1 1 100%', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
             <SectionCard
               padding="0"
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}
             >
               {/* Tab selector */}
               <div style={{ display: 'flex', gap: 12, borderBottom: '1px solid var(--border)', padding: '0 24px', background: 'var(--surface-2)', overflowX: 'auto' }}>
@@ -534,6 +534,7 @@ export default function AdminDashboard() {
                   padding: '12px 16px 20px',
                   flex: 1,
                   minHeight: 0,
+                  minWidth: 0,
                   overflowY: 'auto',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius)',
@@ -647,7 +648,7 @@ export default function AdminDashboard() {
                       display: 'flex', alignItems: 'center', gap: 6,
                       background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
                       padding: '8px 14px', marginBottom: 16, width: '100%', boxSizing: 'border-box',
-                    }}>
+                    }} className="mobile-toolbar">
                       {/* Left: active filter pills */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, flexWrap: 'wrap' }}>
                         {taskStatusFilter !== '' && (
@@ -681,8 +682,8 @@ export default function AdminDashboard() {
                       </div>
 
                       {/* Right: Search | Filters */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                        <div style={{ position: 'relative', width: 220 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }} className="mobile-toolbar-right">
+                        <div style={{ position: 'relative', width: 220 }} className="mobile-toolbar-search">
                           <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: 'var(--soft)' }} />
                           <input
                             value={workloadSearch}
@@ -702,7 +703,7 @@ export default function AdminDashboard() {
                           />
                         </div>
 
-                        <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+                        <div style={{ width: 1, height: 20, background: 'var(--border)' }} className="mobile-toolbar-divider" />
                         {(() => {
                           const allExpanded = Object.keys(groupedTasks).length > 0 && Object.keys(groupedTasks).every(k => collapsedTeams[k] === false);
                           return (
@@ -722,7 +723,7 @@ export default function AdminDashboard() {
                             </button>
                           );
                         })()}
-                        <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+                        <div style={{ width: 1, height: 20, background: 'var(--border)' }} className="mobile-toolbar-divider" />
 
                         {/* Filter dropdown */}
                         <div ref={filterRef} style={{ position: 'relative' }}>

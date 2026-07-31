@@ -932,7 +932,7 @@ export default function AdminDashboard() {
               padding="0"
               style={{ display: 'flex', flexDirection: 'column', maxHeight: 700, flexShrink: 0, overflow: 'hidden' }}
               action={
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                   {/* Segmented Control for Scope */}
                   <div style={{ display: 'inline-flex', background: 'var(--surface-2)', padding: 2, borderRadius: 6, border: '1px solid var(--border)' }}>
                     <button
@@ -1123,7 +1123,7 @@ export default function AdminDashboard() {
                               gridTemplateColumns: '3px 1fr auto',
                               gap: 14,
                               padding: '12px 20px',
-                              height: 80,
+                              minHeight: 80,
                               alignItems: 'start',
                               borderBottom: idx === scrollableAdminProblems.length - 1 ? 'none' : '1px solid var(--surface-2)',
                               background: isOpen ? 'rgba(239, 68, 68, 0.02)' : 'transparent',
@@ -1214,7 +1214,7 @@ export default function AdminDashboard() {
                           onClick={() => t.client?.id && router.push(`/clients/${t.client.id}`)} 
                           style={{ 
                             position: 'relative', display: 'grid', gridTemplateColumns: '3px 1fr auto', 
-                            gap: 14, padding: '12px 20px', height: 80, alignItems: 'start', 
+                            gap: 14, padding: '12px 20px', minHeight: 80, alignItems: 'start', 
                             borderBottom: idx === scrollableAdminTasks.length - 1 ? 'none' : '1px solid var(--surface-2)', 
                             cursor: 'pointer', background: isAlerted ? 'rgba(220, 38, 38, 0.05)' : 'transparent',
                             transition: 'background 0.15s'
@@ -1224,7 +1224,7 @@ export default function AdminDashboard() {
                         >
                           <div style={{ background: stripe, borderRadius: 3 }} />
                           <div style={{ minWidth: 0 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', color: 'var(--muted)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 600, textTransform: 'uppercase', color: 'var(--muted)', flexWrap: 'wrap' }}>
                               <span style={{ color: 'var(--ink-2)', textTransform: 'none', fontWeight: 500 }}>{t.client?.brandName || t.client?.fullName || '—'}</span>
                               {t.step?.stepNumber && <><span>·</span><span style={{ color: 'var(--ink-2)', textTransform: 'none', fontWeight: 500 }}>Step {String(t.step.stepNumber).padStart(2, '0')} — {t.step?.name}</span></>}
                             </div>
@@ -1408,7 +1408,7 @@ export default function AdminDashboard() {
                       const sc = getClientStatusStyles(client);
                       const stripe = sc.color;
                       return (
-                        <li key={client.id} onClick={() => router.push(`/clients/${client.id}`)} style={{ position: 'relative', display: 'grid', gridTemplateColumns: '3px 1fr auto', gap: 14, padding: '12px 20px', height: 80, alignItems: 'start', borderBottom: idx === sortedClientsForRisk.length - 1 ? 'none' : '1px solid var(--surface-2)', cursor: 'pointer', background: 'transparent' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
+                        <li key={client.id} onClick={() => router.push(`/clients/${client.id}`)} style={{ position: 'relative', display: 'grid', gridTemplateColumns: '3px 1fr auto', gap: 14, padding: '12px 20px', minHeight: 80, alignItems: 'start', borderBottom: idx === sortedClientsForRisk.length - 1 ? 'none' : '1px solid var(--surface-2)', cursor: 'pointer', background: 'transparent' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--olive-100)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}>
                           <div style={{ background: stripe, borderRadius: 3 }} />
                           <div style={{ minWidth: 0 }}>
                             <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{client.brandName || client.fullName}</div>
