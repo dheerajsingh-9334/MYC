@@ -1066,7 +1066,7 @@ export default function ClientDetailPane({
         )}
 
         {/* ── CLIENT ANALYTICS (CHARTS) ────────────────────────────── */}
-        <div className="charts-grid">
+        <div className="charts-grid" style={{ marginBottom: 24 }}>
           
           {/* Step Changes Over Time */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 12 }}>
