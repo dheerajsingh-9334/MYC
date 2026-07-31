@@ -137,7 +137,7 @@ export default function StaffDashboard() {
   const { data: liveTasks = [] } = useQuery({
     queryKey: ['tasks'],
     queryFn: () => apiFetch('/api/tasks'),
-    refetchInterval: AUTO_REFRESH_MS,
+    // refetchInterval: AUTO_REFRESH_MS,
     staleTime: 60_000,
     refetchOnWindowFocus: true,
     retry: false,
@@ -154,7 +154,7 @@ export default function StaffDashboard() {
   const { data: liveNotifications = [] } = useQuery<Array<{ id: string; title: string; body?: string | null; createdAt: string; isRead: boolean }>>({
     queryKey: ['notifications'],
     queryFn: () => apiFetch('/api/notifications'),
-    refetchInterval: AUTO_REFRESH_MS,
+    // refetchInterval: AUTO_REFRESH_MS,
     staleTime: 60_000,
     refetchOnWindowFocus: true,
     retry: false,
@@ -164,7 +164,7 @@ export default function StaffDashboard() {
   const { data: problemsList = [], refetch: refetchProblems } = useQuery<any[]>({
     queryKey: ['problems'],
     queryFn: () => apiFetch('/api/problems'),
-    refetchInterval: AUTO_REFRESH_MS,
+    // refetchInterval: AUTO_REFRESH_MS,
     staleTime: 60_000,
     enabled: !USE_MOCK && !!user,
     retry: false,

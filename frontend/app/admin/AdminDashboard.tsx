@@ -201,7 +201,7 @@ export default function AdminDashboard() {
     queryKey: ['admin-dashboard'],
     queryFn: () => apiFetch('/api/dashboard/admin'),
     enabled: user?.role === 'admin',
-    refetchInterval: AUTO_REFRESH_MS,
+    // refetchInterval: AUTO_REFRESH_MS,
     staleTime: 30_000,
     retry: false,
   });
@@ -211,7 +211,7 @@ export default function AdminDashboard() {
   const { data: standupData } = useQuery<any>({
     queryKey: ['standup'],
     queryFn: () => apiFetch('/api/standup'),
-    refetchInterval: AUTO_REFRESH_MS,
+    // refetchInterval: AUTO_REFRESH_MS,
     staleTime: 30_000,
     enabled: user?.role === 'admin',
     retry: false,
@@ -220,7 +220,7 @@ export default function AdminDashboard() {
   const { data: problemsList = [], refetch: refetchProblems } = useQuery<any[]>({
     queryKey: ['problems'],
     queryFn: () => apiFetch('/api/problems'),
-    refetchInterval: AUTO_REFRESH_MS,
+    // refetchInterval: AUTO_REFRESH_MS,
     staleTime: 30_000,
     enabled: user?.role === 'admin',
     retry: false,
